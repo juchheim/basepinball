@@ -250,3 +250,11 @@ the [M1 report](m1-report.md).
 | Shooter exit | Flat one-way gate | **Sloped** gate: returning balls roll off into the right orbit |
 | Lower playfield | — | Caps join each inlane-guide post to its slingshot's top post |
 
+### M2 balance changes
+
+| Area | Change | Why |
+|---|---|---|
+| Fielder backstops | Dead, grippy "glove" material (restitution 0.12–0.2, friction 0.5) | Rubber backstops bounced misses back to the flippers. Fielder outs doubled (7 % → 15 %). |
+| Saucer skim speed | 1.1 → 1.6 m/s | More moderately fast misses are caught |
+| Triples | Counted only for a clean orbit shot (orbit entered within 1 s of the swing) | Slingshot ricochets wandering up an orbit made triples 25 % of hits. Now 8 %. |
+

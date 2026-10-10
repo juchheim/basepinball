@@ -98,9 +98,7 @@ The M0 test table is still available at `?table=m0`.
 - **Saucer skim:** soft shots should drop into the saucers, while firm ones skim over.
 - **Nudge:** three quick nudges should give a tilt warning.
 
-## Open questions for you
+## Decisions
 
-1. **Mound and pitcher:** they are visual only right now, because as physical obstacles they
-   deflected centre shots. Keep them that way, or make the pitcher a small deflector?
-2. **Skill shot difficulty:** the R-B-I plunge window is about 45–50 % of a full pull. Narrower
-   (harder) or wider?
+1. **Mound and pitcher:** stay visual only (confirmed).
+2. **Skill shot window:** 45–50 % plunge, unchanged (confirmed).

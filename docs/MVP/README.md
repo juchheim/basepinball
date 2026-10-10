@@ -27,6 +27,7 @@ runs as you can.
 | 06 | [Audio](06-audio.md) | Sound design, mix layers, Web Audio implementation, sourcing and licensing |
 | 07 | [Roadmap & Scope](07-roadmap-and-scope.md) | MVP scope (P0/P1/P2), milestones with exit criteria, risks, acceptance criteria, open questions |
 | M0 | [M0 Report](m0-report.md) | Physics spike results, Rapier comparison, go/no-go recommendation, feel-review checklist |
+| M2 | [M2 Report](m2-report.md) | Rules engine, pitching, game flow, sim bot and balance report |
 | M1 | [M1 Report](m1-report.md) | Whitebox table: shot map, ramp threshold, stuck-ball search, layout changes, sandbox controls |
 | — | [assets/playfield-layout-v1-generated.svg](assets/playfield-layout-v1-generated.svg) | Playfield layout generated from the table data (authoritative) |
 | — | [assets/playfield-layout-v1.svg](assets/playfield-layout-v1.svg) | Original hand-drawn concept layout |

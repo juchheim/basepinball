@@ -50,13 +50,15 @@ function materialFor(name: string): THREE.Material {
   return mats.metal;
 }
 
+export type LampMode = 'off' | 'on' | 'blink';
+
 /** An emissive material that can flash (pop caps, sling rubbers, targets, lamps). */
 interface Light {
   material: THREE.MeshStandardMaterial;
   base: number;
   level: number;
-  /** Steady "lit" state (lamps). */
-  on: boolean;
+  /** Steady state (lamps); 'blink' flashes at 2.5 Hz (under the 3 Hz photosensitivity cap). */
+  mode: LampMode;
 }
 
 function glowMaterial(color: number, base = 0): THREE.MeshStandardMaterial {
@@ -115,10 +117,13 @@ export class TableView {
     for (const l of this.lights.get(id) ?? []) l.level = 1;
   }
 
-  /** Steady on/off for a lamp. */
-  setLamp(id: string, on: boolean): void {
-    for (const l of this.lights.get(id) ?? []) l.on = on;
+  /** Steady state for a lamp. */
+  setLamp(id: string, mode: LampMode | boolean): void {
+    const m: LampMode = mode === true ? 'on' : mode === false ? 'off' : mode;
+    for (const l of this.lights.get(id) ?? []) l.mode = m;
   }
+
+  private blinkClock = 0;
 
   update(alpha: number, dtSeconds: number): void {
     for (const [f, mesh] of this.flipperMeshes) {
@@ -134,9 +139,12 @@ export class TableView {
     }
     const pl = this.world.plunger;
     if (this.plungerRod && pl) this.plungerRod.position.y = -pl.pull * 0.05;
+    this.blinkClock += dtSeconds;
+    const blinkOn = this.blinkClock * 2.5 - Math.floor(this.blinkClock * 2.5) < 0.5;
     for (const list of this.lights.values()) {
       for (const l of list) {
-        l.material.emissiveIntensity = l.base + (l.on ? 1.6 : 0) + l.level * 4;
+        const lit = l.mode === 'on' || (l.mode === 'blink' && blinkOn);
+        l.material.emissiveIntensity = l.base + (lit ? 1.6 : 0) + l.level * 4;
         l.level = Math.max(0, l.level - dtSeconds * 6);
       }
     }
@@ -260,7 +268,7 @@ export class TableView {
           mats.plastic,
         );
         const rubber = glowMaterial(0xf2f2f2);
-        this.addLight(el.id, { material: rubber, base: 0, level: 0, on: false });
+        this.addLight(el.id, { material: rubber, base: 0, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.boxGeometry(el.top, el.bottom, 6, 22), rubber);
         m.castShadow = true;
         this.group.add(m);
@@ -273,7 +281,7 @@ export class TableView {
         const cap = glowMaterial(el.color ?? 0xf4efe1, 0.4);
         cap.transparent = true;
         cap.opacity = 0.95;
-        this.addLight(el.id, { material: cap, base: 0.4, level: 0, on: false });
+        this.addLight(el.id, { material: cap, base: 0.4, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
         m.castShadow = true;
         this.group.add(m);
@@ -283,7 +291,7 @@ export class TableView {
       case 'standup': {
         const color = el.type === 'drop' ? 0xf2b33d : 0x9b5de5;
         const mat = glowMaterial(color, 0.05);
-        this.addLight(el.id, { material: mat, base: 0.05, level: 0, on: false });
+        this.addLight(el.id, { material: mat, base: 0.05, level: 0, mode: 'off' });
         const dx = (el.b[0] - el.a[0]) * MM;
         const dy = (el.b[1] - el.a[1]) * MM;
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.03), mat);
@@ -299,7 +307,7 @@ export class TableView {
       }
       case 'kicker': {
         const mat = glowMaterial(0xff9f1c, 0.15);
-        this.addLight(el.id, { material: mat, base: 0.15, level: 0, on: false });
+        this.addLight(el.id, { material: mat, base: 0.15, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.boxGeometry(el.a, el.b, 6, 25), mat);
         this.group.add(m);
         break;
@@ -433,7 +441,7 @@ export class TableView {
       }
       case 'lamp': {
         const mat = glowMaterial(el.color, 0.08);
-        this.addLight(el.id, { material: mat, base: 0.08, level: 0, on: false });
+        this.addLight(el.id, { material: mat, base: 0.08, level: 0, mode: 'off' });
         let geom: THREE.BufferGeometry;
         if (el.arrow !== undefined) {
           const r = el.radius * MM;

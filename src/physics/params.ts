@@ -26,6 +26,7 @@ export type MaterialName =
   | 'plastic'
   | 'wire'
   | 'kicker'
+  | 'glove'
   | 'glass';
 
 export interface FlipperParams {
@@ -135,7 +136,7 @@ export function defaultParams(): PhysicsParams {
     dropThreshold: 0.35,
     saucerCaptureSpeed: 0.15,
     saucerCaptureTime: 0.04,
-    saucerSkimSpeed: 1.1,
+    saucerSkimSpeed: 1.6,
     maxBallSpeed: 20,
     kickerSpeed: 2.6,
     kickerThreshold: 0.7,
@@ -161,6 +162,8 @@ export function defaultParams(): PhysicsParams {
       wire: { eLow: 0.35, eHigh: 0.3, vLow: 0.5, vHigh: 5, friction: 0.08 },
       // Orbit corner kickers sit flush in the arch: a dead face, so loops keep hugging the arch.
       kicker: { eLow: 0.15, eHigh: 0.1, vLow: 0.5, vHigh: 5, friction: 0.05 },
+      // Fielder backstops: a dead, grippy face, so a ball hit right at a fielder stays in the glove.
+      glove: { eLow: 0.2, eHigh: 0.12, vLow: 0.5, vHigh: 5, friction: 0.5 },
       glass: { eLow: 0.3, eHigh: 0.3, vLow: 0.5, vHigh: 5, friction: 0.05 },
     },
   };

@@ -306,6 +306,23 @@ export class World {
     ball.vz = 0.4;
   }
 
+  /** Back to a fresh table for a new game (geometry is kept). */
+  reset(): void {
+    this.balls.length = 0;
+    this.events.length = 0;
+    this.resetDropTargets();
+    this.releaseSaucers();
+    for (const k of this.kickbacks) k.armed = true;
+    for (const m of this.magnets) m.power = 0;
+    for (const f of this.flippers) f.pressed = false;
+    this.flippersEnabled = true;
+    if (this.plunger) {
+      this.plunger.pull = 0;
+      this.plunger.pressed = false;
+    }
+    this.bob.x = this.bob.y = this.bob.vx = this.bob.vy = 0;
+  }
+
   /** Clears saucer holds (the ball was routed elsewhere). */
   releaseSaucers(): void {
     for (const s of this.saucers) {
@@ -1141,7 +1158,7 @@ export class World {
               el.x + (el.radius + 8) * dcos(la),
               el.y + (el.radius + 8) * dsin(la),
               8,
-              'rubberPost',
+              'glove',
               12,
             );
             break;
@@ -1151,7 +1168,7 @@ export class World {
           const half = el.radius * 0.9;
           const tx = -dsin(la) * half;
           const ty = dcos(la) * half;
-          seg([lx - tx, ly - ty], [lx + tx, ly + ty], 4, 'rubberPost', 12);
+          seg([lx - tx, ly - ty], [lx + tx, ly + ty], 4, 'glove', 12);
           break;
         }
         case 'flipper': {

@@ -55,6 +55,8 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M2: Rules & playable game
 
+> **Status:** built. See the [M2 report](m2-report.md).
+
 - Rules engine (state machine, base running, pitching director, rallies, Hot Bat, Steal, kickback,
   Rally Cap, tilt).
 - Basic HUD (line score, outs, bases), game flow from title through the box score, local high scores.
