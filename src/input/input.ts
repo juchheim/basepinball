@@ -3,7 +3,15 @@
  * the fixed-step loop can apply it at the right physics step.
  */
 
-export type Action = 'flipperL' | 'flipperR' | 'spawn' | 'resetTargets' | 'toggleColliders' | 'pause' | 'slower' | 'faster';
+export type Action =
+  | 'flipperL'
+  | 'flipperR'
+  | 'spawn'
+  | 'resetTargets'
+  | 'toggleColliders'
+  | 'pause'
+  | 'slower'
+  | 'faster';
 
 export interface InputEvent {
   action: Action;

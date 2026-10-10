@@ -92,7 +92,13 @@ export class World {
     this.params = params;
     this.drainY = table.drainY * MM;
     this.build();
-    this.grid = new Grid(this.colliders, table.width * MM, table.length * MM, 0.05, params.ballRadius);
+    this.grid = new Grid(
+      this.colliders,
+      table.width * MM,
+      table.length * MM,
+      0.05,
+      params.ballRadius,
+    );
     this.applyParams();
   }
 
@@ -173,7 +179,7 @@ export class World {
     for (const b of this.balls) if (b.active) maxSpeed = Math.max(maxSpeed, b.speed());
     for (const f of this.flippers) {
       // Estimate the bat's speed over this step from its current speed and coil.
-      const est = f.tipSpeed() + (this.params.flipper.coilTorque * f.invInertia * dt) * f.length;
+      const est = f.tipSpeed() + this.params.flipper.coilTorque * f.invInertia * dt * f.length;
       maxSpeed = Math.max(maxSpeed, est);
     }
     const p = this.params;

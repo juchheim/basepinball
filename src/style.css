@@ -11,7 +11,12 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--fg);
-  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -32,7 +37,11 @@ canvas {
   position: fixed;
   left: 12px;
   top: 10px;
-  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font:
+    12px/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   color: var(--fg);
   white-space: pre;
   pointer-events: none;

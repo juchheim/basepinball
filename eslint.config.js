@@ -23,7 +23,8 @@ export default tseslint.config(
         ...['sin', 'cos', 'tan', 'atan2', 'exp', 'pow', 'random'].map((property) => ({
           object: 'Math',
           property,
-          message: 'Use src/core/dmath.ts or the seeded RNG; the physics step must be deterministic.',
+          message:
+            'Use src/core/dmath.ts or the seeded RNG; the physics step must be deterministic.',
         })),
       ],
     },

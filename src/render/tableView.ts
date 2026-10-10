@@ -17,7 +17,12 @@ const mats = {
   metal: new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.25, metalness: 0.9 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 }),
   rubberWhite: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }),
-  plastic: new THREE.MeshStandardMaterial({ color: 0xe9e2cf, roughness: 0.3, transparent: true, opacity: 0.85 }),
+  plastic: new THREE.MeshStandardMaterial({
+    color: 0xe9e2cf,
+    roughness: 0.3,
+    transparent: true,
+    opacity: 0.85,
+  }),
   flipper: new THREE.MeshStandardMaterial({ color: 0xf4efe1, roughness: 0.35 }),
   flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc8282a, roughness: 0.6 }),
   saucer: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 }),
@@ -141,7 +146,14 @@ export class TableView {
     this.add(mesh);
   }
 
-  private cylinder(x: number, y: number, r: number, h: number, mat: THREE.Material, z0 = 0): THREE.Mesh {
+  private cylinder(
+    x: number,
+    y: number,
+    r: number,
+    h: number,
+    mat: THREE.Material,
+    z0 = 0,
+  ): THREE.Mesh {
     const g = new THREE.CylinderGeometry(r * MM, r * MM, h * MM, 32);
     g.rotateX(Math.PI / 2);
     const mesh = new THREE.Mesh(g, mat);
@@ -153,11 +165,23 @@ export class TableView {
     switch (el.type) {
       case 'wall':
         for (let i = 0; i + 1 < el.points.length; i++) {
-          this.wallSegment(el.points[i]!, el.points[i + 1]!, el.radius ?? 1.5, el.height ?? 25, materialFor(el.material));
+          this.wallSegment(
+            el.points[i]!,
+            el.points[i + 1]!,
+            el.radius ?? 1.5,
+            el.height ?? 25,
+            materialFor(el.material),
+          );
         }
         break;
       case 'post':
-        this.cylinder(el.x, el.y, el.radius, 25, el.material.startsWith('rubber') ? mats.rubber : mats.metal);
+        this.cylinder(
+          el.x,
+          el.y,
+          el.radius,
+          25,
+          el.material.startsWith('rubber') ? mats.rubber : mats.metal,
+        );
         this.cylinder(el.x, el.y, Math.max(2, el.radius - 3), 32, mats.metal);
         break;
       case 'sling': {
@@ -194,7 +218,10 @@ export class TableView {
       case 'drop': {
         const dx = (el.b[0] - el.a[0]) * MM;
         const dy = (el.b[1] - el.a[1]) * MM;
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.028), mats.drop);
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.028),
+          mats.drop,
+        );
         const holder = new THREE.Group();
         holder.position.set(((el.a[0] + el.b[0]) / 2) * MM, ((el.a[1] + el.b[1]) / 2) * MM, 0);
         mesh.position.z = 0.014;
@@ -246,19 +273,30 @@ export class TableView {
     // Plastic bat slightly inside the collision outline; the rubber band is the true outline.
     const inset = 0.0012;
     const body = new THREE.Mesh(
-      new THREE.ExtrudeGeometry(outline(f.baseRadius - inset, f.tipRadius - inset), { depth: f.height * 0.8, bevelEnabled: false, curveSegments: 24 }),
+      new THREE.ExtrudeGeometry(outline(f.baseRadius - inset, f.tipRadius - inset), {
+        depth: f.height * 0.8,
+        bevelEnabled: false,
+        curveSegments: 24,
+      }),
       mats.flipper,
     );
     body.position.z = f.height * 0.1;
     body.castShadow = true;
     holder.add(body);
     const rubber = new THREE.Mesh(
-      new THREE.ExtrudeGeometry(outline(f.baseRadius, f.tipRadius), { depth: f.height * 0.3, bevelEnabled: false, curveSegments: 24 }),
+      new THREE.ExtrudeGeometry(outline(f.baseRadius, f.tipRadius), {
+        depth: f.height * 0.3,
+        bevelEnabled: false,
+        curveSegments: 24,
+      }),
       mats.flipperRubber,
     );
     rubber.position.z = f.height * 0.3;
     holder.add(rubber);
-    const pivot = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, f.height * 1.2, 16).rotateX(Math.PI / 2), mats.metal);
+    const pivot = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.004, 0.004, f.height * 1.2, 16).rotateX(Math.PI / 2),
+      mats.metal,
+    );
     pivot.position.z = f.height * 0.6;
     holder.add(pivot);
     this.group.add(holder);
@@ -276,13 +314,33 @@ export class TableView {
         const len = Math.hypot(dx, dy) || 1;
         const nx = (-dy / len) * c.radius;
         const ny = (dx / len) * c.radius;
-        pts.push(c.ax + nx, c.ay + ny, z, c.bx + nx, c.by + ny, z, c.ax - nx, c.ay - ny, z, c.bx - nx, c.by - ny, z);
+        pts.push(
+          c.ax + nx,
+          c.ay + ny,
+          z,
+          c.bx + nx,
+          c.by + ny,
+          z,
+          c.ax - nx,
+          c.ay - ny,
+          z,
+          c.bx - nx,
+          c.by - ny,
+          z,
+        );
       } else {
         const n = 24;
         for (let i = 0; i < n; i++) {
           const t0 = (i / n) * Math.PI * 2;
           const t1 = ((i + 1) / n) * Math.PI * 2;
-          pts.push(c.ax + c.radius * Math.cos(t0), c.ay + c.radius * Math.sin(t0), z, c.ax + c.radius * Math.cos(t1), c.ay + c.radius * Math.sin(t1), z);
+          pts.push(
+            c.ax + c.radius * Math.cos(t0),
+            c.ay + c.radius * Math.sin(t0),
+            z,
+            c.ax + c.radius * Math.cos(t1),
+            c.ay + c.radius * Math.sin(t1),
+            z,
+          );
         }
       }
     }
@@ -291,7 +349,14 @@ export class TableView {
       for (let i = 0; i < n; i++) {
         const t0 = (i / n) * Math.PI * 2;
         const t1 = ((i + 1) / n) * Math.PI * 2;
-        pts.push(s.cx + s.a * Math.cos(t0), s.cy + s.a * Math.sin(t0), z, s.cx + s.a * Math.cos(t1), s.cy + s.a * Math.sin(t1), z);
+        pts.push(
+          s.cx + s.a * Math.cos(t0),
+          s.cy + s.a * Math.sin(t0),
+          z,
+          s.cx + s.a * Math.cos(t1),
+          s.cy + s.a * Math.sin(t1),
+          z,
+        );
       }
     }
     const g = new THREE.BufferGeometry();

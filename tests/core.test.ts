@@ -4,10 +4,11 @@ import { Rng } from '../src/core/rng';
 
 describe('deterministic math', () => {
   it('matches Math.sin/cos to within 1e-15 on the physics range', () => {
+    let maxErr = 0;
     for (let x = -20; x <= 20; x += 0.001237) {
-      expect(Math.abs(dsin(x) - Math.sin(x))).toBeLessThan(1e-15);
-      expect(Math.abs(dcos(x) - Math.cos(x))).toBeLessThan(1e-15);
+      maxErr = Math.max(maxErr, Math.abs(dsin(x) - Math.sin(x)), Math.abs(dcos(x) - Math.cos(x)));
     }
+    expect(maxErr).toBeLessThan(1e-15);
   });
 });
 

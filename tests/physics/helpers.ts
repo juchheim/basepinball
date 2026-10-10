@@ -5,7 +5,10 @@ import type { Flipper } from '../../src/physics/flipper';
 import type { TableDef } from '../../src/table/schema';
 import { m0TestTable } from '../../src/table/m0TestTable';
 
-export function makeWorld(table: TableDef = m0TestTable, tweak?: (p: PhysicsParams) => void): World {
+export function makeWorld(
+  table: TableDef = m0TestTable,
+  tweak?: (p: PhysicsParams) => void,
+): World {
   const p = defaultParams();
   tweak?.(p);
   return new World(table, p);
@@ -42,5 +45,12 @@ export function pointAbove(f: Flipper, s: number, ballRadius: number): { x: numb
 
 /** A table with nothing but a floor, for isolated collider tests (mm). */
 export function emptyTable(elements: TableDef['elements']): TableDef {
-  return { name: 'empty', width: 600, length: 800, drainY: -1000, spawn: { x: 300, y: 400 }, elements };
+  return {
+    name: 'empty',
+    width: 600,
+    length: 800,
+    drainY: -1000,
+    spawn: { x: 300, y: 400 },
+    elements,
+  };
 }

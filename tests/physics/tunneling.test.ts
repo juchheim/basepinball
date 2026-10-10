@@ -9,7 +9,12 @@ import type { ElementDef } from '../../src/table/schema';
 const SPEEDS = [2, 5, 8, 12, 16, 20];
 const ANGLES = [25, 45, 70, 90, 110, 135, 155];
 
-function fire(elements: ElementDef[], from: { x: number; y: number }, speed: number, angleDeg: number) {
+function fire(
+  elements: ElementDef[],
+  from: { x: number; y: number },
+  speed: number,
+  angleDeg: number,
+) {
   const w = makeWorld(emptyTable(elements));
   const b = w.addBall(from.x, from.y);
   b.vx = speed * dcos(angleDeg * DEG);
@@ -24,7 +29,16 @@ describe('no tunneling', () => {
     for (const speed of SPEEDS) {
       for (const angle of ANGLES) {
         const { w, b } = fire(
-          [{ type: 'wall', points: [[0, 400], [600, 400]], material: 'metal' }],
+          [
+            {
+              type: 'wall',
+              points: [
+                [0, 400],
+                [600, 400],
+              ],
+              material: 'metal',
+            },
+          ],
           { x: 0.3, y: 0.33 },
           speed,
           angle,
@@ -41,7 +55,12 @@ describe('no tunneling', () => {
         // Aim at the post from 70 mm away, offset by the angle.
         const a = (angle - 90) * DEG;
         const start = { x: 0.3 - 0.07 * dsin(a), y: 0.4 - 0.07 * dcos(a) };
-        const { w, b } = fire([{ type: 'post', x: 300, y: 400, radius: 5, material: 'rubberPost' }], start, speed, angle);
+        const { w, b } = fire(
+          [{ type: 'post', x: 300, y: 400, radius: 5, material: 'rubberPost' }],
+          start,
+          speed,
+          angle,
+        );
         runFor(w, 0.05, () => {
           const d = Math.hypot(b.px - 0.3, b.py - 0.4);
           expect(d).toBeGreaterThan(r + 0.0135 - 0.0005);

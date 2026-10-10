@@ -10,15 +10,23 @@ const W = 550;
 const mirror = (p: Vec2): Vec2 => [W - p[0], p[1]];
 const mirrorAll = (pts: readonly Vec2[]): Vec2[] => pts.map(mirror);
 
+/*
+ * Lower-playfield geometry follows real tables: the outlane/inlane divider runs at the flipper's
+ * rest angle and ends on top of the flipper base, so its surface continues into the flipper's top
+ * surface and an inlane ball rolls straight onto the bat (no notch for it to stall in). The inlane
+ * guide runs parallel above it, keeping the channel 34 mm wide (ball 27 mm) all the way down.
+ */
+const LANE_TOP = 380;
 const divider: Vec2[] = [
-  [40, 340],
-  [40, 230],
-  [165, 150],
+  [40, LANE_TOP],
+  [40, 264.5],
+  // Ends at the bat's top tangent point, tucked over the base, so no dip is left between them.
+  [179, 184.3],
 ];
 const inlaneGuide: Vec2[] = [
-  [88, 340],
-  [88, 245],
-  [118, 222],
+  [88, LANE_TOP],
+  [88, 280.7],
+  [140, 250.6],
 ];
 const topArc: Vec2[] = [
   [0, 600],
@@ -34,8 +42,24 @@ const topArc: Vec2[] = [
 
 const elements: ElementDef[] = [
   // Cabinet walls.
-  { type: 'wall', points: [[0, 0], [0, 600]], material: 'wood', radius: 3 },
-  { type: 'wall', points: [[W, 0], [W, 600]], material: 'wood', radius: 3 },
+  {
+    type: 'wall',
+    points: [
+      [0, 0],
+      [0, 600],
+    ],
+    material: 'wood',
+    radius: 3,
+  },
+  {
+    type: 'wall',
+    points: [
+      [W, 0],
+      [W, 600],
+    ],
+    material: 'wood',
+    radius: 3,
+  },
   { type: 'wall', points: topArc, material: 'metal', radius: 3 },
 
   // Lanes.
@@ -43,14 +67,20 @@ const elements: ElementDef[] = [
   { type: 'wall', points: mirrorAll(divider), material: 'metal' },
   { type: 'wall', points: inlaneGuide, material: 'metal' },
   { type: 'wall', points: mirrorAll(inlaneGuide), material: 'metal' },
-  { type: 'post', x: 40, y: 340, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: 88, y: 340, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: W - 40, y: 340, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: W - 88, y: 340, radius: 5, material: 'rubberPost' },
+  { type: 'post', x: 40, y: LANE_TOP, radius: 5, material: 'rubberPost' },
+  { type: 'post', x: 88, y: LANE_TOP, radius: 5, material: 'rubberPost' },
+  { type: 'post', x: W - 40, y: LANE_TOP, radius: 5, material: 'rubberPost' },
+  { type: 'post', x: W - 88, y: LANE_TOP, radius: 5, material: 'rubberPost' },
 
   // Slingshots ("dugouts").
-  { type: 'sling', id: 'sling.L', corner: [105, 225], top: [105, 330], bottom: [160, 200] },
-  { type: 'sling', id: 'sling.R', corner: mirror([105, 225]), top: mirror([105, 330]), bottom: mirror([160, 200]) },
+  { type: 'sling', id: 'sling.L', corner: [106, 280], top: [106, 372], bottom: [158, 251] },
+  {
+    type: 'sling',
+    id: 'sling.R',
+    corner: mirror([106, 280]),
+    top: mirror([106, 372]),
+    bottom: mirror([158, 251]),
+  },
 
   // Flippers.
   {
@@ -58,7 +88,7 @@ const elements: ElementDef[] = [
     id: 'flipper.L',
     side: 'left',
     x: 175,
-    y: 165,
+    y: 175,
     length: 80,
     baseRadius: 12,
     tipRadius: 7,
@@ -70,7 +100,7 @@ const elements: ElementDef[] = [
     id: 'flipper.R',
     side: 'right',
     x: W - 175,
-    y: 165,
+    y: 175,
     length: 80,
     baseRadius: 12,
     tipRadius: 7,

@@ -67,7 +67,8 @@ export class Stage {
 
   async init(): Promise<void> {
     await this.renderer.init();
-    const backend = (this.renderer as unknown as { backend: { isWebGPUBackend?: boolean } }).backend;
+    const backend = (this.renderer as unknown as { backend: { isWebGPUBackend?: boolean } })
+      .backend;
     this.backend = backend.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -98,7 +99,11 @@ export class Stage {
     const box = new THREE.Box3().setFromObject(this.fitTarget);
     const center = box.getCenter(new THREE.Vector3());
     // Player's eye: in front of and above the apron.
-    const dir = new THREE.Vector3(0, Math.sin((58 * Math.PI) / 180), Math.cos((58 * Math.PI) / 180));
+    const dir = new THREE.Vector3(
+      0,
+      Math.sin((58 * Math.PI) / 180),
+      Math.cos((58 * Math.PI) / 180),
+    );
     const corners: THREE.Vector3[] = [];
     for (const x of [box.min.x, box.max.x])
       for (const y of [box.min.y, box.max.y])

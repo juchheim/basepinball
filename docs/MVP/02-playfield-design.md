@@ -54,7 +54,7 @@ regular pinball.
 
 1. **Apron** (y < 110): inning ladder, OUT lamps, catcher's mitt drain art, umpire standee.
 2. **Flipper zone** (y ≈ 110–240): flippers, center drain, home plate art.
-3. **Lower sides** (y ≈ 140–340): slingshots ("dugouts"), inlanes, outlanes, left kickback.
+3. **Lower sides** (y ≈ 140–380): slingshots ("dugouts"), inlanes, outlanes, left kickback.
 4. **Infield art and mound** (y ≈ 220–480): a printed diamond with **basepath windows** (runners
    under glass), and the mound pitch saucer at its center. This is the one baseball-literal area,
    and it reads as playfield art, not obstacles.
@@ -100,11 +100,11 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 
 | ID | Element | Position (mm) | Notes |
 |----|---------|---------------|-------|
-| `flipper.L` / `flipper.R` | Main flippers | pivots (175, 165) / (375, 165) | 80 mm. Rest −30°. ≈ 55° stroke. Tip gap ≈ 60 mm. |
+| `flipper.L` / `flipper.R` | Main flippers | pivots (175, 175) / (375, 175) | 80 mm. Rest −30°. ≈ 55° stroke. Tip gap ≈ 60 mm. |
 | `drain.center` | Catcher's mitt | below y ≈ 120, x 245–305 | **Out (strikeout).** |
-| `sling.L` / `sling.R` | Slingshots ("dugouts") | tris (105,225)(105,330)(160,200) / mirror at x = 550 − x | Kicking rubbers |
-| `lane.out.L` / `.R` | Outlanes | x 0–40 / 510–550, tops at y ≈ 340 | **Out (foul out).** |
-| `lane.in.L` / `.R` | Inlanes | x 40–85 / 465–510 | Ramp wireforms feed them |
+| `sling.L` / `sling.R` | Slingshots ("dugouts") | tris (106,280)(106,372)(158,251) / mirror at x = 550 − x | Kicking rubbers |
+| `lane.out.L` / `.R` | Outlanes | x 0–40 / 510–550, tops at y ≈ 380 | **Out (foul out).** |
+| `lane.in.L` / `.R` | Inlanes | 34 mm channel between the divider and the inlane guide, both running at the flipper rest angle (−30°) | **The divider ends on the flipper's top tangent point,** tucked over the base, so its surface continues into the bat. M0 found that a divider ending below the pivot leaves a notch where the ball stalls. Ramp wireforms feed these lanes. |
 | `kickback.L` | Kickback | (20, 140) | Lit at game start. Relit by R-B-I. |
 | `mound` | Pitch saucer (VUK + kicker) + pitcher post | (275, 355) | Pitches every PA. Never an out. |
 | `magnet.curve` | Curveball magnet | (275, 270), under the playfield | |

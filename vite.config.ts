@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // Physics suites run many seconds of simulated play; allow for loaded CI machines.
+    testTimeout: 60_000,
   },
 });

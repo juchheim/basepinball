@@ -20,7 +20,7 @@ Status as of 2026-10-10, branch `m0-foundations`.
 
 ## Automated results
 
-`npm test` gives 18 tests passing.
+`npm test` gives 19 tests passing.
 
 | Suite | Result |
 |---|---|
@@ -28,9 +28,10 @@ Status as of 2026-10-10, branch `m0-foundations`.
 | 2. Energy sanity | 40 random 4 s runs with actuators off: total energy (ball + flipper) never increases. |
 | 3. Cradle stability | Left and right: drift < 0.5 mm over 10 s. |
 | 4. Flipper shots | Bit-for-bit repeatable. 3.2–4.1 m/s from rest. Exit angle sweeps smoothly from 93° (near the pivot) to 77° (near the tip). Left and right mirror exactly. |
+| Stuck balls | 150 random balls with flippers idle, flicking or held: none comes to rest anywhere except a cradle or a saucer. |
 | Devices | Pop kicks at kick speed. Sling fires only above its threshold. Drop target falls. Saucer captures a slow ball while a fast one skims across. Drain works. |
 | Determinism | `dsin`/`dcos` match `Math` to 1e-15 using only IEEE basic ops. The seeded RNG is reproducible. Lint blocks `Math.sin/cos/pow/random` inside `src/physics`. |
-| Performance | ≈ **2 µs per physics step** (Node), ≈ 35 µs per 60 Hz frame. The budget is 1,000 µs. |
+| Performance | ≈ **2–5 µs per physics step** (Node), under 100 µs per 60 Hz frame. The budget is 1,000 µs. |
 
 ## Rapier comparison (`npm run bench:rapier`)
 
@@ -89,6 +90,19 @@ up. On touch, the left and right halves of the screen flip.
 
 Tuning changes persist in your browser. **Copy params JSON** exports them so I can make them the
 new defaults.
+
+## Changes from feel review
+
+1. **Flippers were too far forward.** The ball could stall in a notch between the inlane divider
+   and the flipper base. Random-ball testing reproduced it: about 25 % of balls stalled with the
+   flippers down. The lower playfield was re-laid out the way real tables are built:
+   - The inlane divider and guide run at the flipper's rest angle.
+   - The divider ends on the bat's top tangent point, so its surface continues into the flipper.
+   - The inlane channel stays 34 mm wide (the ball is 27 mm).
+   - The flippers move back 10 mm, and the slingshots and lane tops move up to fit.
+
+   An inlane ball now rolls onto the flipper and, if not flipped, off the tip into the drain, as on
+   a real machine. The new **stuck-ball** test keeps it that way.
 
 ## Not in M0 (planned)
 

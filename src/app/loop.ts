@@ -51,7 +51,7 @@ export class FixedLoop {
       this.alpha = 1;
       return;
     }
-    const stepMs = (1000 / w.params.rate) / this.timeScale;
+    const stepMs = 1000 / w.params.rate / this.timeScale;
     const t0 = performance.now();
     let steps = 0;
     while (this.simWall + stepMs <= now) {

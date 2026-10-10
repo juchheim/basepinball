@@ -21,7 +21,13 @@ describe('devices', () => {
   });
 
   it('slingshot only fires above its threshold', () => {
-    const sling = { type: 'sling' as const, id: 'sl', corner: [200, 300] as const, top: [200, 450] as const, bottom: [300, 300] as const };
+    const sling = {
+      type: 'sling' as const,
+      id: 'sl',
+      corner: [200, 300] as const,
+      top: [200, 450] as const,
+      bottom: [300, 300] as const,
+    };
     const fast = makeWorld(emptyTable([sling]));
     const b = fast.addBall(0.3, 0.42);
     b.vx = -1.5;
@@ -50,7 +56,15 @@ describe('devices', () => {
   });
 
   it('saucer captures a slow ball and lets a fast one skim across', () => {
-    const saucer = { type: 'saucer' as const, id: 's', x: 300, y: 400, radius: 20, depth: 7, lipAngle: 90 };
+    const saucer = {
+      type: 'saucer' as const,
+      id: 's',
+      x: 300,
+      y: 400,
+      radius: 20,
+      depth: 7,
+      lipAngle: 90,
+    };
     const slow = makeWorld(emptyTable([saucer]));
     const b = slow.addBall(0.3, 0.34);
     b.vy = 0.45;

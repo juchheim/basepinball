@@ -78,7 +78,8 @@ export interface FlipperDef {
   height?: number;
 }
 
-export type ElementDef = WallDef | PostDef | SlingDef | PopDef | SaucerDef | DropTargetDef | FlipperDef;
+export type ElementDef =
+  WallDef | PostDef | SlingDef | PopDef | SaucerDef | DropTargetDef | FlipperDef;
 
 export interface TableDef {
   name: string;

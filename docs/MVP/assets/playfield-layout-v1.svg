@@ -79,8 +79,8 @@
   <!-- Ramps (elevated) + wireform returns -->
   <path d="M162,420 Q150,300 95,200" fill="none" stroke="#FF3B3B" stroke-opacity="0.5" stroke-width="44" stroke-linecap="round"/>
   <path d="M428,420 Q440,300 495,200" fill="none" stroke="#2EC4B6" stroke-opacity="0.5" stroke-width="44" stroke-linecap="round"/>
-  <path d="M95,200 Q48,160 42,250 L42,830 Q42,858 80,868" fill="none" stroke="#C9CED6" stroke-width="5" stroke-dasharray="10 5"/>
-  <path d="M495,200 Q542,160 548,250 L548,830 Q548,858 510,868" fill="none" stroke="#C9CED6" stroke-width="5" stroke-dasharray="10 5"/>
+  <path d="M95,200 Q48,160 42,250 L42,800 Q42,820 84,812" fill="none" stroke="#C9CED6" stroke-width="5" stroke-dasharray="10 5"/>
+  <path d="M495,200 Q542,160 548,250 L548,800 Q548,820 506,812" fill="none" stroke="#C9CED6" stroke-width="5" stroke-dasharray="10 5"/>
   <rect x="136" y="414" width="52" height="10" fill="#FF3B3B"/>
   <rect x="402" y="414" width="52" height="10" fill="#2EC4B6"/>
   <line x1="78" y1="214" x2="112" y2="190" stroke="#ffffff" stroke-width="4"/>
@@ -139,19 +139,19 @@
 
   <!-- Lanes, kickback -->
   <g stroke="#C9CED6" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <line x1="60" y1="870" x2="60" y2="1085"/><path d="M105,870 V1000 L195,1045"/>
-    <line x1="530" y1="870" x2="530" y2="1085"/><path d="M485,870 V1000 L395,1045"/>
+    <path d="M60,830 V945.5 L199,1025.7"/><path d="M108,830 V929.3 L160,959.4"/>
+    <path d="M530,830 V945.5 L391,1025.7"/><path d="M482,830 V929.3 L430,959.4"/>
   </g>
   <rect x="28" y="1055" width="24" height="10" fill="#F2B33D"/>
 
   <!-- Slingshots -->
-  <polygon points="125,880 125,985 180,1010" fill="#E9E2CF" stroke="#ffffff" stroke-width="2"/>
-  <polygon points="465,880 465,985 410,1010" fill="#E9E2CF" stroke="#ffffff" stroke-width="2"/>
+  <polygon points="126,838 126,930 178,959" fill="#E9E2CF" stroke="#ffffff" stroke-width="2"/>
+  <polygon points="464,838 464,930 412,959" fill="#E9E2CF" stroke="#ffffff" stroke-width="2"/>
 
   <!-- Flippers -->
-  <line x1="195" y1="1045" x2="264" y2="1085" stroke="#F4EFE1" stroke-width="16" stroke-linecap="round"/>
-  <line x1="395" y1="1045" x2="326" y2="1085" stroke="#F4EFE1" stroke-width="16" stroke-linecap="round"/>
-  <circle cx="195" cy="1045" r="4" fill="#FF3B3B"/><circle cx="395" cy="1045" r="4" fill="#FF3B3B"/>
+  <line x1="195" y1="1035" x2="264" y2="1075" stroke="#F4EFE1" stroke-width="16" stroke-linecap="round"/>
+  <line x1="395" y1="1035" x2="326" y2="1075" stroke="#F4EFE1" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="195" cy="1035" r="4" fill="#FF3B3B"/><circle cx="395" cy="1035" r="4" fill="#FF3B3B"/>
 
   <!-- Apron -->
   <rect x="20" y="1110" width="550" height="100" fill="#1A2036"/>

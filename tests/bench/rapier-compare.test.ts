@@ -29,7 +29,12 @@ function strokeProfile(): number[] {
   return out;
 }
 
-function flipperHull(f: { length: number; baseRadius: number; tipRadius: number; height: number }): Float32Array {
+function flipperHull(f: {
+  length: number;
+  baseRadius: number;
+  tipRadius: number;
+  height: number;
+}): Float32Array {
   const pts: number[] = [];
   for (let i = 0; i < 24; i++) {
     const a = (i / 24) * Math.PI * 2;
@@ -48,13 +53,29 @@ function quatZ(theta: number): RAPIER.Rotation {
 function makeRapier() {
   const p = defaultParams();
   const slope = p.slopeDeg * DEG;
-  const world = new RAPIER.World({ x: 0, y: -p.gravity * dsin(slope), z: -p.gravity * dcos(slope) });
+  const world = new RAPIER.World({
+    x: 0,
+    y: -p.gravity * dsin(slope),
+    z: -p.gravity * dcos(slope),
+  });
   world.timestep = 1 / p.rate;
-  world.createCollider(RAPIER.ColliderDesc.cuboid(1, 1, 0.01).setTranslation(0.3, 0.4, -0.01).setFriction(0.15).setRestitution(0.25));
+  world.createCollider(
+    RAPIER.ColliderDesc.cuboid(1, 1, 0.01)
+      .setTranslation(0.3, 0.4, -0.01)
+      .setFriction(0.15)
+      .setRestitution(0.25),
+  );
   const ours = makeWorld();
   const f = getFlipper(ours, 'flipper.L');
-  const body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(f.px, f.py, 0).setRotation(quatZ(f.restAngle)));
-  world.createCollider(RAPIER.ColliderDesc.convexHull(flipperHull(f))!.setRestitution(0.45).setFriction(0.4), body);
+  const body = world.createRigidBody(
+    RAPIER.RigidBodyDesc.kinematicPositionBased()
+      .setTranslation(f.px, f.py, 0)
+      .setRotation(quatZ(f.restAngle)),
+  );
+  world.createCollider(
+    RAPIER.ColliderDesc.convexHull(flipperHull(f))!.setRestitution(0.45).setFriction(0.4),
+    body,
+  );
   // Inlane divider (the wall a cradled ball rests against), as in the M0 table.
   const wall = (ax: number, ay: number, bx: number, by: number) => {
     const dx = (bx - ax) / 1000;
@@ -71,8 +92,13 @@ function makeRapier() {
   wall(40, 340, 40, 230);
   wall(40, 230, 165, 150);
   const addBall = (x: number, y: number) => {
-    const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, R).setCcdEnabled(true));
-    world.createCollider(RAPIER.ColliderDesc.ball(R).setDensity(STEEL_DENSITY).setRestitution(0.25).setFriction(0.15), b);
+    const b = world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, R).setCcdEnabled(true),
+    );
+    world.createCollider(
+      RAPIER.ColliderDesc.ball(R).setDensity(STEEL_DENSITY).setRestitution(0.25).setFriction(0.15),
+      b,
+    );
     return b;
   };
   return { world, body, f, addBall };
@@ -118,7 +144,9 @@ describe.skipIf(!RUN)('Rapier reference', () => {
           oangle = (Math.atan2(ob.vy, ob.vx) * 180) / Math.PI;
         }
       });
-      rows.push(`shot s=${s}: rapier ${best.toFixed(2)} m/s @ ${angle.toFixed(0)}° | ours ${obest.toFixed(2)} m/s @ ${oangle.toFixed(0)}°`);
+      rows.push(
+        `shot s=${s}: rapier ${best.toFixed(2)} m/s @ ${angle.toFixed(0)}° | ours ${obest.toFixed(2)} m/s @ ${oangle.toFixed(0)}°`,
+      );
     }
 
     // 2. Cradle drift on the held (kinematic, raised) bat over 10 s.
@@ -137,7 +165,9 @@ describe.skipIf(!RUN)('Rapier reference', () => {
         const p = ball.translation();
         drift = Math.max(drift, Math.hypot(p.x - p0.x, p.y - p0.y));
       }
-      rows.push(`cradle drift over 10 s: rapier ${(drift * 1000).toFixed(3)} mm (ours < 0.5 mm, see flipper.test.ts)`);
+      rows.push(
+        `cradle drift over 10 s: rapier ${(drift * 1000).toFixed(3)} mm (ours < 0.5 mm, see flipper.test.ts)`,
+      );
     }
 
     // 3. Tunneling: 20 m/s into a 3 mm static wall, CCD on.
@@ -145,13 +175,20 @@ describe.skipIf(!RUN)('Rapier reference', () => {
       let passed = 0;
       for (const angle of [30, 60, 90, 120, 150]) {
         const r = makeRapier();
-        r.world.createCollider(RAPIER.ColliderDesc.cuboid(0.3, 0.0015, 0.0125).setTranslation(0.3, 0.6, 0.0125));
+        r.world.createCollider(
+          RAPIER.ColliderDesc.cuboid(0.3, 0.0015, 0.0125).setTranslation(0.3, 0.6, 0.0125),
+        );
         const ball = r.addBall(0.3, 0.5);
-        ball.setLinvel({ x: 20 * Math.cos(angle * DEG), y: 20 * Math.sin(angle * DEG), z: 0 }, true);
+        ball.setLinvel(
+          { x: 20 * Math.cos(angle * DEG), y: 20 * Math.sin(angle * DEG), z: 0 },
+          true,
+        );
         for (let i = 0; i < 100; i++) r.world.step();
         if (ball.translation().y > 0.6) passed++;
       }
-      rows.push(`tunneling at 20 m/s through a 3 mm wall: rapier ${passed}/5 passed through (ours 0, see tunneling.test.ts)`);
+      rows.push(
+        `tunneling at 20 m/s through a 3 mm wall: rapier ${passed}/5 passed through (ours 0, see tunneling.test.ts)`,
+      );
     }
 
     // 4. Cost per step with a ball rolling on the flipper scene.
@@ -166,7 +203,9 @@ describe.skipIf(!RUN)('Rapier reference', () => {
         r.world.step();
       }
       const rapierUs = ((performance.now() - t0) * 1000) / 20000;
-      rows.push(`cost: rapier ${rapierUs.toFixed(2)} µs/step on a 2-collider scene (ours ~2 µs/step on the full test table, see perf.test.ts)`);
+      rows.push(
+        `cost: rapier ${rapierUs.toFixed(2)} µs/step on a 2-collider scene (ours ~2 µs/step on the full test table, see perf.test.ts)`,
+      );
     }
 
     console.log('\n' + rows.join('\n'));
