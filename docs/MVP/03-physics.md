@@ -87,6 +87,9 @@ Flippers are the most important objects in the game.
 - **Contact:** uses the flipper's surface velocity at the contact point (ω × r) and its effective
   mass, so the ball slows a moving flipper slightly. This is required for realistic catches and
   dampening.
+- **Stops are rigid:** a bat resting on a stop cannot be pushed further into it. A ball landing on
+  a lowered flipper meets a rigid bat, and so does a ball pushing a held bat past its end of
+  stroke. A ball hitting a held bat from above *can* push it down against the weaker hold torque.
 - **Rubber:** the `rubber_flipper` material has a strong falloff in `e(v)` and high friction, which
   makes "dead" catches possible.
 - **Tunables:** length, base and tip radius, mass/inertia, coil strength, hold strength, return
@@ -123,18 +126,22 @@ Flippers are the most important objects in the game.
 
 - **Fixed step** of 1 ms, with an accumulator loop on the main thread. The renderer interpolates the
   ball between the last two physics states (position lerp, orientation slerp).
-- **Time-of-impact sweeps:** each step sweeps the ball sphere against nearby primitives, resolves the
-  earliest hit, and continues for the rest of the step (up to 4 iterations per step). At 10 m/s the
-  ball moves 10 mm per step, well under its 13.5 mm radius, and the sweep makes this robust anyway.
-- **Broadphase:** a uniform grid of 50 mm cells per *layer*. Layers are the playfield level, each ramp
-  level, and the wireforms, and the ball's layer changes at ramp entrances and exits.
-- **Flipper sweeps** use the flipper's angle at the start and end of the step, so a fast flipper
-  cannot pass through the ball.
-- **Spiral-of-death guard:** at most 50 steps per rendered frame. If the frame takes longer, the
-  simulation runs in slow motion briefly instead of skipping. The simulation pauses when the tab is
-  hidden.
-- **Budget:** under 1 ms of CPU per 16 ms frame on a mid-range phone for 1 ball (≈ 17 steps). This is
-  validated in M0.
+- **Adaptive substeps (as built in M0):** each 1 ms step is split so that neither the ball nor any
+  point on a flipper moves more than **2 mm per substep** (up to 32 substeps). Every collider is at
+  least a ball radius (13.5 mm) thick once the ball's radius is added, so an overlap test on each
+  substep cannot tunnel, including against a fast-moving flipper. This replaced the planned
+  time-of-impact sweeps: it is simpler, handles moving and static geometry the same way, and the
+  tunneling tests pass at 20 m/s. Typical play needs 1–3 substeps.
+- **Contacts** are resolved twice per substep with impulses, so a ball wedged between, say, a
+  flipper and an inlane guide settles cleanly.
+- **Broadphase:** a uniform grid of 50 mm cells. Collider bounds are padded by the ball radius, so
+  looking up the ball centre's cell finds every possible contact. M0 has one level. Ramp and
+  wireform layers will be added in M1.
+- **Spiral-of-death guard:** at most 50 steps per rendered frame. If a frame takes longer, the
+  backlog is dropped, so the simulation briefly runs slower instead of fast-forwarding. The clock
+  resyncs when the tab becomes visible again.
+- **Budget:** under 1 ms of CPU per 16 ms frame on a mid-range phone for 1 ball (≈ 17 steps).
+  M0 measured **≈ 2 µs per step** in Node and **15–40 µs per frame** in desktop Chrome.
 
 ### 6.1 Threading
 
@@ -194,7 +201,7 @@ These are **starting guesses**. Real values come from feel tuning in M0/M1.
 | Ball diameter / mass | 27 mm / 80 g | Real values |
 | Flipper length | 80 mm | Modern flippers are ≈ 3–3⅛ in |
 | Flipper stroke | 55° | |
-| Flipper full-stroke time (unloaded) | ≈ 30–40 ms | Comes from coil torque and inertia |
+| Flipper full-stroke time (unloaded) | ≈ 20–25 ms | M0 defaults: effective mass 0.1 kg, coil 1.1 N·m, hold 0.2 N·m, return 0.15 N·m. Shots from rest leave at 3.2–4.1 m/s. |
 | Rubber `e(v)` | 0.85 at < 0.5 m/s → 0.55 at > 6 m/s | Flipper rubber is somewhat deader |
 | Playfield `e` | 0.25 | The ball barely bounces on wood |
 | Metal / wood wall `e` | 0.45 / 0.40 | |

@@ -26,6 +26,7 @@ runs as you can.
 | 05 | [Art & Animation](05-art-and-animation.md) | Art direction, materials, lighting, ball rendering, camera, vector-first asset pipeline and raster-replacement contract, animation list |
 | 06 | [Audio](06-audio.md) | Sound design, mix layers, Web Audio implementation, sourcing and licensing |
 | 07 | [Roadmap & Scope](07-roadmap-and-scope.md) | MVP scope (P0/P1/P2), milestones with exit criteria, risks, acceptance criteria, open questions |
+| M0 | [M0 Report](m0-report.md) | Physics spike results, Rapier comparison, go/no-go recommendation, feel-review checklist |
 | — | [assets/playfield-layout-v1.svg](assets/playfield-layout-v1.svg) | Schematic of the playfield layout (vector) |
 
 ## Decisions
