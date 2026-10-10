@@ -6,7 +6,12 @@
 export type Action =
   | 'flipperL'
   | 'flipperR'
-  | 'spawn'
+  | 'plunger'
+  | 'nudgeL'
+  | 'nudgeR'
+  | 'nudgeUp'
+  | 'serve'
+  | 'pitch'
   | 'resetTargets'
   | 'toggleColliders'
   | 'pause'
@@ -26,13 +31,31 @@ const KEYS: Record<string, Action> = {
   ShiftRight: 'flipperR',
   ArrowRight: 'flipperR',
   KeyL: 'flipperR',
-  Space: 'spawn',
+  ArrowDown: 'plunger',
+  Enter: 'plunger',
+  KeyZ: 'nudgeL',
+  Slash: 'nudgeR',
+  Space: 'nudgeUp',
+  KeyB: 'serve',
+  KeyK: 'pitch',
   KeyR: 'resetTargets',
   KeyC: 'toggleColliders',
   KeyP: 'pause',
+  Escape: 'pause',
   BracketLeft: 'slower',
   BracketRight: 'faster',
 };
+
+/**
+ * Touch zones: the plunger is the lower-right corner (over the shooter lane); otherwise the left
+ * and right halves of the screen are the flippers. Several fingers at once are fine.
+ */
+function touchAction(x: number, y: number): Action {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  if (x > w * 0.82 && y > h * 0.72) return 'plunger';
+  return x < w / 2 ? 'flipperL' : 'flipperR';
+}
 
 export function bindInput(canvas: HTMLElement, emit: (e: InputEvent) => void): void {
   const held = new Set<Action>();
@@ -57,12 +80,11 @@ export function bindInput(canvas: HTMLElement, emit: (e: InputEvent) => void): v
     held.clear();
   });
 
-  // Touch: left/right half of the screen are the flippers; several fingers at once are fine.
   const touches = new Map<number, Action>();
   canvas.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
     e.preventDefault();
-    const action: Action = e.clientX < window.innerWidth / 2 ? 'flipperL' : 'flipperR';
+    const action = touchAction(e.clientX, e.clientY);
     touches.set(e.pointerId, action);
     emit({ action, pressed: true, time: e.timeStamp });
   });

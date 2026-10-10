@@ -1,12 +1,13 @@
 import * as THREE from 'three/webgpu';
-import type { ElementDef, TableDef, Vec2 } from '../table/schema';
-import type { World } from '../physics/world';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { ElementDef, TableDef, Vec2, Vec3 } from '../table/schema';
+import { rampEdges, wireformRails, type World } from '../physics/world';
 import type { Flipper } from '../physics/flipper';
 
 /**
- * Whitebox meshes built from the table definition (M0: grey materials, no art).
- * Everything lives in a `playfield` group whose local frame is playfield metres (z up); the
- * group is tilted by the slope.
+ * Whitebox meshes built from the table definition (M1: grey materials, coloured lamp discs,
+ * no art). Everything lives in a group whose local frame is playfield metres (z up); the group
+ * is tilted by the slope. Static parts are merged per material to keep draw calls low.
  */
 
 const MM = 0.001;
@@ -23,12 +24,23 @@ const mats = {
     transparent: true,
     opacity: 0.85,
   }),
+  ramp: new THREE.MeshStandardMaterial({
+    color: 0xcfe3ff,
+    roughness: 0.15,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.45,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  }),
+  wire: new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.15, metalness: 1 }),
   flipper: new THREE.MeshStandardMaterial({ color: 0xf4efe1, roughness: 0.35 }),
   flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc8282a, roughness: 0.6 }),
   saucer: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 }),
   standee: new THREE.MeshStandardMaterial({ color: 0x1b2a4a, roughness: 0.5 }),
-  drop: new THREE.MeshStandardMaterial({ color: 0xf2b33d, roughness: 0.4, emissive: 0x000000 }),
+  mound: new THREE.MeshStandardMaterial({ color: 0xb4683c, roughness: 0.9 }),
   popBody: new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.6 }),
+  sensor: new THREE.MeshStandardMaterial({ color: 0x9aa6c4, roughness: 0.4, metalness: 0.8 }),
   ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.06, metalness: 1 }),
 };
 
@@ -38,10 +50,23 @@ function materialFor(name: string): THREE.Material {
   return mats.metal;
 }
 
-interface Flash {
+/** An emissive material that can flash (pop caps, sling rubbers, targets, lamps). */
+interface Light {
   material: THREE.MeshStandardMaterial;
   base: number;
   level: number;
+  /** Steady "lit" state (lamps). */
+  on: boolean;
+}
+
+function glowMaterial(color: number, base = 0): THREE.MeshStandardMaterial {
+  const m = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.35,
+    emissive: new THREE.Color(color),
+    emissiveIntensity: base,
+  });
+  return m;
 }
 
 export class TableView {
@@ -49,9 +74,13 @@ export class TableView {
   readonly floor: THREE.Mesh;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
   private readonly dropMeshes = new Map<string, THREE.Object3D>();
-  private readonly flashes = new Map<string, Flash>();
+  private readonly spinnerMeshes = new Map<string, THREE.Object3D>();
+  private plungerRod: THREE.Object3D | null = null;
+  private readonly lights = new Map<string, Light[]>();
   private readonly ballMeshes: THREE.Mesh[] = [];
   private readonly colliderLines: THREE.LineSegments;
+  /** Static geometry waiting to be merged, per material. */
+  private readonly pending = new Map<THREE.Material, THREE.BufferGeometry[]>();
 
   constructor(
     table: TableDef,
@@ -66,6 +95,7 @@ export class TableView {
 
     for (const el of table.elements) this.addElement(el);
     for (const f of world.flippers) this.addFlipper(f);
+    this.flushStatic();
 
     this.colliderLines = this.buildColliderLines();
     this.colliderLines.visible = false;
@@ -80,10 +110,14 @@ export class TableView {
     return this.colliderLines.visible;
   }
 
-  /** Brighten a device's light briefly (pop caps, sling rubbers). */
+  /** Brighten a device or lamp briefly. */
   flash(id: string): void {
-    const f = this.flashes.get(id);
-    if (f) f.level = 1;
+    for (const l of this.lights.get(id) ?? []) l.level = 1;
+  }
+
+  /** Steady on/off for a lamp. */
+  setLamp(id: string, on: boolean): void {
+    for (const l of this.lights.get(id) ?? []) l.on = on;
   }
 
   update(alpha: number, dtSeconds: number): void {
@@ -91,13 +125,20 @@ export class TableView {
       mesh.rotation.z = f.prevTheta + (f.theta - f.prevTheta) * alpha;
     }
     for (const [id, mesh] of this.dropMeshes) {
-      const down = this.world.isDropDown(id);
-      const target = down ? -0.028 : 0;
+      const target = this.world.isDropDown(id) ? -0.028 : 0;
       mesh.position.z += (target - mesh.position.z) * Math.min(1, dtSeconds * 40);
     }
-    for (const f of this.flashes.values()) {
-      f.material.emissiveIntensity = f.base + f.level * 4;
-      f.level = Math.max(0, f.level - dtSeconds * 8);
+    for (const [id, mesh] of this.spinnerMeshes) {
+      const s = this.world.spinners.get(id);
+      if (s) mesh.rotation.x = s.angle;
+    }
+    const pl = this.world.plunger;
+    if (this.plungerRod && pl) this.plungerRod.position.y = -pl.pull * 0.05;
+    for (const list of this.lights.values()) {
+      for (const l of list) {
+        l.material.emissiveIntensity = l.base + (l.on ? 1.6 : 0) + l.level * 4;
+        l.level = Math.max(0, l.level - dtSeconds * 6);
+      }
     }
 
     // Balls: create meshes on demand, interpolate between physics states.
@@ -128,108 +169,231 @@ export class TableView {
 
   // ---------------------------------------------------------------- builders
 
-  private add(mesh: THREE.Mesh, shadows = true): THREE.Mesh {
-    mesh.castShadow = shadows;
-    mesh.receiveShadow = true;
-    this.group.add(mesh);
-    return mesh;
+  /** Queue static geometry (already in playfield metres) for merging. */
+  private addStatic(geometry: THREE.BufferGeometry, material: THREE.Material): void {
+    const g = geometry.index ? geometry.toNonIndexed() : geometry;
+    for (const name of Object.keys(g.attributes)) {
+      if (name !== 'position' && name !== 'normal') g.deleteAttribute(name);
+    }
+    if (!this.pending.has(material)) this.pending.set(material, []);
+    this.pending.get(material)!.push(g);
   }
 
-  private wallSegment(a: Vec2, b: Vec2, radius: number, height: number, mat: THREE.Material): void {
+  private flushStatic(): void {
+    for (const [material, geometries] of this.pending) {
+      const merged = mergeGeometries(geometries, false);
+      if (!merged) continue;
+      const mesh = new THREE.Mesh(merged, material);
+      mesh.castShadow = material !== mats.ramp;
+      mesh.receiveShadow = true;
+      this.group.add(mesh);
+    }
+    this.pending.clear();
+  }
+
+  private addLight(id: string, light: Light): void {
+    if (!this.lights.has(id)) this.lights.set(id, []);
+    this.lights.get(id)!.push(light);
+  }
+
+  private boxGeometry(
+    a: Vec2,
+    b: Vec2,
+    thickness: number,
+    height: number,
+    z0 = 0,
+  ): THREE.BufferGeometry {
     const dx = (b[0] - a[0]) * MM;
     const dy = (b[1] - a[1]) * MM;
     const len = Math.hypot(dx, dy);
-    const t = Math.max(radius * 2 * MM, 0.002);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(len + t, t, height * MM), mat);
-    mesh.position.set(((a[0] + b[0]) / 2) * MM, ((a[1] + b[1]) / 2) * MM, (height / 2) * MM);
-    mesh.rotation.z = Math.atan2(dy, dx);
-    this.add(mesh);
+    const t = Math.max(thickness * MM, 0.002);
+    const g = new THREE.BoxGeometry(len + t, t, height * MM);
+    g.rotateZ(Math.atan2(dy, dx));
+    g.translate(((a[0] + b[0]) / 2) * MM, ((a[1] + b[1]) / 2) * MM, (z0 + height / 2) * MM);
+    return g;
   }
 
-  private cylinder(
+  private cylinderGeometry(
     x: number,
     y: number,
     r: number,
     h: number,
-    mat: THREE.Material,
     z0 = 0,
-  ): THREE.Mesh {
-    const g = new THREE.CylinderGeometry(r * MM, r * MM, h * MM, 32);
+  ): THREE.BufferGeometry {
+    const g = new THREE.CylinderGeometry(r * MM, r * MM, h * MM, 24);
     g.rotateX(Math.PI / 2);
-    const mesh = new THREE.Mesh(g, mat);
-    mesh.position.set(x * MM, y * MM, (z0 + h / 2) * MM);
-    return this.add(mesh);
+    g.translate(x * MM, y * MM, (z0 + h / 2) * MM);
+    return g;
   }
 
   private addElement(el: ElementDef): void {
     switch (el.type) {
       case 'wall':
         for (let i = 0; i + 1 < el.points.length; i++) {
-          this.wallSegment(
-            el.points[i]!,
-            el.points[i + 1]!,
-            el.radius ?? 1.5,
-            el.height ?? 25,
+          const height = el.height ?? 25;
+          this.addStatic(
+            this.boxGeometry(el.points[i]!, el.points[i + 1]!, (el.radius ?? 1.5) * 2, height),
             materialFor(el.material),
           );
         }
         break;
-      case 'post':
-        this.cylinder(
-          el.x,
-          el.y,
-          el.radius,
-          25,
+      case 'post': {
+        const h = el.height ?? 25;
+        this.addStatic(
+          this.cylinderGeometry(el.x, el.y, el.radius, h),
           el.material.startsWith('rubber') ? mats.rubber : mats.metal,
         );
-        this.cylinder(el.x, el.y, Math.max(2, el.radius - 3), 32, mats.metal);
+        this.addStatic(
+          this.cylinderGeometry(el.x, el.y, Math.max(2, el.radius - 3), h + 7),
+          mats.metal,
+        );
         break;
+      }
       case 'sling': {
         const shape = new THREE.Shape([
           new THREE.Vector2(el.corner[0] * MM, el.corner[1] * MM),
           new THREE.Vector2(el.top[0] * MM, el.top[1] * MM),
           new THREE.Vector2(el.bottom[0] * MM, el.bottom[1] * MM),
         ]);
-        const g = new THREE.ExtrudeGeometry(shape, { depth: 0.022, bevelEnabled: false });
-        this.add(new THREE.Mesh(g, mats.plastic));
-        const rubberMat = mats.rubberWhite.clone();
-        rubberMat.emissive = new THREE.Color(0xffffff);
-        rubberMat.emissiveIntensity = 0;
-        this.flashes.set(el.id, { material: rubberMat, base: 0, level: 0 });
-        this.wallSegment(el.top, el.bottom, 3, 22, rubberMat);
-        this.cylinder(el.top[0], el.top[1], 5, 25, mats.rubber);
-        this.cylinder(el.bottom[0], el.bottom[1], 5, 25, mats.rubber);
+        this.addStatic(
+          new THREE.ExtrudeGeometry(shape, { depth: 0.022, bevelEnabled: false }),
+          mats.plastic,
+        );
+        const rubber = glowMaterial(0xf2f2f2);
+        this.addLight(el.id, { material: rubber, base: 0, level: 0, on: false });
+        const m = new THREE.Mesh(this.boxGeometry(el.top, el.bottom, 6, 22), rubber);
+        m.castShadow = true;
+        this.group.add(m);
+        this.addStatic(this.cylinderGeometry(el.top[0], el.top[1], 5, 25), mats.rubber);
+        this.addStatic(this.cylinderGeometry(el.bottom[0], el.bottom[1], 5, 25), mats.rubber);
         break;
       }
       case 'pop': {
-        this.cylinder(el.x, el.y, el.radius, 30, mats.popBody);
-        const cap = new THREE.MeshStandardMaterial({
-          color: 0xf4efe1,
-          roughness: 0.25,
-          emissive: new THREE.Color(0xfff1c8),
-          emissiveIntensity: 0.4,
-          transparent: true,
-          opacity: 0.95,
-        });
-        this.flashes.set(el.id, { material: cap, base: 0.4, level: 0 });
-        this.cylinder(el.x, el.y, el.radius + 8, 8, cap, 32);
+        this.addStatic(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody);
+        const cap = glowMaterial(el.color ?? 0xf4efe1, 0.4);
+        cap.transparent = true;
+        cap.opacity = 0.95;
+        this.addLight(el.id, { material: cap, base: 0.4, level: 0, on: false });
+        const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
+        m.castShadow = true;
+        this.group.add(m);
         break;
       }
-      case 'drop': {
+      case 'drop':
+      case 'standup': {
+        const color = el.type === 'drop' ? 0xf2b33d : 0x9b5de5;
+        const mat = glowMaterial(color, 0.05);
+        this.addLight(el.id, { material: mat, base: 0.05, level: 0, on: false });
         const dx = (el.b[0] - el.a[0]) * MM;
         const dy = (el.b[1] - el.a[1]) * MM;
-        const mesh = new THREE.Mesh(
-          new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.028),
-          mats.drop,
-        );
-        const holder = new THREE.Group();
-        holder.position.set(((el.a[0] + el.b[0]) / 2) * MM, ((el.a[1] + el.b[1]) / 2) * MM, 0);
-        mesh.position.z = 0.014;
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.03), mat);
+        mesh.position.z = 0.015;
         mesh.rotation.z = Math.atan2(dy, dx);
         mesh.castShadow = true;
+        const holder = new THREE.Group();
+        holder.position.set(((el.a[0] + el.b[0]) / 2) * MM, ((el.a[1] + el.b[1]) / 2) * MM, 0);
         holder.add(mesh);
         this.group.add(holder);
-        this.dropMeshes.set(el.id, holder);
+        if (el.type === 'drop') this.dropMeshes.set(el.id, holder);
+        break;
+      }
+      case 'kicker': {
+        const mat = glowMaterial(0xff9f1c, 0.15);
+        this.addLight(el.id, { material: mat, base: 0.15, level: 0, on: false });
+        const m = new THREE.Mesh(this.boxGeometry(el.a, el.b, 6, 25), mat);
+        this.group.add(m);
+        break;
+      }
+      case 'gate':
+        this.addStatic(this.boxGeometry(el.a, el.b, 1.5, 4, 22), mats.metal);
+        break;
+      case 'spinner': {
+        const dx = (el.b[0] - el.a[0]) * MM;
+        const dy = (el.b[1] - el.a[1]) * MM;
+        const holder = new THREE.Group();
+        holder.position.set(((el.a[0] + el.b[0]) / 2) * MM, ((el.a[1] + el.b[1]) / 2) * MM, 0.03);
+        holder.rotation.z = Math.atan2(dy, dx);
+        const axle = new THREE.Group();
+        const plate = new THREE.Mesh(
+          new THREE.BoxGeometry(Math.hypot(dx, dy), 0.002, 0.024),
+          mats.wire,
+        );
+        plate.position.z = -0.012;
+        axle.add(plate);
+        holder.add(axle);
+        this.group.add(holder);
+        this.spinnerMeshes.set(el.id, axle);
+        this.addStatic(this.boxGeometry(el.a, el.b, 2, 2, 30), mats.metal);
+        break;
+      }
+      case 'sensor':
+        if ((el.zMin ?? 0) < 20) this.addStatic(this.boxGeometry(el.a, el.b, 1, 0.6), mats.sensor);
+        break;
+      case 'ramp': {
+        const { left, right } = rampEdges(el.path, el.width, el.endWidth ?? el.width);
+        const pos: number[] = [];
+        const quad = (a: Vec3, b: Vec3, c: Vec3, d: Vec3) => {
+          for (const v of [a, b, c, a, c, d]) pos.push(v[0] * MM, v[1] * MM, v[2] * MM);
+        };
+        const up = (v: Vec3): Vec3 => [v[0], v[1], v[2] + el.wallHeight];
+        for (let i = 0; i + 1 < el.path.length; i++) {
+          const l0 = left[i]!;
+          const l1 = left[i + 1]!;
+          const r0 = right[i]!;
+          const r1 = right[i + 1]!;
+          quad(l0, r0, r1, l1);
+          quad(l0, l1, up(l1), up(l0));
+          quad(r0, r1, up(r1), up(r0));
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.computeVertexNormals();
+        this.addStatic(g, mats.ramp);
+        break;
+      }
+      case 'wireform': {
+        for (const rail of wireformRails(el.path, this.world.params.ballRadius / MM)) {
+          const curve = new THREE.CatmullRomCurve3(
+            rail.map((p) => new THREE.Vector3(p[0] * MM, p[1] * MM, p[2] * MM)),
+          );
+          this.addStatic(
+            new THREE.TubeGeometry(curve, rail.length * 6, 0.002, 6, false),
+            mats.wire,
+          );
+        }
+        break;
+      }
+      case 'dome': {
+        // Low mound with a pitcher standee behind it (both visual only in M1).
+        const g = new THREE.SphereGeometry(el.radius * MM, 32, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+        g.scale(1, el.height / el.radius, 1);
+        g.rotateX(Math.PI / 2);
+        g.translate(el.x * MM, el.y * MM, 0);
+        this.addStatic(g, mats.mound);
+        const standee = new THREE.BoxGeometry(0.022, 0.004, 0.05);
+        standee.translate(el.x * MM, (el.y + 18) * MM, 0.025);
+        this.addStatic(standee, mats.standee);
+        break;
+      }
+      case 'kickback':
+        this.addStatic(
+          this.boxGeometry([el.x0 + 8, el.y0 + 10], [el.x1 - 8, el.y0 + 10], 10, 12),
+          mats.metal,
+        );
+        break;
+      case 'plunger': {
+        const x = ((el.x0 + el.x1) / 2) * MM;
+        const rod = new THREE.Group();
+        const shaft = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.004, 0.004, 0.06, 12),
+          mats.metal,
+        );
+        shaft.position.set(x, (el.tipY - 30) * MM, 0.0135);
+        const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.01, 16), mats.rubber);
+        tip.position.set(x, (el.tipY - 4) * MM, 0.0135);
+        rod.add(shaft, tip);
+        this.group.add(rod);
+        this.plungerRod = rod;
         break;
       }
       case 'saucer': {
@@ -237,20 +401,61 @@ export class TableView {
         disc.position.set(el.x * MM, el.y * MM, 0.0003);
         this.group.add(disc);
         const la = (el.lipAngle * Math.PI) / 180;
-        const lx = el.x + (el.radius + 6) * Math.cos(la);
-        const ly = el.y + (el.radius + 6) * Math.sin(la);
-        const tx = -Math.sin(la) * el.radius * 0.9;
-        const ty = Math.cos(la) * el.radius * 0.9;
-        this.wallSegment([lx - tx, ly - ty], [lx + tx, ly + ty], 4, 12, mats.rubber);
-        // Fielder standee placeholder.
-        const standee = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.004, 0.05), mats.standee);
-        standee.position.set((lx + 8 * Math.cos(la)) * MM, (ly + 8 * Math.sin(la)) * MM, 0.025);
-        standee.rotation.z = la - Math.PI / 2;
-        this.add(standee);
+        const lip = el.lip ?? 'bar';
+        if (lip === 'bar') {
+          const lx = el.x + (el.radius + 6) * Math.cos(la);
+          const ly = el.y + (el.radius + 6) * Math.sin(la);
+          const tx = -Math.sin(la) * el.radius * 0.9;
+          const ty = Math.cos(la) * el.radius * 0.9;
+          this.addStatic(
+            this.boxGeometry([lx - tx, ly - ty], [lx + tx, ly + ty], 8, 12),
+            mats.rubber,
+          );
+        } else if (lip === 'post') {
+          this.addStatic(
+            this.cylinderGeometry(
+              el.x + (el.radius + 8) * Math.cos(la),
+              el.y + (el.radius + 8) * Math.sin(la),
+              8,
+              12,
+            ),
+            mats.rubber,
+          );
+        }
+        // Fielder standee placeholder behind the lip.
+        const sx = el.x + (el.radius + 16) * Math.cos(la);
+        const sy = el.y + (el.radius + 16) * Math.sin(la);
+        const standee = new THREE.BoxGeometry(0.03, 0.004, 0.05);
+        standee.rotateZ(la - Math.PI / 2);
+        standee.translate(sx * MM, sy * MM, 0.025);
+        this.addStatic(standee, mats.standee);
         break;
       }
+      case 'lamp': {
+        const mat = glowMaterial(el.color, 0.08);
+        this.addLight(el.id, { material: mat, base: 0.08, level: 0, on: false });
+        let geom: THREE.BufferGeometry;
+        if (el.arrow !== undefined) {
+          const r = el.radius * MM;
+          const s = new THREE.Shape();
+          s.moveTo(r * 1.4, 0);
+          s.lineTo(-r, r);
+          s.lineTo(-r * 0.4, 0);
+          s.lineTo(-r, -r);
+          s.closePath();
+          geom = new THREE.ShapeGeometry(s);
+          geom.rotateZ((el.arrow * Math.PI) / 180);
+        } else {
+          geom = new THREE.CircleGeometry(el.radius * MM, 24);
+        }
+        const m = new THREE.Mesh(geom, mat);
+        m.position.set(el.x * MM, el.y * MM, 0.0004);
+        this.group.add(m);
+        break;
+      }
+      case 'magnet':
       case 'flipper':
-        break; // built from the physics flipper so geometry matches exactly
+        break; // magnet is under the playfield; flippers are built from the physics model
     }
   }
 
@@ -306,9 +511,23 @@ export class TableView {
   private buildColliderLines(): THREE.LineSegments {
     const pts: number[] = [];
     const z = 0.002;
+    const circle = (cx: number, cy: number, r: number, cz = z) => {
+      const n = 24;
+      for (let i = 0; i < n; i++) {
+        const t0 = (i / n) * Math.PI * 2;
+        const t1 = ((i + 1) / n) * Math.PI * 2;
+        pts.push(
+          cx + r * Math.cos(t0),
+          cy + r * Math.sin(t0),
+          cz,
+          cx + r * Math.cos(t1),
+          cy + r * Math.sin(t1),
+          cz,
+        );
+      }
+    };
     for (const c of this.world.colliders) {
       if (c.kind === 'segment') {
-        // Outline of the inflated segment.
         const dx = c.bx - c.ax;
         const dy = c.by - c.ay;
         const len = Math.hypot(dx, dy) || 1;
@@ -328,37 +547,35 @@ export class TableView {
           c.by - ny,
           z,
         );
-      } else {
-        const n = 24;
-        for (let i = 0; i < n; i++) {
-          const t0 = (i / n) * Math.PI * 2;
-          const t1 = ((i + 1) / n) * Math.PI * 2;
-          pts.push(
-            c.ax + c.radius * Math.cos(t0),
-            c.ay + c.radius * Math.sin(t0),
-            z,
-            c.ax + c.radius * Math.cos(t1),
-            c.ay + c.radius * Math.sin(t1),
-            z,
-          );
-        }
-      }
-    }
-    for (const s of this.world.saucers) {
-      const n = 32;
-      for (let i = 0; i < n; i++) {
-        const t0 = (i / n) * Math.PI * 2;
-        const t1 = ((i + 1) / n) * Math.PI * 2;
+      } else if (c.kind === 'circle') {
+        circle(c.ax, c.ay, c.radius);
+      } else if (c.kind === 'triangle') {
         pts.push(
-          s.cx + s.a * Math.cos(t0),
-          s.cy + s.a * Math.sin(t0),
-          z,
-          s.cx + s.a * Math.cos(t1),
-          s.cy + s.a * Math.sin(t1),
-          z,
+          c.ax,
+          c.ay,
+          c.az,
+          c.bx,
+          c.by,
+          c.bz,
+          c.bx,
+          c.by,
+          c.bz,
+          c.cx,
+          c.cy,
+          c.cz,
+          c.cx,
+          c.cy,
+          c.cz,
+          c.ax,
+          c.ay,
+          c.az,
         );
+      } else {
+        pts.push(c.ax, c.ay, c.az, c.bx, c.by, c.bz);
       }
     }
+    for (const s of this.world.saucers) circle(s.cx, s.cy, s.a);
+    for (const s of this.world.sensors) pts.push(s.ax, s.ay, z, s.bx, s.by, z);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
     return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x00ffaa }));

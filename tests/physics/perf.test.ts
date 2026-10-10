@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../src/core/rng';
 import { makeWorld } from './helpers';
+import { v1Table } from '../../src/table/v1Table';
+import type { TableDef } from '../../src/table/schema';
 
 // Budget (docs/MVP/04 § 6): < 1 ms of physics per 16.7 ms frame, i.e. < ~58 µs per 1 kHz step.
 // Node on a dev machine is faster than a mid-range phone, so we hold it to a tighter 20 µs.
 
-function measure(): number {
-  const w = makeWorld();
+function measure(table?: TableDef): number {
+  const w = makeWorld(table);
   const rng = new Rng(7);
   let b = w.addBall(0.275, 0.7);
   const steps = 20_000;
@@ -20,7 +22,7 @@ function measure(): number {
     w.setFlipper('flipper.R', phase > 200 && phase < 320);
     if (!b.active) {
       w.balls.length = 0;
-      b = w.addBall(rng.range(0.1, 0.45), 0.7);
+      b = w.addBall(rng.range(0.1, 0.45), 0.6);
       b.vx = rng.range(-2, 2);
     }
     w.events.length = 0;
@@ -36,6 +38,14 @@ describe('physics performance', () => {
     const perStepUs = Math.min(...runs);
     console.log(
       `physics: ${perStepUs.toFixed(2)} µs/step, ${(perStepUs * 16.7).toFixed(0)} µs per 60 Hz frame`,
+    );
+    expect(perStepUs).toBeLessThan(20);
+  });
+
+  it('stays inside the budget on the full v1 table (ramps, wireforms, 100+ colliders)', () => {
+    const perStepUs = Math.min(...[0, 1, 2].map(() => measure(v1Table)));
+    console.log(
+      `v1 table physics: ${perStepUs.toFixed(2)} µs/step, ${(perStepUs * 16.7).toFixed(0)} µs per 60 Hz frame`,
     );
     expect(perStepUs).toBeLessThan(20);
   });

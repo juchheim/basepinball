@@ -217,3 +217,34 @@ These are **starting guesses**. Real values come from feel tuning in M0/M1.
   matching shake.
 - A simulated **tilt bob** (a damped pendulum) receives the same impulse. Each time it swings past the
   contact radius, the player gets a warning. The third time is a TILT. Warnings decay over time.
+
+## 12. As built in M1
+
+What the whitebox added or changed, with the reasons:
+
+- **Triangle and capsule colliders.** Ramps are triangle surfaces with side walls. Wireforms are
+  six capsule rails around the ball's path (two below, one on each side, two above), with a flared
+  entry. Triangles use the closest-point-on-triangle test, so a ball rolling across shared edges
+  meets no ghost bumps.
+- **Saucer skim.** Above `saucerSkimSpeed` (1.1 m/s) a ball skims over a saucer unless it has
+  already dipped in. Modelling the dip with a sharp rim launched fast balls about 5 cm into the
+  air. A real ball spans most of the hole and barely dips at speed. Visual Pinball's kickers take
+  the same approach.
+- **Pop bumpers** fire on any real press of the skirt, including a ball resting against them while
+  wedged by a wall (otherwise it can stall there).
+- **Orbit corner kickers:** the switch closes on any contact, and the boost (`kickerSpeed`) fires
+  only above `kickerThreshold` (0.7 m/s approach). A gently plunged ball hugging the arch is not
+  flung round the loop, which keeps the skill shot possible.
+- **Smooth mound profile** z = h·(1 − (r/a)²)², flat-tangent at its rim. It is currently
+  non-solid (visual only): even a 4 mm hump deflected centre shots.
+- **Magnet:** a force toward its centre, fading linearly to zero at its reach, scaled by a power
+  (0–1) that game logic sets for curveballs.
+- **Plunger:** the pull builds over `plungerPullTime`. On release, a ball resting on the tip gets
+  `pull × plungerMaxSpeed`, with ±1 % seeded variation.
+- **Nudge and tilt bob:** a nudge adds `nudgeSpeed` to the ball and kicks a damped 2D pendulum.
+  Crossing `tilt.warnRadius` emits a `tiltBob` event. Counting warnings into a TILT is a rules
+  job (M2).
+- **Determinism** now also covers `src/table`: table geometry feeds the physics, so the lint ban
+  on `Math.sin/cos/hypot/…` applies there too.
+- **Performance** on the full v1 table: ≈ 1.2 µs per step.
+

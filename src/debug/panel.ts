@@ -6,7 +6,8 @@ import { defaultParams, type PhysicsParams } from '../physics/params';
  * so feel-review sessions can build on each other. "Copy params" exports JSON for the repo.
  */
 
-const STORAGE_KEY = 'bp.dev.physicsParams.v1';
+// Bumped when defaults change meaningfully, so stale tuning from an older build is not reapplied.
+const STORAGE_KEY = 'bp.dev.physicsParams.v2';
 
 export function loadParams(): PhysicsParams {
   const params = defaultParams();
@@ -40,13 +41,15 @@ function deepAssign(target: Record<string, unknown>, src: unknown): void {
 export interface PanelHooks {
   onParamsChange: () => void;
   spawn: () => void;
+  pitch: () => void;
+  curveball: () => void;
   resetTargets: () => void;
   state: { timeScale: number; colliders: boolean; bloom: boolean; paused: boolean };
   onStateChange: () => void;
 }
 
 export function createPanel(params: PhysicsParams, hooks: PanelHooks): Pane {
-  const pane = new Pane({ title: 'BasePinball M0 — physics', expanded: window.innerWidth > 800 });
+  const pane = new Pane({ title: 'BasePinball M1 — physics', expanded: window.innerWidth > 800 });
   const changed = (): void => {
     saveParams(params);
     hooks.onParamsChange();
@@ -61,8 +64,10 @@ export function createPanel(params: PhysicsParams, hooks: PanelHooks): Pane {
     .addBinding(hooks.state, 'colliders', { label: 'show colliders' })
     .on('change', hooks.onStateChange);
   sim.addBinding(hooks.state, 'bloom').on('change', hooks.onStateChange);
-  sim.addButton({ title: 'New ball (Space)' }).on('click', hooks.spawn);
-  sim.addButton({ title: 'Reset drop target (R)' }).on('click', hooks.resetTargets);
+  sim.addButton({ title: 'New ball on plunger (B)' }).on('click', hooks.spawn);
+  sim.addButton({ title: 'Pitch from mound (K)' }).on('click', hooks.pitch);
+  sim.addButton({ title: 'Pulse curveball magnet' }).on('click', hooks.curveball);
+  sim.addButton({ title: 'Reset drop targets (R)' }).on('click', hooks.resetTargets);
 
   const table = pane.addFolder({ title: 'Table' });
   table
