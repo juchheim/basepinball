@@ -115,6 +115,12 @@ export function calloutFor(e: RulesEvent): void {
           ' · next hit +1 base',
         'info',
       );
+    case 'stealRamp':
+      return e.result === 'letter'
+        ? e.letters < 3
+          ? showCallout('STEAL RAMP', `R-U-N: ${e.letter} lit · ${e.letters} of 3`, 'info', 1100)
+          : undefined // the stealLit callout follows
+        : showCallout('STEAL RAMP', 'Nobody on base to steal · STEAL stays lit', 'info', 1300);
     case 'stealLit':
       return showCallout('STEAL LIT', 'Shoot the right ramp', 'info');
     case 'kickbackLit':

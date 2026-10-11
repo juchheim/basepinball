@@ -431,10 +431,25 @@ export class GameRules {
     }
   }
 
+  /**
+   * The right ramp. With STEAL lit and a runner on, the lead runner steals a base. Otherwise the
+   * shot still counts: unlit, it spots the next R-U-N letter (three light STEAL); lit with the
+   * bases empty, STEAL stays lit for later.
+   */
   private stealShot(): void {
-    if (!this.stealLit || !LIVE.includes(this.state)) return;
+    if (!LIVE.includes(this.state)) return;
+    if (!this.stealLit) {
+      const next = ['R', 'U', 'N'].find((l) => !this.run.has(`standup.${l}`))!;
+      const letters = this.run.size + 1;
+      this.emit({ type: 'stealRamp', result: 'letter', letter: next, letters });
+      this.standup(`standup.${next}`);
+      return;
+    }
     const result = steal(this.bases);
-    if (!result) return;
+    if (!result) {
+      this.emit({ type: 'stealRamp', result: 'noRunner' });
+      return;
+    }
     this.bases = result.bases;
     this.stealLit = false;
     this.stats.steals++;

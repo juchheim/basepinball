@@ -36,6 +36,9 @@ export type RulesEvent =
   | { type: 'steal'; from: number; runs: number }
   | { type: 'hotBat'; source: 'BAT' | 'skillShot' | 'rallyCap' }
   | { type: 'stealLit' }
+  /** A right-ramp shot that did not steal: it spotted an R-U-N letter, or nobody was on base. */
+  | { type: 'stealRamp'; result: 'letter'; letter: string; letters: number }
+  | { type: 'stealRamp'; result: 'noRunner' }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
   | { type: 'rally'; count: number }

@@ -12,6 +12,18 @@ import type { Flipper } from '../physics/flipper';
 
 const MM = 0.001;
 
+function rampMaterial(color: number): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.15,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.5,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+}
+
 const mats = {
   // The printed playfield under a clear coat (art texture applied once it loads).
   floor: new THREE.MeshPhysicalMaterial({
@@ -31,15 +43,9 @@ const mats = {
     transparent: true,
     opacity: 0.85,
   }),
-  ramp: new THREE.MeshStandardMaterial({
-    color: 0xcfe3ff,
-    roughness: 0.15,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.45,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  }),
+  // Tinted clear plastics tell the two ramps apart: red "Over the Wall" (home run), teal Steal.
+  rampHR: rampMaterial(0xffb3a8),
+  rampSteal: rampMaterial(0x9ff0e6),
   wire: new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.15, metalness: 1 }),
   flipper: new THREE.MeshStandardMaterial({ color: 0xf4efe1, roughness: 0.35 }),
   flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc8282a, roughness: 0.6 }),
@@ -284,7 +290,7 @@ export class TableView {
       const merged = mergeGeometries(geometries, false);
       if (!merged) continue;
       const mesh = new THREE.Mesh(merged, material);
-      mesh.castShadow = material !== mats.ramp;
+      mesh.castShadow = material !== mats.rampHR && material !== mats.rampSteal;
       mesh.receiveShadow = true;
       this.group.add(mesh);
     }
@@ -448,7 +454,7 @@ export class TableView {
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         g.computeVertexNormals();
-        this.addStatic(g, mats.ramp);
+        this.addStatic(g, el.id === 'ramp.STEAL' ? mats.rampSteal : mats.rampHR);
         break;
       }
       case 'wireform': {

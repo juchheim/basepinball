@@ -335,9 +335,21 @@ describe('feature goals', () => {
     expect(h.g.stealLit).toBe(true);
     h.ev('sensor', 'gate.STEAL');
     expect(h.g.stealLit).toBe(true); // nobody on base: stays lit
+    expect(h.g.events.some((e) => e.type === 'stealRamp' && e.result === 'noRunner')).toBe(true);
     h.ev('pop', 'pop.1B.L').ev('sensor', 'gate.STEAL');
     expect(h.g.bases).toEqual([false, true, false]);
     expect(h.g.stealLit).toBe(false);
+  });
+
+  it('an unlit Steal ramp shot spots the next R-U-N letter; three light STEAL', () => {
+    const h = inInPlay().ev('standup', 'standup.U');
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.lamps()['lamp.standup.R']).toBe('on');
+    expect(h.g.stealLit).toBe(false);
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.stealLit).toBe(true);
+    expect(h.g.bases).toEqual([false, false, false]);
+    expect(h.g.outs).toBe(0);
   });
 
   it('stealing home scores a run', () => {

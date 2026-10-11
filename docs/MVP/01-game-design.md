@@ -200,7 +200,7 @@ Resolution details:
 | Goal | How | Reward |
 |------|-----|--------|
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
-| **STEAL** | Hit all three **R-U-N** standups | The next **right ramp** shot advances the lead runner who can advance by one base (stealing home scores a run). Used up when the steal happens. |
+| **STEAL** | Hit all three **R-U-N** standups | The next **right ramp** shot advances the lead runner who can advance by one base (stealing home scores a run). Used up when the steal happens. With the bases empty it stays lit. **Unlit**, a right-ramp shot spots the next R-U-N letter, so two ramp shots plus a standup also light STEAL. Every right-ramp shot gets a callout. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-U-N letters lit) carries over between PAs and

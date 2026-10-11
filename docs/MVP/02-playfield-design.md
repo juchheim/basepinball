@@ -79,7 +79,7 @@ regular pinball.
 | 1 | **Left orbit** (spinner) | Right | **TRIPLE.** The ball strikes the top-left corner kicker, loops the arch, and drops through the R-B-I lanes into the Gap. | 3B side saucer on the approach (catches weak shots), LF on the inside |
 | 2 | **Left ramp: "Over the Wall"** | Right | **HOME RUN** at the crest gate. The wireform returns the ball to the **left inlane**, setting up a rally. | LF and SS flank the entrance. A missed ramp rolls back toward them. |
 | 3 | **The Gap** (center pop nest) | Either | **SINGLE** (front pops) or **DOUBLE** (back pops). A slow, straight-up-the-middle ball can drop into the **CF** saucer in the throat. | SS and 2B flank the mouth. CF is inside. |
-| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** When STEAL is lit, the lead runner advances one base (stealing home scores). The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
+| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** When STEAL is lit, the lead runner advances one base (stealing home scores). Unlit, it spots the next R-U-N letter. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
 | 7 | **R-U-N standups** (right wall) | Left | Feature: completing the bank lights **STEAL** on the right ramp | — |
