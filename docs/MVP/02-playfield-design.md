@@ -114,7 +114,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `magnet.curve` | Curveball magnet | (275, 270), under the playfield | |
 | `art.diamond` | Diamond with basepath windows | home (275,230) · 1B (400,355) · 2B (275,480) · 3B (150,355) | Flat and visual only. Runners move under the glass. |
 | `drops.BAT` | 3-bank drop targets | left wall, y = 440 / 475 / 510 | Stay down while Hot Bat is lit and reset when it is used. A partly completed bank resets at the inning change. |
-| `standups.WALK` | 4 standup targets, 26 mm each, end to end on a diagonal facing the left flipper (104 mm long) with a backstop | from (482, 445) up and left to about (413, 523) | Spelling WALK walks the batter. Its lamps sit behind it. |
+| `standups.WALK` | 4 standup targets, 26 mm each, end to end on a diagonal facing the left flipper (104 mm long) with a backstop | from (482, 445) up and left to about (413, 523). **W is the left-most plate and K the right-most**, so it reads W-A-L-K left to right as the player sees it. | Spelling WALK walks the batter. Its lamps sit behind it. |
 | `saucer.3B` | Fielder saucer, half recessed into the left wall | (40, 600) | Sits in the left orbit approach. A strong orbit shot skims it. |
 | `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B |
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |

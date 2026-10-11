@@ -61,6 +61,9 @@ describe('v1 table: W-A-L-K bank', () => {
       const len = Math.hypot(e.b[0] - e.a[0], e.b[1] - e.a[1]);
       expect(len).toBeCloseTo(26, 0);
     }
+    // WALK reads left to right as the player sees the board: W is the left-most plate.
+    const midX = (e: (typeof standups)[number]): number => (e.a[0] + e.b[0]) / 2;
+    expect(standups.map(midX)).toEqual([...standups.map(midX)].sort((l, r) => l - r));
     const lamps = v1Table.elements.flatMap((e) =>
       e.type === 'lamp' && e.id.startsWith('lamp.standup.') ? [e] : [],
     );
