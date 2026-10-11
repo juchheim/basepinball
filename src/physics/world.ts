@@ -35,6 +35,19 @@ export type PhysicsEventType =
   | 'plunger'
   | 'tiltBob';
 
+/**
+ * A ball impact, for presentation only (sound): kept apart from switch events and never read by
+ * the rules, so it cannot affect the game.
+ */
+export interface Impact {
+  /** Approach speed along the contact normal (m/s). */
+  speed: number;
+  material: MaterialName;
+  x: number;
+  y: number;
+  z: number;
+}
+
 export interface PhysicsEvent {
   type: PhysicsEventType;
   id: string;
@@ -165,6 +178,8 @@ export class World {
   readonly drops = new Map<string, DropTarget>();
   plunger: Plunger | null = null;
   readonly events: PhysicsEvent[] = [];
+  /** Ball impacts since the presentation last cleared them (capped; see {@link Impact}). */
+  readonly impacts: Impact[] = [];
   /** Tilt bob displacement (m) and velocity; nudges swing it. */
   readonly bob = { x: 0, y: 0, vx: 0, vy: 0 };
 
@@ -310,6 +325,7 @@ export class World {
   reset(): void {
     this.balls.length = 0;
     this.events.length = 0;
+    this.impacts.length = 0;
     this.resetDropTargets();
     this.releaseSaucers();
     for (const k of this.kickbacks) k.armed = true;
@@ -775,6 +791,10 @@ export class World {
     let vcz = b.vz + (b.wx * ay - b.wy * ax) - uz;
     const vn = vcx * nx + vcy * ny + vcz * nz;
     if (vn >= 0) return;
+    if (nz > 0.5) b.surface = matName;
+    if (-vn > 0.12 && this.impacts.length < 64) {
+      this.impacts.push({ speed: -vn, material: matName, x: b.px, y: b.py, z: b.pz });
+    }
 
     const armN = rx * ny - ry * nx;
     // A flipper resting on a stop is rigid in the direction of that stop: a ball landing on a

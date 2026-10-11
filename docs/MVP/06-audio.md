@@ -47,6 +47,13 @@ The organ music must be **original**. No recognisable ballpark tunes, which may 
   sounds are also synthesised.
 - **Budget:** ≤ 6 MB of compressed audio for the MVP. Crowd beds stream after first play if needed.
 
+## 3.1 As built (M4)
+
+**Every sound is synthesised at run time**: the mechanical set, the crowd, the organ and the UI
+(`src/audio/`). The game ships no audio files, so there is nothing to license, the download is
+0 KB, and every sound is tunable in code. Recorded CC0 samples can replace individual recipes later
+without changing the director (see § 4).
+
 ## 4. Sourcing and licensing
 
 - **Preferred sources:** CC0 libraries (Freesound with the CC0 filter, Kenney), royalty-free

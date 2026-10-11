@@ -67,8 +67,8 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M3: Art pass + final name
 
-> **Status:** first art pass built; the name decision and visual sign-off are pending. See the
-> [M3 report](m3-report.md).
+> **Status:** first art pass built and the name decided (Rally Ball); visual sign-off is pending.
+> See the [M3 report](m3-report.md).
 
 - **Final game name and identity are chosen during this milestone.** Name candidates are explored
   alongside the playfield and backboard art, and the name, logo and team identity are locked by
@@ -79,6 +79,8 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
   device matrix.
 
 ### M4: Animation, FX & audio
+
+> **Status:** built; listening and feel review pending. See the [M4 report](m4-report.md).
 
 - Everything in the P0 animation catalog, the lamp show system, particles, the audio engine, the
   full SFX set, crowd and organ.

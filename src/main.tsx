@@ -2,9 +2,17 @@ import { render } from 'preact';
 import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
 import { FixedLoop } from './app/loop';
+import { Crowd } from './audio/crowd';
+import { AudioEngine } from './audio/engine';
+import { playStinger } from './audio/organ';
+import { RollSound } from './audio/sfx';
+import { SOUNDS } from './audio/sounds';
+import { Director } from './fx/director';
+import { LampShows } from './fx/lampShows';
+import { createOutput } from './fx/output';
 import { createPanel, loadParams } from './debug/panel';
 import { bindInput, type InputEvent } from './input/input';
-import { World, type PhysicsEvent } from './physics/world';
+import { World } from './physics/world';
 import { GameRules } from './rules/game';
 import type { RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
@@ -20,6 +28,7 @@ import { v1Table } from './table/v1Table';
 import { App } from './ui/App';
 import {
   calloutFor,
+  showCallout,
   pitchCueFor,
   finalStats,
   highScores,
@@ -30,7 +39,8 @@ import {
 } from './ui/store';
 
 /**
- * BasePinball (M2): the v1 whitebox table with the baseball rules, HUD and game flow.
+ * Rally Ball: the v1 table with the baseball rules, HUD, game flow, and (M4) the presentation:
+ * sound, lamp shows, figure animation, particles and stadium reactions.
  * `?debug` adds the physics tuning panel, perf overlay and debug keys (B serve, K pitch,
  * C colliders, [ ] slow motion). `?table=m0` loads the M0 physics test table in free play.
  */
@@ -76,6 +86,40 @@ async function main(): Promise<void> {
   stage.scene.add(view.group, stadium.group);
   tilt();
 
+  // ---- presentation (M4): audio, lamp shows, director
+  const audio = new AudioEngine();
+  const crowd = new Crowd(audio);
+  let roll: RollSound | null = null;
+  audio.onStart((a) => {
+    crowd.start();
+    roll = new RollSound(a, a.bus('mech')!);
+  });
+  // The first gesture anywhere starts the audio (iOS and Chrome autoplay rules).
+  const unlock = (): void => audio.unlock();
+  window.addEventListener('pointerdown', unlock);
+  window.addEventListener('keydown', unlock);
+  const reducedMotion =
+    typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const shows = new LampShows(table);
+  shows.reduced = reducedMotion;
+  // Light level: the towers and key lights dim for attract mode and warm up at game start.
+  const keyBase = stage.keyLights.map((l) => l.intensity);
+  let lightLevel = 0.55;
+  let lightTarget = 0.55;
+  const setLights = (on: boolean): void => {
+    lightTarget = on ? 1 : 0.55;
+    stadium.setTowers(on);
+  };
+  const director = new Director(
+    table,
+    createOutput({ audio, crowd, view, shows, stadium, stage, setLights }),
+  );
+  director.reduced = reducedMotion;
+  const ui = (name: 'uiTick' | 'uiConfirm'): void => {
+    const s = SOUNDS[name];
+    audio.play(name, s.bus, s.recipe, { poly: s.poly });
+  };
+
   // ---- quality tier, textures, standees, reflections
   let textureWidth = 0;
   const applyQuality = (q: Quality): void => {
@@ -116,19 +160,11 @@ async function main(): Promise<void> {
   world.reset();
   idleBall();
 
-  // ---- presentation of physics and rules events
-  const flashFor = (e: PhysicsEvent): void => {
-    if (e.type === 'pop' || e.type === 'sling' || e.type === 'kicker' || e.type === 'standup')
-      view.flash(e.id);
-    if (e.type === 'pop') view.flash('arrow.gap');
-    if (e.type === 'sensor' && e.id === 'gate.HR') view.flash('arrow.ramp.HR');
-    if (e.type === 'sensor' && e.id === 'gate.STEAL') view.flash('arrow.ramp.STEAL');
-    if (e.type === 'kicker') view.flash(e.id.endsWith('.L') ? 'arrow.orbit.L' : 'arrow.orbit.R');
-  };
+  // ---- presentation of rules events
   const presentRules = (e: RulesEvent): void => {
     calloutFor(e);
     pitchCueFor(e);
-    if (e.type === 'runs') view.flash('base.home');
+    director.rules(e, rules?.snapshot() ?? null);
     if (e.type === 'gameOver') {
       after(2.2, () => {
         finalStats.value = { ...rules!.stats };
@@ -141,12 +177,15 @@ async function main(): Promise<void> {
   const loop = new FixedLoop(
     () => world,
     () => {
+      const ball = world.balls[0];
       for (const e of world.events) {
-        flashFor(e);
+        director.physics(e, ball && ball.active ? { x: ball.px, y: ball.py } : null);
         rules?.onSwitch(e);
         if (freePlay && e.type === 'drain') after(1, idleBall);
       }
       world.events.length = 0;
+      for (const i of world.impacts) director.impact(i);
+      world.impacts.length = 0;
       if (rules) {
         rules.update(world.time);
         for (const e of rules.events) presentRules(e);
@@ -158,11 +197,25 @@ async function main(): Promise<void> {
     },
   );
 
+  // ---- attract mode: lamps chase, the park lights are low
+  const attract = (): void => {
+    shows.stopAll();
+    shows.start('attract');
+    setLights(false);
+    view.figures.clearBases();
+  };
+  if (!freePlay) attract();
+  else setLights(true);
+
   // ---- game flow
   const start = (): void => {
+    ui('uiConfirm');
     world.reset();
     timers.length = 0;
     rules = new GameRules(machine, { seed: (Date.now() & 0x7fffffff) >>> 0 });
+    audio.unlock();
+    shows.stop('attract');
+    view.figures.sync([false, false, false]);
     rules.start(world.time);
     lastRank.value = -1;
     screen.value = 'playing';
@@ -171,6 +224,7 @@ async function main(): Promise<void> {
   };
   const toTitle = (): void => {
     rules = null;
+    attract();
     world.reset();
     idleBall();
     highScores.value = loadHighScores();
@@ -183,6 +237,7 @@ async function main(): Promise<void> {
       if (!freePlay) start();
     },
     resume: () => {
+      audio.setPaused(false);
       screen.value = 'playing';
       loop.paused = false;
       loop.resync();
@@ -194,10 +249,12 @@ async function main(): Promise<void> {
         const { scores, rank } = addHighScore(initials, stats);
         highScores.value = scores;
         lastRank.value = rank;
+        playStinger(audio, 'highScore');
       } else {
         highScores.value = loadHighScores();
       }
       rules = null;
+      attract();
       world.reset();
       idleBall();
       screen.value = 'scores';
@@ -220,6 +277,8 @@ async function main(): Promise<void> {
       case 'flipperR': {
         if (!playing()) return;
         const side = e.action === 'flipperL' ? 'L' : 'R';
+        // Heard at once, from the button (the coil fires with the press).
+        if (world.flippersEnabled) director.flipper(side, e.pressed);
         at((w) => {
           w.setFlipper(`flipper.${side}`, e.pressed);
           rules?.onButton(side, e.pressed);
@@ -235,6 +294,7 @@ async function main(): Promise<void> {
       case 'nudgeR':
       case 'nudgeUp':
         if (s !== 'playing' || !e.pressed) return;
+        director.nudge();
         at((w) =>
           w.nudge(
             e.action === 'nudgeL' ? -1 : e.action === 'nudgeR' ? 1 : 0,
@@ -247,7 +307,12 @@ async function main(): Promise<void> {
         if (s === 'playing' && rules) {
           screen.value = 'paused';
           loop.paused = true;
+          audio.setPaused(true);
         } else if (s === 'paused') actions.resume();
+        return;
+      case 'mute':
+        if (e.pressed)
+          showCallout(audio.toggleMute() ? 'SOUND OFF' : 'SOUND ON', undefined, 'info', 900);
         return;
     }
     if (!debug || !e.pressed) return;
@@ -267,6 +332,9 @@ async function main(): Promise<void> {
       screen.value = 'paused';
       loop.paused = true;
     } else if (!document.hidden) loop.resync();
+    // Hidden: fade out and suspend; the pause menu keeps it silent until resumed.
+    if (document.hidden) audio.setPaused(true);
+    else if (screen.value !== 'paused') audio.setPaused(false);
   });
 
   // ---- debug tools
@@ -338,6 +406,9 @@ async function main(): Promise<void> {
       loop,
       params,
       quality,
+      director,
+      shows,
+      audio,
       getRules: () => rules,
     };
   }
@@ -352,9 +423,22 @@ async function main(): Promise<void> {
     loop.frame(now);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    if (rules) {
-      for (const [id, mode] of Object.entries(rules.lamps())) view.setLamp(id, mode);
-    }
+    // Lamps: the rules' states, with any running lamp show layered on top.
+    shows.update(dt);
+    const base = rules ? rules.lamps() : {};
+    const over = shows.overrides();
+    for (const id of shows.lampIds) view.setLamp(id, over.get(id) ?? base[id] ?? 'off');
+    // Presentation per frame: crowd tension, near misses, the rolling ball, the lights.
+    const b = world.balls[0];
+    const live = !!b && b.active && !loop.paused;
+    const snap0 = rules ? rules.snapshot() : null;
+    if (snap0) view.figures.sync(snap0.bases);
+    director.frame(dt, live ? { x: b.px, y: b.py, speed: b.speed() } : null, snap0);
+    if (b) roll?.update(b.speed(), b.surface, b.px / 0.55, b.py / 1.17, live);
+    else roll?.update(0, 'playfield', 0.5, 0, false);
+    lightLevel += (lightTarget - lightLevel) * Math.min(1, dt * 1.5);
+    stage.keyLights.forEach((l, i) => (l.intensity = keyBase[i]! * lightLevel));
+    stadium.tick(dt);
     // The HUD and scoreboard only need ~10 updates a second.
     if (now - lastHud > 100) {
       lastHud = now;

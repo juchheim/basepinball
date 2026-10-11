@@ -15,6 +15,7 @@ export type Action =
   | 'resetTargets'
   | 'toggleColliders'
   | 'pause'
+  | 'mute'
   | 'slower'
   | 'faster';
 
@@ -42,6 +43,7 @@ const KEYS: Record<string, Action> = {
   KeyC: 'toggleColliders',
   KeyP: 'pause',
   Escape: 'pause',
+  KeyM: 'mute',
   BracketLeft: 'slower',
   BracketRight: 'faster',
 };

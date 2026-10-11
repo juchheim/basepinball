@@ -160,7 +160,7 @@ function Title({ actions }: { actions: UiActions }) {
       <p class="cta">Press Enter or tap to play</p>
       {scores.length > 0 && <ScoreTable scores={scores.slice(0, 5)} highlight={-1} />}
       <p class="controls">
-        Flippers: Shift or ← → · Plunger: hold ↓ or Enter · Nudge: Z / Space
+        Flippers: Shift or ← → · Plunger: hold ↓ or Enter · Nudge: Z / Space · Sound: M
         <br />
         Touch: left / right half flips · hold the lower-right corner to plunge
       </p>

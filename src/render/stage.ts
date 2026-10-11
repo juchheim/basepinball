@@ -24,6 +24,9 @@ export class Stage {
   private fitTarget: THREE.Object3D | null = null;
   private fitExtra: THREE.Vector3[] = [];
   private dprCap = 2;
+  private shakeAmp = 0;
+  private shakeUntil = 0;
+  private shakeLength = 1;
 
   constructor(container: HTMLElement, forceWebGL: boolean) {
     this.renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL });
@@ -172,7 +175,25 @@ export class Stage {
     fits(hi);
   }
 
+  /** A small camera shake (nudges); off under reduced motion. */
+  shake(amount: number, seconds = 0.18): void {
+    this.shakeAmp = Math.max(this.shakeAmp, amount);
+    this.shakeUntil = performance.now() + seconds * 1000;
+    this.shakeLength = seconds * 1000;
+  }
+
   render(): void {
+    const left = this.shakeUntil - performance.now();
+    if (left > 0) {
+      const k = (left / this.shakeLength) * this.shakeAmp;
+      const saved = this.camera.position.clone();
+      this.camera.position.x += (Math.random() * 2 - 1) * k;
+      this.camera.position.y += (Math.random() * 2 - 1) * k * 0.6;
+      this.pipeline.render();
+      this.camera.position.copy(saved);
+      return;
+    }
+    this.shakeAmp = 0;
     this.pipeline.render();
   }
 }

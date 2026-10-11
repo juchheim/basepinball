@@ -3,6 +3,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { ElementDef, TableDef, Vec2, Vec3 } from '../table/schema';
 import { rampEdges, saucerLipPost, wireformRails, type World } from '../physics/world';
 import type { Flipper } from '../physics/flipper';
+import { Spring } from '../fx/anim';
+import { Particles } from '../fx/particles';
+import { Figures } from './figures';
 
 /**
  * Whitebox meshes built from the table definition (M1: grey materials, coloured lamp discs,
@@ -87,7 +90,15 @@ export class TableView {
   readonly group = new THREE.Group();
   readonly floor: THREE.Mesh;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
-  private readonly dropMeshes = new Map<string, THREE.Object3D>();
+  private readonly dropMeshes = new Map<string, { holder: THREE.Object3D; spring: Spring }>();
+  /** Coil-driven parts (pop rings, sling rubbers, kickers, standups) on springs. */
+  private readonly devices = new Map<
+    string,
+    { spring: Spring; kick: number; apply: (x: number) => void }
+  >();
+  /** Effects in playfield coordinates: dirt puffs, sparks, the home-plate burst. */
+  readonly particles = new Particles(300);
+  readonly figures: Figures;
   private readonly spinnerMeshes = new Map<string, THREE.Object3D>();
   private plungerRod: THREE.Object3D | null = null;
   private readonly lights = new Map<string, Light[]>();
@@ -118,6 +129,8 @@ export class TableView {
     for (const el of table.elements) this.addElement(el);
     for (const f of world.flippers) this.addFlipper(f);
     this.flushStatic();
+    this.figures = new Figures(table, this.standeeSpots, this.particles);
+    this.group.add(this.particles.group, this.figures.group);
 
     this.colliderLines = this.buildColliderLines();
     this.colliderLines.visible = false;
@@ -141,42 +154,19 @@ export class TableView {
     old?.dispose();
   }
 
-  /**
-   * Printed-acrylic player standees (docs/MVP/05 § 5.3): an alpha-cut figure from the standee atlas
-   * on a thin clear plate, standing behind each fielder's glove and on the mound.
-   */
+  /** Printed-acrylic figures (docs/MVP/05 § 5.3), once the standee atlas has loaded. */
   addStandees(
     atlas: THREE.Texture,
     cells: readonly string[],
     grid: { cols: number; rows: number },
   ): void {
-    const mat = new THREE.MeshStandardMaterial({
-      map: atlas,
-      alphaTest: 0.5,
-      side: THREE.DoubleSide,
-      roughness: 0.35,
-      // A little self-light, as GI under the playfield plastics would give.
-      emissiveMap: atlas,
-      emissive: new THREE.Color(0xffffff),
-      emissiveIntensity: 0.25,
-    });
-    for (const spot of this.standeeSpots) {
-      const index = cells.indexOf(spot.cell);
-      if (index < 0) continue;
-      const col = index % grid.cols;
-      const row = Math.floor(index / grid.cols);
-      const h = 0.062;
-      const g = new THREE.PlaneGeometry(h / 2, h);
-      const uv = g.getAttribute('uv') as THREE.BufferAttribute;
-      for (let i = 0; i < uv.count; i++) {
-        uv.setXY(i, (col + uv.getX(i)) / grid.cols, 1 - (row + 1 - uv.getY(i)) / grid.rows);
-      }
-      g.rotateX(Math.PI / 2);
-      const m = new THREE.Mesh(g, mat);
-      m.position.set(spot.x * MM, spot.y * MM, h / 2 + 0.001);
-      m.castShadow = true;
-      this.group.add(m);
-    }
+    this.figures.build(atlas, cells, grid);
+  }
+
+  /** Fire a coil-driven part: a pop ring pulls down, a sling rubber snaps, a target flexes. */
+  fire(id: string): void {
+    const d = this.devices.get(id);
+    if (d) d.spring.kick(d.kick);
   }
 
   /**
@@ -227,10 +217,19 @@ export class TableView {
     for (const [f, mesh] of this.flipperMeshes) {
       mesh.rotation.z = f.prevTheta + (f.theta - f.prevTheta) * alpha;
     }
-    for (const [id, mesh] of this.dropMeshes) {
-      const target = this.world.isDropDown(id) ? -0.028 : 0;
-      mesh.position.z += (target - mesh.position.z) * Math.min(1, dtSeconds * 40);
+    for (const [id, d] of this.dropMeshes) {
+      // Snap down with a small bounce; reset pops up past level and settles.
+      d.spring.target = this.world.isDropDown(id) ? -0.028 : 0;
+      d.spring.update(dtSeconds);
+      d.holder.position.z = Math.min(0.004, d.spring.x);
     }
+    for (const d of this.devices.values()) {
+      if (d.spring.settled && d.spring.x === 0) continue;
+      d.spring.update(dtSeconds);
+      d.apply(d.spring.x);
+    }
+    this.figures.update(dtSeconds);
+    this.particles.update(dtSeconds);
     for (const [id, mesh] of this.spinnerMeshes) {
       const s = this.world.spinners.get(id);
       if (s) mesh.rotation.x = s.angle;
@@ -295,6 +294,20 @@ export class TableView {
       this.group.add(mesh);
     }
     this.pending.clear();
+  }
+
+  private addDevice(id: string, kick: number, apply: (x: number) => void): void {
+    const prev = this.devices.get(id);
+    if (prev) {
+      // Several parts share an id (a kicker built from segments): move them together.
+      const both = prev.apply;
+      prev.apply = (x) => {
+        both(x);
+        apply(x);
+      };
+      return;
+    }
+    this.devices.set(id, { spring: new Spring(14, 0.3), kick, apply });
   }
 
   private addLight(id: string, light: Light): void {
@@ -370,6 +383,23 @@ export class TableView {
         const m = new THREE.Mesh(this.boxGeometry(el.top, el.bottom, 6, 22), rubber);
         m.castShadow = true;
         this.group.add(m);
+        // The rubber snaps out, away from the sling's corner, and settles.
+        {
+          const ex = el.bottom[0] - el.top[0];
+          const ey = el.bottom[1] - el.top[1];
+          let nx = -ey;
+          let ny = ex;
+          const mx = (el.top[0] + el.bottom[0]) / 2 - el.corner[0];
+          const my = (el.top[1] + el.bottom[1]) / 2 - el.corner[1];
+          if (nx * mx + ny * my < 0) {
+            nx = -nx;
+            ny = -ny;
+          }
+          const len = Math.hypot(nx, ny);
+          this.addDevice(el.id, 90, (x) =>
+            m.position.set((nx / len) * x * 0.005, (ny / len) * x * 0.005, 0),
+          );
+        }
         this.addStatic(this.cylinderGeometry(el.top[0], el.top[1], 5, 25), mats.rubber);
         this.addStatic(this.cylinderGeometry(el.bottom[0], el.bottom[1], 5, 25), mats.rubber);
         break;
@@ -383,6 +413,8 @@ export class TableView {
         const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
         m.castShadow = true;
         this.group.add(m);
+        // The ring pulls down hard and springs back.
+        this.addDevice(el.id, 90, (x) => (m.position.z = -Math.max(0, x) * 0.006));
         break;
       }
       case 'drop':
@@ -394,13 +426,15 @@ export class TableView {
         const dy = (el.b[1] - el.a[1]) * MM;
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.03), mat);
         mesh.position.z = 0.015;
-        mesh.rotation.z = Math.atan2(dy, dx);
         mesh.castShadow = true;
         const holder = new THREE.Group();
         holder.position.set(((el.a[0] + el.b[0]) / 2) * MM, ((el.a[1] + el.b[1]) / 2) * MM, 0);
+        holder.rotation.z = Math.atan2(dy, dx);
         holder.add(mesh);
         this.group.add(holder);
-        if (el.type === 'drop') this.dropMeshes.set(el.id, holder);
+        if (el.type === 'drop') this.dropMeshes.set(el.id, { holder, spring: new Spring(9, 0.45) });
+        // Standups flex back on their spring and wobble upright.
+        else this.addDevice(el.id, 60, (x) => (mesh.rotation.x = x * 0.3));
         break;
       }
       case 'kicker': {
@@ -408,6 +442,21 @@ export class TableView {
         this.addLight(el.id, { material: mat, base: 0.15, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.boxGeometry(el.a, el.b, 6, 25), mat);
         this.group.add(m);
+        {
+          // The rubber face flexes inward, toward the playfield.
+          let nx = -(el.b[1] - el.a[1]);
+          let ny = el.b[0] - el.a[0];
+          const cx = 275 - (el.a[0] + el.b[0]) / 2;
+          const cy = 600 - (el.a[1] + el.b[1]) / 2;
+          if (nx * cx + ny * cy < 0) {
+            nx = -nx;
+            ny = -ny;
+          }
+          const len = Math.hypot(nx, ny) || 1;
+          this.addDevice(el.id, 70, (x) =>
+            m.position.set((nx / len) * x * 0.003, (ny / len) * x * 0.003, 0),
+          );
+        }
         break;
       }
       case 'gate':
