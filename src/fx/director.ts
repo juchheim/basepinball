@@ -270,6 +270,8 @@ export class Director {
         o.sound('award');
         o.show('hit');
         o.flash('base.1B');
+        // The four plates flash as the word is spelled (their lamps go dark as it resets).
+        for (const l of ['W', 'A', 'L', 'K']) o.flash(`standup.${l}`);
         o.crowd('cheer', e.runs > 0 ? 0.6 : 0.35);
         o.scoreboard('WALK', e.runs > 0 ? 'RUN SCORES' : '', '#9b5de5', 1.6);
         return;

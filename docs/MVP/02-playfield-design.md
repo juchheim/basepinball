@@ -311,4 +311,10 @@ not aim; it had 0.5 walks a game with the wall-hugging bank). Runs per game are 
 them. If that is too many runs, the levers are the pitch speed, the steal-home award, the walk
 reward, or tightening the Gap. Fielder outs are 17 % of PAs.
 
+**Showing progress (playtest follow-up):** it was hard to tell which letters had been hit. A hit
+letter now glows three ways: the **plate** itself, a **lit pad** on the playfield in front of it
+(dark until hit, like an insert), and a **W-A-L-K tracker in the HUD** (lit boxes for hit letters).
+All three come from the rules' letter state, so they persist through innings and clear when the
+word is spelled (the four plates flash as the walk is awarded).
+
 **Not done (the next steps in the plan):** more bumpers and the bumper-driven meters.
