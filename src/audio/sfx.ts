@@ -442,13 +442,6 @@ export const award: Recipe = (a, out, t) => {
   return 0.5;
 };
 
-/** A ramp made without an award (an R-U-N letter spotted): a rising two-note chime. */
-export const rampMade: Recipe = (a, out, t) => {
-  tone(a, out, t, 'sine', 784, 784, 0.25, 0.12);
-  tone(a, out, t + 0.08, 'sine', 1175, 1175, 0.3, 0.12);
-  return 0.4;
-};
-
 /** A runner sliding into the bag. */
 export const slide: Recipe = (a, out, t) => {
   noise(a, out, t, {

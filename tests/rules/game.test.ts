@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
-import { advance, doubleSteal, steal } from '../../src/rules/bases';
+import { advance, steal, walk } from '../../src/rules/bases';
 import { GameRules } from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
 import type { Machine, RulesEvent } from '../../src/rules/types';
@@ -109,12 +109,31 @@ describe('base running', () => {
     expect(advance([false, true, false], 3)).toEqual({ bases: [false, false, true], runs: 1 });
   });
 
-  it('a double steal moves everyone up one base', () => {
-    expect(doubleSteal([false, false, false])).toBeNull();
-    expect(doubleSteal([true, false, false])?.bases).toEqual([false, true, false]);
-    expect(doubleSteal([true, true, false])?.bases).toEqual([false, true, true]);
-    expect(doubleSteal([true, true, true])).toMatchObject({
-      bases: [false, true, true],
+  it('a walk puts the batter on first and forces only the runners ahead of him', () => {
+    expect(walk([false, false, false])).toEqual({
+      bases: [true, false, false],
+      runs: 0,
+      moved: [],
+    });
+    // Nobody on first: a runner on second or third is not forced.
+    expect(walk([false, true, true])).toMatchObject({
+      bases: [true, true, true],
+      runs: 0,
+      moved: [],
+    });
+    expect(walk([true, false, false])).toMatchObject({ bases: [true, true, false], moved: [0] });
+    expect(walk([true, false, true])).toMatchObject({
+      bases: [true, true, true],
+      runs: 0,
+      moved: [0],
+    });
+    expect(walk([true, true, false])).toMatchObject({
+      bases: [true, true, true],
+      runs: 0,
+      moved: [0, 1],
+    });
+    expect(walk([true, true, true])).toMatchObject({
+      bases: [true, true, true],
       runs: 1,
       moved: [0, 1, 2],
     });
@@ -181,7 +200,7 @@ describe('event resolution table', () => {
   it('feature shots count in every live state and never end the PA', () => {
     for (const h of [inPitch(), inInPlay(), inLiveAfterHit(), inLeadoff()]) {
       const before = h.state;
-      h.ev('drop', 'drop.B').ev('standup', 'standup.R').ev('sensor', 'spinner.L');
+      h.ev('drop', 'drop.B').ev('standup', 'standup.W').ev('sensor', 'spinner.L');
       expect(h.state).toBe(before);
     }
   });
@@ -371,36 +390,75 @@ describe('feature goals', () => {
     expect(h.g.bases).toEqual([false, false, false]);
   });
 
-  it('R-U-N lights a double steal: the next steal moves every runner, then it is used up', () => {
-    const h = inInPlay().ev('pop', 'pop.1B.L').ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
-    expect(h.g.bases).toEqual([true, true, false]);
-    h.ev('standup', 'standup.R').ev('standup', 'standup.U').ev('standup', 'standup.N');
-    expect(h.g.doubleStealLit).toBe(true);
-    expect(h.g.lamps()['lamp.steal']).toBe('blink');
-    h.ev('sensor', 'gate.STEAL');
-    expect(h.g.bases).toEqual([false, true, true]);
-    expect(h.g.doubleStealLit).toBe(false);
-    expect(h.g.stats.steals).toBe(1);
-    // The next steal is an ordinary one: the lead runner only.
-    h.ev('sensor', 'gate.STEAL');
-    expect(h.g.bases).toEqual([false, true, false]);
-    expect(h.g.stats.runs).toBe(1);
-  });
-
   it('an ordinary steal moves only the lead runner', () => {
     const h = inInPlay().ev('pop', 'pop.1B.L').ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    expect(h.g.bases).toEqual([true, true, false]);
     h.ev('sensor', 'gate.STEAL');
     expect(h.g.bases).toEqual([true, false, true]);
   });
 
-  it('a lit double steal waits for a runner (the bases are empty), and carries over', () => {
-    const h = inInPlay()
-      .ev('standup', 'standup.R')
-      .ev('standup', 'standup.U')
-      .ev('standup', 'standup.N')
-      .ev('sensor', 'gate.STEAL');
-    expect(h.g.doubleStealLit).toBe(true);
-    expect(h.g.stats.steals).toBe(0);
+  const spell = (h: ReturnType<typeof inInPlay>, letters = ['W', 'A', 'L', 'K']) => {
+    for (const l of letters) h.ev('standup', `standup.${l}`);
+    return h;
+  };
+
+  it('spelling W-A-L-K walks the batter: first base, not a hit', () => {
+    const h = spell(inInPlay());
+    expect(h.g.bases).toEqual([true, false, false]);
+    expect(h.g.stats.walks).toBe(1);
+    expect(h.g.stats.hits).toBe(0);
+    expect(h.g.outs).toBe(0);
+    expect(h.last('walk')).toMatchObject({ runs: 0, moved: [] });
+  });
+
+  it('a walk forces runners and, with the bases loaded, forces in a run', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L');
+    expect(h.g.bases).toEqual([true, false, false]);
+    spell(h);
+    expect(h.g.bases).toEqual([true, true, false]);
+    // Load them up, then walk in a run.
+    h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    expect(h.g.bases).toEqual([true, true, true]);
+    spell(h);
+    expect(h.g.stats.runs).toBe(1);
+    expect(h.g.bases).toEqual([true, true, true]);
+    expect(h.g.stats.walks).toBe(2);
+  });
+
+  it('a walk is a feature award: it does not end or restart the plate appearance', () => {
+    for (const h of [inPitch(), inInPlay(), inLiveAfterHit()]) {
+      const before = h.state;
+      spell(h);
+      expect(h.state).toBe(before);
+    }
+  });
+
+  it('three letters are not enough, and the lamps show the letters hit', () => {
+    const h = spell(inInPlay(), ['W', 'A', 'L']);
+    expect(h.g.stats.walks).toBe(0);
+    expect(h.g.lamps()['lamp.standup.W']).toBe('on');
+    expect(h.g.lamps()['lamp.standup.K']).toBe('off');
+    h.ev('standup', 'standup.K');
+    expect(h.g.stats.walks).toBe(1);
+    // The word resets once walked.
+    expect(h.g.lamps()['lamp.standup.W']).toBe('off');
+  });
+
+  it('repeats of the same letter do not count twice', () => {
+    const h = spell(inInPlay(), ['W', 'W', 'A', 'A', 'L', 'L']);
+    expect(h.g.stats.walks).toBe(0);
+  });
+
+  it('letters persist through innings until the word is spelled', () => {
+    const h = spell(inInPlay(), ['W', 'A', 'L']);
+    h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
+    expect(h.g.inning).toBe(2);
+    for (const l of ['W', 'A', 'L']) expect(h.g.lamps()[`lamp.standup.${l}`]).toBe('on');
+    expect(h.g.lamps()['lamp.standup.K']).toBe('off');
+    // Finish the word in the next inning: the walk comes.
+    h.wait(6).ev('plunger');
+    h.ev('standup', 'standup.K');
+    expect(h.g.stats.walks).toBe(1);
   });
 
   it('skill shot: the lit lane on the leadoff launch lights HOT BAT; buttons move the lit lane', () => {

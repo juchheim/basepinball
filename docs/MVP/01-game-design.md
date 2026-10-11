@@ -35,6 +35,7 @@ the crowd roars. Nine innings, three outs each. Score as many runs as you can.
 | Triple | Corner kicker bumpers at the top of each orbit ("down the line, into the corner") |
 | Home run | Left ramp, "Over the Wall", crossing the HR gate |
 | Stolen base | Right ramp ("Steal" ramp), with a runner on base |
+| Walk | Spell **W-A-L-K** on the four right-wall standups |
 | Hot bat | B-A-T drop-target bank or the skill shot: next hit +1 base |
 | Base runners | Figures in lit basepath channels under the playfield glass |
 | Scoreboard | In-world outfield scoreboard, plus a HUD line score |
@@ -201,11 +202,12 @@ Resolution details:
 |------|-----|--------|
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
 | **STEAL** | A runner is on base. No lighting is needed: the right ramp's arrow blinks while a steal is available. | A **right ramp** shot moves the lead runner who can advance up one base (stealing home scores a run). With the bases empty the shot does nothing but a callout. |
-| **DOUBLE STEAL** | Hit all three **R-U-N** standups | The next right-ramp steal moves **every** runner up one base at once (a runner on third scores). Used up when it happens. With the bases empty it stays lit, including across innings. (A planned follow-up turns R-U-N into W-A-L-K and a walk.) |
+| **WALK** | Spell **W-A-L-K** on the four right-wall standups. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
-Partial progress (some drop targets down, some R-U-N letters lit) carries over between PAs and
-resets at the inning change. A **lit** award (HOT BAT, DOUBLE STEAL, kickback) stays lit until it is used,
+Partial progress (some drop targets down, some R-B-I lanes lit) carries over between PAs and
+resets at the inning change. The **W-A-L-K** letters are the exception: they stay lit across innings
+until the word is spelled. A **lit** award (HOT BAT, kickback) stays lit until it is used,
 including across innings.
 
 #### 4.8.1 HOT BAT in detail
@@ -273,7 +275,7 @@ A paused game shows a resume countdown (3-2-1) before physics restarts.
 
 - **Primary score:** runs.
 - **High score ranking:** runs, then hits, then home runs, then the earlier date.
-- **Stats per game:** line score by inning, R, H, 1B/2B/3B/HR, K, foul outs, LOB, longest rally,
+- **Stats per game:** line score by inning, R, H, 1B/2B/3B/HR, BB, K, foul outs, LOB, longest rally,
   skill shots made.
 - **Lifetime stats (local):** games played, best game, total HR, longest rally ever, batting average
   (hits / PA).

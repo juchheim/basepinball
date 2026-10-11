@@ -80,7 +80,7 @@ export const SHOWS = {
     duration: 1.2,
     tracks: [
       {
-        lamps: ['arrow.ramp.STEAL', 'lamp.steal'],
+        lamps: ['arrow.ramp.STEAL'],
         from: 0,
         to: 1.2,
         pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 },

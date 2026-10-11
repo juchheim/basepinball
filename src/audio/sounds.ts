@@ -30,7 +30,6 @@ export const SOUNDS = {
   tellCH: { bus: 'ui', poly: 1, recipe: sfx.tell(0) },
   tellCB: { bus: 'ui', poly: 1, recipe: sfx.tell(-5) },
   award: { bus: 'ui', poly: 1, recipe: sfx.award },
-  rampMade: { bus: 'ui', poly: 1, recipe: sfx.rampMade },
   slide: { bus: 'stadium', poly: 1, recipe: sfx.slide },
   fireworkLaunch: { bus: 'stadium', poly: 4, recipe: sfx.fireworkLaunch },
   fireworkBoom: { bus: 'stadium', poly: 4, recipe: sfx.fireworkBoom },

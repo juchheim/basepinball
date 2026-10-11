@@ -184,8 +184,8 @@ export function playfieldSvg(table: TableDef): string {
   text(275, 566, 'RALLY', 7, C.gold);
   const hot = lamp('lamp.hotbat');
   if (hot) text(hot.x, hot.y - 18, 'HOT BAT', 8, C.red);
-  const steal = lamp('lamp.steal');
-  if (steal) text(steal.x, steal.y - 18, 'DOUBLE STEAL', 7, C.teal);
+  // The W-A-L-K bank's sign, on the mirror of HOT BAT's spot.
+  text(455, 502, 'WALK', 8, C.violet);
   for (const l of els.filter(
     (e): e is LampDef => e.type === 'lamp' && /^lamp\.(drop|standup)\./.test(e.id),
   )) {

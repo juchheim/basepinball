@@ -23,7 +23,7 @@ Status as of 2026-10-11, branch `m6-release`, stacked on `m5-polish`. Version **
 address `/#how-to-play` (for linking). It covers:
 - the idea, and hits with the same color, shape and label as the playfield caps (1B, 2B, 3B, HR)
 - runners and rallies, outs, pitching
-- B-A-T, R-U-N/STEAL, R-B-I/kickback and the skill shot
+- B-A-T, W-A-L-K (a walk, from the follow-up), the right ramp's steal, R-B-I/kickback and the skill shot
 - controls for keyboard, touch and gamepad, and tilt
 
 **Release polish:**

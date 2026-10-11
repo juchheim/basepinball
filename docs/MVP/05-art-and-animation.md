@@ -169,7 +169,7 @@ Character animations use toy-like squash and wobble.
 | Pop bumpers | Switch | Ring pulls down, the cap flashes with a color-specific glow, the skirt wobbles | ~120 ms |
 | Corner kickers | Switch | Rubber flex plus housing flash, the amber "3B" decal pulses | ~150 ms |
 | Drop targets (B-A-T) | Switch | Target snaps down with a slight bounce, letter insert lights. On completion, a "HOT BAT" flame or heat shimmer on the bat icon. Reset pops all three up together. | 60 ms down / 150 ms reset |
-| Standups (R-U-N) | Switch | The face flexes back and the letter lights. On completion, the STEAL arrow on the right ramp starts chasing. | ~100 ms |
+| Standups (W-A-L-K) | Switch | The face flexes back and the letter lights. On completion, the batter trots to first and forced runners advance ("WALK" on the scoreboard). | ~100 ms |
 | Spinners | Ball passes under | Physics-driven spin with motion blur on the plate. Spin count flashes on the orbit arrow. | Live |
 | Steal | Right ramp with STEAL lit | The lead runner breaks early and slides into the next bag under the glass, with dirt-spray particles. "SAFE!" callout and the umpire safe signal. | ~1 s |
 | HR gate / flag | Ramp crest | The gate flap spins. A red flag pops up on the scoreboard roof. | 1.5 s |

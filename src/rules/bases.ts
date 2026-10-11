@@ -49,13 +49,15 @@ export function steal(bases: Bases): { bases: Bases; runs: number; from: number 
 }
 
 /**
- * A double steal: every runner takes the next base at once (the runner on third scores). Returns
- * null if nobody is on base.
+ * A walk: the batter takes first base and only the runners forced by him advance. With the bases
+ * loaded the runner on third is forced home, so a run scores. `moved` lists the bases (0 = first)
+ * whose runners advanced.
  */
-export function doubleSteal(bases: Bases): { bases: Bases; runs: number; moved: number[] } | null {
-  if (!bases[0] && !bases[1] && !bases[2]) return null;
-  const moved = [0, 1, 2].filter((i) => bases[i]);
-  return { bases: [false, bases[0], bases[1]], runs: bases[2] ? 1 : 0, moved };
+export function walk(bases: Bases): { bases: Bases; runs: number; moved: number[] } {
+  if (!bases[0]) return { bases: [true, bases[1], bases[2]], runs: 0, moved: [] };
+  if (!bases[1]) return { bases: [true, true, bases[2]], runs: 0, moved: [0] };
+  if (!bases[2]) return { bases: [true, true, true], runs: 0, moved: [0, 1] };
+  return { bases: [true, true, true], runs: 1, moved: [0, 1, 2] };
 }
 
 export function runnersOn(bases: Bases): number {

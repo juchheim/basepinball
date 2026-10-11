@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
 import type { PhysicsEvent } from '../physics/world';
-import { advance, doubleSteal, EMPTY, runnersOn, steal, type Bases } from './bases';
+import { advance, EMPTY, runnersOn, steal, walk, type Bases } from './bases';
 import { choosePitch, type PitchSpec, type PitchType, type Side } from './pitching';
 import {
   DEFAULT_TIMING,
@@ -25,6 +25,7 @@ import {
 export type LampMode = 'off' | 'on' | 'blink';
 type Lane = 'R' | 'B' | 'I';
 const LANES: Lane[] = ['R', 'B', 'I'];
+const WALK_LETTERS = ['W', 'A', 'L', 'K'];
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
 export interface GameOptions {
@@ -49,8 +50,6 @@ export class GameRules {
   bases: Bases = EMPTY;
   rally = 0;
   hotBat = false;
-  /** R-U-N lit a double steal: the next steal moves every runner up a base. */
-  doubleStealLit = false;
   kickbackLit = true;
   tiltWarnings = 0;
   tilted = false;
@@ -76,7 +75,8 @@ export class GameRules {
   private lastKickback = -Infinity;
   private readonly rbi = new Set<Lane>();
   private readonly bat = new Set<string>();
-  private readonly run = new Set<string>();
+  /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
+  private readonly walkLetters = new Set<string>();
   private readonly buttons = { L: false, R: false };
   private readonly orbitUp = new Map<'L' | 'R', number>();
   private lastSwing = -Infinity;
@@ -369,9 +369,9 @@ export class GameRules {
     this.endRally();
     this.clearPitch();
     this.skillLane = null;
-    // Partial progress resets at the inning change; lit awards carry over (docs/MVP/01 § 4.8).
+    // Partial progress in R-B-I and B-A-T resets at the inning change; the W-A-L-K letters carry
+    // over, as do lit awards (docs/MVP/01 § 4.8).
     this.rbi.clear();
-    this.run.clear();
     if (!this.hotBat) {
       this.bat.clear();
       this.machine.resetDropTargets();
@@ -421,15 +421,21 @@ export class GameRules {
     if (this.bat.size === 3) this.lightHotBat('BAT');
   }
 
+  /**
+   * W-A-L-K (docs/MVP/01 § 4.8): the four standups. Spelling the word walks the batter: he takes
+   * first, forced runners advance, and the bases loaded forces in a run. It is a feature award, not
+   * a hit (no H, and the plate appearance carries on). The letters persist through innings.
+   */
   private standup(id: string): void {
-    this.run.add(id);
-    if (this.run.size === 3) {
-      this.run.clear();
-      if (!this.doubleStealLit) {
-        this.doubleStealLit = true;
-        this.emit({ type: 'doubleStealLit' });
-      }
-    }
+    this.walkLetters.add(id);
+    if (this.walkLetters.size < WALK_LETTERS.length) return;
+    this.walkLetters.clear();
+    if (!LIVE.includes(this.state)) return;
+    const result = walk(this.bases);
+    this.bases = result.bases;
+    this.stats.walks++;
+    this.emit({ type: 'walk', runs: result.runs, moved: result.moved });
+    if (result.runs > 0) this.score(result.runs);
   }
 
   /** A runner can steal whenever one is on base (the right ramp is always armed for them). */
@@ -439,38 +445,18 @@ export class GameRules {
 
   /**
    * The right ramp (docs/MVP/01 § 4.8). With a runner on, the shot steals: the lead runner who can
-   * advance takes the next base, and stealing home scores. If R-U-N lit a double steal, every
-   * runner advances at once and the double steal is used up. With the bases empty nothing happens
-   * (and a lit double steal waits).
+   * advance takes the next base, and stealing home scores. With the bases empty nothing happens.
    */
   private stealShot(): void {
     if (!LIVE.includes(this.state)) return;
-    const double = this.doubleStealLit ? doubleSteal(this.bases) : null;
-    const single = double ? null : steal(this.bases);
-    const result = double
-      ? {
-          bases: double.bases,
-          runs: double.runs,
-          from: double.moved[double.moved.length - 1]!,
-          moved: double.moved,
-        }
-      : single
-        ? { ...single, moved: [single.from] }
-        : null;
+    const result = steal(this.bases);
     if (!result) {
       this.emit({ type: 'stealRamp', result: 'noRunner' });
       return;
     }
     this.bases = result.bases;
-    if (double) this.doubleStealLit = false;
     this.stats.steals++;
-    this.emit({
-      type: 'steal',
-      from: result.from,
-      runs: result.runs,
-      moved: result.moved,
-      double: !!double,
-    });
+    this.emit({ type: 'steal', from: result.from, runs: result.runs });
     if (result.runs > 0) this.score(result.runs);
   }
 
@@ -545,7 +531,6 @@ export class GameRules {
       rally: this.rally,
       hotBat: this.hotBat,
       stealReady: this.stealReady,
-      doubleStealLit: this.doubleStealLit,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,
@@ -566,8 +551,6 @@ export class GameRules {
       'base.2B': on(this.bases[1]),
       'base.3B': on(this.bases[2]),
       'lamp.hotbat': this.hotBat ? 'blink' : 'off',
-      // The lamp by the R-U-N bank is the double-steal award; the ramp arrow shows a steal is on.
-      'lamp.steal': this.doubleStealLit ? 'blink' : 'off',
       'lamp.kickback': on(this.kickbackLit),
       'arrow.ramp.STEAL': this.stealReady ? 'blink' : 'off',
       // The pitch lamp blinks through the windup and holds steady once the ball is thrown.
@@ -580,7 +563,8 @@ export class GameRules {
     }
     for (const l of ['B', 'A', 'T'])
       out[`lamp.drop.${l}`] = on(this.bat.has(`drop.${l}`) || this.hotBat);
-    for (const l of ['R', 'U', 'N']) out[`lamp.standup.${l}`] = on(this.run.has(`standup.${l}`));
+    for (const l of WALK_LETTERS)
+      out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
     for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
     return out;
   }
