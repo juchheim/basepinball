@@ -49,7 +49,7 @@ export function shareCardSvg(): string {
     </linearGradient>
   </defs>
   <rect width="1200" height="630" fill="url(#sky)"/>
-  <text x="70" y="250" font-family="Oswald" font-weight="700" font-size="150" fill="#f2b33d">RALLY BALL</text>
+  <text x="70" y="250" font-family="Oswald" font-weight="700" font-size="118" fill="#f2b33d">STEEL DIAMOND</text>
   <text x="74" y="318" font-family="Oswald" font-weight="700" font-size="44" fill="#f4f1e8">Real pinball, scored like baseball.</text>
   <text x="74" y="380" font-family="Oswald" font-weight="700" font-size="30" fill="#9aa6c4">Nine innings · every drain is an out · rally for runs</text>
   <text x="74" y="560" font-family="Oswald" font-weight="700" font-size="30" fill="#f2b33d">PLAY FREE IN YOUR BROWSER</text>

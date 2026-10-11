@@ -1,3 +1,5 @@
+import { BRAND } from './brand';
+
 /**
  * Release hardening (docs/MVP/07 § M6): what happens when something outside the game's control
  * fails. A lost graphics context (GPU reset, driver crash, the OS reclaiming memory on mobile)
@@ -63,12 +65,12 @@ export class FrameGuard {
 export function startupFailure(err: unknown, forcedWebGL: boolean): FatalInfo {
   return forcedWebGL
     ? {
-        title: "Rally Ball can't start graphics here",
+        title: `${BRAND.game} can't start graphics here`,
         body: `This browser couldn't start WebGL2 (${String(err)}). Try an up-to-date Chrome, Edge, Firefox or Safari, and check that hardware acceleration is on.`,
         action: 'reload',
       }
     : {
-        title: "Rally Ball can't start graphics here",
+        title: `${BRAND.game} can't start graphics here`,
         body: `The graphics engine failed to start (${String(err)}). Compatibility mode uses the older WebGL2 path, which works on more devices.`,
         action: 'webgl',
       };

@@ -54,7 +54,12 @@ address `/#how-to-play` (for linking). It covers:
 | Safari, Firefox, Edge desktop; iOS Safari; Android Chrome | ⏳ Needs devices. See the [QA checklist](qa-checklist.md). |
 | Soak: 100 sim-bot games, no soft locks | ✅ (M5) |
 
-## Name check ("Rally Ball")
+## Name check
+
+> **Outcome:** *Rally Ball* was dropped and the game renamed **Steel Diamond** (see
+> [naming.md](naming.md) for the check). The original findings follow.
+
+### Rally Ball findings
 
 A quick web search, not a legal clearance:
 - **The old US trademark:** a "RALLYBALL" mark for paddle-ball equipment (class 28) was registered
@@ -70,11 +75,12 @@ A quick web search, not a legal clearance:
 
 ## Release steps (waiting on you)
 
-1. **Decide on game length** (from the M5 report): accept a shorter target, tune for it, or wait
-   for playtests.
+1. ~~Decide on game length~~: **accepted the shorter game.** The target is now 6–9 minutes
+   (was 8–12).
 2. **Device QA:** run the [QA checklist](qa-checklist.md) on an iPhone and an Android phone, and in
    Safari, Firefox and Edge.
-3. **Name clearance** (above).
+3. **Name:** renamed **Steel Diamond**. Optionally register a domain (e.g. `steeldiamond.gg` or
+   `playsteeldiamond.com`) and get a professional trademark clearance before marketing.
 4. **Merge the stack in order:** #1 → #2 → #3 → #4 → #5 → #6 → #7, into `main`.
 5. **Tag `v1.0.0` and deploy to production.** Vercel deploys `main` to production. Bump the version
    from `1.0.0-rc.1` to `1.0.0` in that last step.

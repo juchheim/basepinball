@@ -18,7 +18,7 @@ the crowd roars. Nine innings, three outs each. Score as many runs as you can.
 4. **"Hit 'em where they ain't."** Fielders sit between the shots, so accuracy decides outs vs. hits.
 5. **Every moment celebrates.** Hits, runs, rallies and home runs get layered light, sound and
    animation feedback.
-6. **One more game.** A full game takes 8–12 minutes, short enough to replay right away.
+6. **One more game.** A full game takes 6–9 minutes, short enough to replay right away.
 
 ## 3. Baseball → pinball mapping
 
@@ -284,7 +284,7 @@ Targets for an **average player** (validated by playtests plus the headless simu
 
 | Metric | Target | M2 sim bot ("average", 30 games) |
 |--------|--------|------|
-| Game length | 8–12 min (≈ 40 PAs × ~15 s, including presentation) | 5.1 sim minutes. The bot never hesitates, cradles briefly and plunges instantly; human play is longer. Confirm in playtests. |
+| Game length | 6–9 min, including presentation (revised from 8–12 in M6) | 5.4–5.7 sim minutes. The bot never hesitates, cradles briefly and plunges instantly, so human play runs longer. Confirm in playtests. |
 | Runs per game | 3–5 (median 4) | 4.7 (median 4) ✅ |
 | Hit rate (hits / PA) | ~30 % | 30.5 % ✅ |
 | Hit mix | ~55 % 1B, 25 % 2B, 8 % 3B, 12 % HR | 54.5 / 23.9 / 8.1 / 13.5 ✅ |

@@ -57,7 +57,7 @@ import {
 } from './ui/store';
 
 /**
- * Rally Ball: the v1 table with the baseball rules, HUD, game flow, and (M4) the presentation:
+ * Steel Diamond: the v1 table with the baseball rules, HUD, game flow, and (M4) the presentation:
  * sound, lamp shows, figure animation, particles and stadium reactions.
  * `?debug` adds the physics tuning panel, perf overlay and debug keys (B serve, K pitch,
  * C colliders, [ ] slow motion). `?table=m0` loads the M0 physics test table in free play.
@@ -610,7 +610,7 @@ async function main(): Promise<void> {
       if (guard.failed(err)) {
         showFatal({
           title: 'Something went wrong',
-          body: 'Rally Ball hit an error it could not recover from. Reload to start again; high scores and settings are safe.',
+          body: `${BRAND.game} hit an error it could not recover from. Reload to start again; high scores and settings are safe.`,
           action: 'reload',
         });
         return;

@@ -29,7 +29,7 @@ const rows: [string, string, string][] = [
     `${(sum((r) => r.stats.runs) / games).toFixed(2)} / ${runs[Math.floor(games / 2)]}`,
     '3-5 (median 4)',
   ],
-  ['Game length (sim minutes)', minutes.toFixed(1), '8-12 incl. presentation'],
+  ['Game length (sim minutes)', minutes.toFixed(1), '5-8 (bot; humans 6-9)'],
   ['PA per game', (pa / games).toFixed(1), '≈ 40'],
   ['Hit rate (H / PA)', pct(hits, pa), '≈ 30 %'],
   [

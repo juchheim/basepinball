@@ -1,4 +1,4 @@
-# Rally Ball
+# Steel Diamond
 
 A browser-based 3D pinball game scored like baseball. The repository is `basepinball`, from the
 working title. Planning docs live in [docs/MVP](docs/MVP/README.md).

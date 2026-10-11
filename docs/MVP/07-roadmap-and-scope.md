@@ -67,7 +67,7 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M3: Art pass + final name
 
-> **Status:** first art pass built and the name decided (Rally Ball); visual sign-off is pending.
+> **Status:** first art pass built and named (Rally Ball, renamed **Steel Diamond** in M6); visual sign-off is pending.
 > See the [M3 report](m3-report.md).
 
 - **Final game name and identity are chosen during this milestone.** Name candidates are explored
@@ -128,7 +128,8 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
    catch, tap pass) can be done on desktop and mobile.
 4. At the Medium tier on a mid-range phone, 60 fps holds for ≥ 95 % of frames during play. Desktop at
    High holds ≥ 95 % at the display rate (60/120).
-5. A median game for first-time players takes 8–12 minutes (playtest of at least 5 people).
+5. A median game for first-time players takes 6–9 minutes (playtest of at least 5 people).
+   (Revised from 8–12 minutes in M6: short games suit pinball and phones.)
 6. No stuck-ball soft locks in 50 consecutive sim-bot games. Ball search and rescue always recovers.
 7. Local high scores and settings persist across reloads and fail safely in private mode.
 8. The first playable download is < 15 MB (Medium), and time to interactive is < 5 s on fast 4G.

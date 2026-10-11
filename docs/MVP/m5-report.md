@@ -64,7 +64,7 @@ normal pull rate.
 | 2 | Rules correct (outs, K, foul outs, hits, base running, runs, innings, rallies, tilt) | ✅ Unit tests (34 rules tests and the sim bot). ⏳ The manual pass in the QA checklist. |
 | 3 | Physics feel suite passes; feel targets doable on desktop and mobile | ✅ The suite passes. ⏳ Feel targets on a phone. |
 | 4 | 60 fps for ≥ 95 % of frames: Medium on a mid-range phone, High on desktop | ✅ Desktop (WebGPU, High): 60 fps with M4 effects running. ⏳ A real mid-range phone. |
-| 5 | A median first-time game takes 8-12 minutes (≥ 5 playtesters) | ⚠️ See "Needs you". The sim bot plays a game in 5.4-5.7 minutes of game time, including all pauses (routes, windup, inning breaks). |
+| 5 | A median first-time game takes 6-9 minutes (≥ 5 playtesters; revised from 8-12 in M6) | ⏳ Playtests. The target was lowered to fit the game as built. The sim bot plays a game in 5.4-5.7 minutes of game time, including all pauses (routes, windup, inning breaks). |
 | 6 | No stuck-ball soft locks in 50 consecutive sim-bot games; ball search and rescue always recover | ✅ 50/50 games (average bot) and 50/50 (rookie bot), 0 rescues needed. The rescue fallback is tested on its own. |
 | 7 | High scores and settings persist and fail safely in private mode | ✅ `tests/storage/*` covers a round trip, damaged data and throwing storage, for settings, lifetime stats and high scores. |
 | 8 | First playable download < 15 MB (Medium); time to interactive < 5 s on fast 4G | ✅ Medium downloads about 1.7 MB (about 0.86 MB compressed): JS 1.11 MB (317 KB gz), 2048 px playfield 329 KB, standees 56 KB, font 88 KB. That is about 1 s at 9 Mbps, plus renderer start-up. ⏳ Measure on a real 4G phone. |
@@ -80,7 +80,7 @@ normal pull rate.
 
 ## Needs you
 
-1. **Game length (criterion 5).** Sim-bot games are about 5.5 minutes of game time. Human games
+1. ~~**Game length (criterion 5).**~~ **Decided in M6: accept the shorter game.** The target is now 6-9 minutes. Sim-bot games are about 5.5 minutes of game time. Human games
    will run longer (plunging, reading the windup, pausing), but probably not 8-12 minutes. Options:
    - **Accept a shorter game.** Change the target to about 6-9 minutes. Pinball games are short,
      and this suits mobile.
