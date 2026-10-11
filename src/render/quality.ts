@@ -9,6 +9,8 @@ export interface Quality {
   name: TierName;
   /** Device-pixel-ratio cap. */
   dpr: number;
+  /** Cap on the canvas's total pixels, so a huge Retina window can't exhaust GPU memory. */
+  maxPixels: number;
   /** Shadow-casting key lights (0-2) and shadow map size. */
   shadowLights: number;
   shadowMapSize: number;
@@ -26,6 +28,7 @@ export const TIERS: Record<TierName, Quality> = {
   low: {
     name: 'low',
     dpr: 1,
+    maxPixels: 1.5e6,
     shadowLights: 0,
     shadowMapSize: 1024,
     reflectionSize: 0,
@@ -37,6 +40,7 @@ export const TIERS: Record<TierName, Quality> = {
   medium: {
     name: 'medium',
     dpr: 1.5,
+    maxPixels: 3e6,
     shadowLights: 1,
     shadowMapSize: 1024,
     reflectionSize: 64,
@@ -48,6 +52,7 @@ export const TIERS: Record<TierName, Quality> = {
   high: {
     name: 'high',
     dpr: 2,
+    maxPixels: 6e6,
     shadowLights: 2,
     shadowMapSize: 2048,
     reflectionSize: 128,
@@ -59,6 +64,7 @@ export const TIERS: Record<TierName, Quality> = {
   ultra: {
     name: 'ultra',
     dpr: 3,
+    maxPixels: 12e6,
     shadowLights: 2,
     shadowMapSize: 2048,
     reflectionSize: 256,

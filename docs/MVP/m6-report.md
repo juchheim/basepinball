@@ -54,6 +54,27 @@ address `/#how-to-play` (for linking). It covers:
 | Safari, Firefox, Edge desktop; iOS Safari; Android Chrome | ⏳ Needs devices. See the [QA checklist](qa-checklist.md). |
 | Soak: 100 sim-bot games, no soft locks | ✅ (M5) |
 
+## Known issue: blank canvas in Safari (follow-up)
+
+A tester saw the canvas go empty (the page's background color, with the HUD still running) a few
+seconds after starting, in Safari. It could not be reproduced in Chrome. The evidence says the
+renderer stopped presenting frames rather than drawing a dark one. Changes made:
+
+- **Blank-canvas watchdog** (`src/app/resilience.ts`): every half second the game reads back a few
+  pixels of the canvas. If it is empty, it nudges the renderer after 1.5 s, and after 4 s switches
+  to the WebGL2 renderer automatically ("Switching to compatibility mode") and remembers the choice.
+  A canvas that never draws gets the same treatment after 6 s.
+- **Settings → Graphics:** Auto, or Compatibility (WebGL2). `?webgpu` overrides a saved choice;
+  `?webgl` forces compatibility.
+- **GPU error log:** validation errors are counted and logged (the first five), and shown in the
+  `?debug` overlay.
+- **Pixel budget:** the canvas is capped at 1.5 / 3 / 6 / 12 million pixels on Low / Medium / High /
+  Ultra, so a huge Retina window cannot exhaust GPU memory (a 2000 × 1160 window now renders at
+  about 1.6× instead of 2×). This is a precaution; the root cause is not confirmed.
+- **Tests:** `tests/app/resilience.test.ts` covers the watchdog's decisions; in the browser the probe
+  was checked against drawn and emptied canvases, and the whole path (dialog, saved setting, restart
+  on WebGL2) was run with `__bp.breakCanvas()` in `?debug`.
+
 ## Name check
 
 > **Outcome:** *Rally Ball* was dropped and the game renamed **Steel Diamond** (see

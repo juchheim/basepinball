@@ -24,6 +24,7 @@ export class Stage {
   private fitTarget: THREE.Object3D | null = null;
   private fitExtra: THREE.Vector3[] = [];
   private dprCap = 2;
+  private maxPixels = 6e6;
   private shakeAmp = 0;
   private shakeUntil = 0;
   private shakeLength = 1;
@@ -115,7 +116,7 @@ export class Stage {
 
   applyQuality(q: Quality): void {
     this.dprCap = q.dpr;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.dpr));
+    this.maxPixels = q.maxPixels;
     this.keyLights.forEach((light, i) => {
       const on = i < q.shadowLights;
       if (light.shadow.mapSize.x !== q.shadowMapSize) {
@@ -142,6 +143,11 @@ export class Stage {
   private resize(): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    // The pixel ratio is the device's, capped by the tier and by the canvas's total pixel budget.
+    const budget = Math.sqrt(this.maxPixels / Math.max(1, w * h));
+    this.renderer.setPixelRatio(
+      Math.max(0.75, Math.min(window.devicePixelRatio, this.dprCap, budget)),
+    );
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -178,6 +184,17 @@ export class Stage {
     }
     fits(hi);
     this.orbitCenter.copy(center);
+  }
+
+  /** Nudge a renderer that has stopped presenting: rebuild the post pipeline and the canvas. */
+  recover(): void {
+    this.pipeline.needsUpdate = true;
+    this.resize();
+  }
+
+  /** The WebGPU device, if that is the backend in use. */
+  get gpuDevice(): GPUDevice | undefined {
+    return (this.renderer as unknown as { backend: { device?: GPUDevice } }).backend.device;
   }
 
   /** A small camera shake (nudges); off under reduced motion. */

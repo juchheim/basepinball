@@ -371,6 +371,18 @@ function SettingsPanel({ actions }: { actions: UiActions }) {
       <h3>Display</h3>
       {choice('Quality', st.quality, QUALITY, (quality) => actions.updateSettings({ quality }))}
       {choice(
+        'Graphics',
+        st.graphics,
+        [
+          { value: 'auto', label: 'Auto' },
+          { value: 'compat', label: 'Compatibility' },
+        ],
+        (graphics) => {
+          actions.updateSettings({ graphics });
+          settingsNote.value = 'Reload the page to apply the graphics change.';
+        },
+      )}
+      {choice(
         'HUD size',
         st.hudScale,
         [

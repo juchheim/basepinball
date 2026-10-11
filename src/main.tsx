@@ -2,7 +2,14 @@ import { render } from 'preact';
 import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
 import { FixedLoop } from './app/loop';
-import { FrameGuard, showFatal, startupFailure, watchContextLoss } from './app/resilience';
+import {
+  BlankTracker,
+  CanvasProbe,
+  FrameGuard,
+  showFatal,
+  startupFailure,
+  watchContextLoss,
+} from './app/resilience';
 import { Crowd } from './audio/crowd';
 import { AudioEngine } from './audio/engine';
 import { playStinger } from './audio/organ';
@@ -67,13 +74,17 @@ async function main(): Promise<void> {
   const container = document.getElementById('app')!;
   const query = new URLSearchParams(location.search);
   const debug = query.has('debug');
+  // Settings first: "Graphics: Compatibility" (or the watchdog, after a blank canvas) forces the
+  // WebGL2 backend. `?webgl` forces it too; `?webgpu` overrides the saved choice.
+  let cfg: Settings = loadSettings();
+  const forceWebGL = query.has('webgl') || (cfg.graphics === 'compat' && !query.has('webgpu'));
   let stage: Stage;
   try {
-    stage = new Stage(container, query.has('webgl'));
+    stage = new Stage(container, forceWebGL);
     await stage.init();
   } catch (err) {
     console.error(err);
-    showFatal(startupFailure(err, query.has('webgl')));
+    showFatal(startupFailure(err, forceWebGL));
     return;
   }
 
@@ -118,7 +129,6 @@ async function main(): Promise<void> {
   const unlock = (): void => audio.unlock();
   window.addEventListener('pointerdown', unlock);
   window.addEventListener('keydown', unlock);
-  let cfg: Settings = loadSettings();
   settings.value = cfg;
   const shows = new LampShows(table);
   // Light level: the towers and key lights dim for attract mode and warm up at game start.
@@ -491,6 +501,49 @@ async function main(): Promise<void> {
       });
     },
   );
+  // GPU validation errors are silent by default; keep a count and log the first few (they are the
+  // usual evidence when the canvas goes blank).
+  let gpuErrors = 0;
+  stage.gpuDevice?.addEventListener('uncapturederror', (e) => {
+    gpuErrors++;
+    if (gpuErrors <= 5) console.error('GPU error', (e as GPUUncapturedErrorEvent).error?.message);
+  });
+
+  // Blank-canvas watchdog: if the canvas stops showing the scene (the renderer stopped presenting
+  // while the page carries on, as seen in Safari), nudge it, then switch to the WebGL2 backend.
+  const probe = new CanvasProbe(stage.renderer.domElement);
+  const blank = new BlankTracker();
+  let faultInjected = false;
+  const watchCanvas = (): void => {
+    const action = blank.observe(faultInjected ? false : probe.hasContent());
+    if (action === 'soft') {
+      console.warn('canvas blank: nudging the renderer');
+      stage.recover();
+    } else if (action === 'fallback') {
+      console.warn(`canvas blank: ${stage.backend} stopped drawing`);
+      stopped = true;
+      if (stage.backend === 'WebGPU') {
+        // Remember the choice, and restart in compatibility mode.
+        updateSettings({ graphics: 'compat' });
+        showFatal({
+          title: 'Switching to compatibility mode',
+          body: 'The graphics stopped drawing, so Steel Diamond is restarting with the more widely supported WebGL2 renderer. Your settings and high scores are kept.',
+          action: 'webgl',
+        });
+        setTimeout(() => {
+          const url = new URL(location.href);
+          url.searchParams.set('webgl', '');
+          location.href = url.toString();
+        }, 2500);
+      } else {
+        showFatal({
+          title: 'The graphics stopped drawing',
+          body: 'The display stopped updating. Reload to start again; high scores and settings are safe.',
+          action: 'reload',
+        });
+      }
+    }
+  };
   applySettings();
   // Motion nudge (if it was on last time) starts with the first gesture (iOS permission rules).
   if (cfg.motionNudge) {
@@ -588,6 +641,10 @@ async function main(): Promise<void> {
       director,
       shows,
       audio,
+      /** Simulate a renderer that stops presenting (tests the blank-canvas watchdog). */
+      breakCanvas: () => (faultInjected = true),
+      probe,
+      watchCanvas,
       getRules: () => rules,
     };
   }
@@ -653,7 +710,16 @@ async function main(): Promise<void> {
     }
     view.update(loop.alpha, dt);
     view.updateReflections(stage.renderer, stage.scene);
-    stage.render();
+    if (faultInjected) {
+      // Debug fault injection: skip drawing and empty the canvas (assigning its width clears it),
+      // the symptom the watchdog looks for.
+      const c = stage.renderer.domElement;
+      const w = c.width;
+      c.width = 1;
+      c.width = w;
+    } else stage.render();
+    // Every half second (and never while the tab is hidden): did that frame actually draw?
+    if (frames % 30 === 29 && !document.hidden) watchCanvas();
     quality.frame(now, dt * 1000);
 
     frames++;
@@ -662,7 +728,7 @@ async function main(): Promise<void> {
       const fps = (frames * 1000) / (now - fpsAt);
       frames = 0;
       fpsAt = now;
-      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}`;
+      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}${gpuErrors ? ` · GPU errors ${gpuErrors}` : ''}`;
     }
   };
   requestAnimationFrame(tick);

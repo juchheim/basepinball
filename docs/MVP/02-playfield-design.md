@@ -79,7 +79,7 @@ regular pinball.
 | 1 | **Left orbit** (spinner) | Right | **TRIPLE.** The ball strikes the top-left corner kicker, loops the arch, and drops through the R-B-I lanes into the Gap. | 3B side saucer on the approach (catches weak shots), LF on the inside |
 | 2 | **Left ramp: "Over the Wall"** | Right | **HOME RUN** at the crest gate. The wireform returns the ball to the **left inlane**, setting up a rally. | LF and SS flank the entrance. A missed ramp rolls back toward them. |
 | 3 | **The Gap** (center pop nest) | Either | **SINGLE** (front pops) or **DOUBLE** (back pops). A slow, straight-up-the-middle ball can drop into the **CF** saucer in the throat. | SS and 2B flank the mouth. CF is inside. |
-| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); a lit double steal moves every runner. Its mouth is **56 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
+| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); a lit double steal moves every runner. Its mouth is **70 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
 | 7 | **R-U-N standups** (right wall) | Left | Feature: completing the bank lights **STEAL** on the right ramp | — |
@@ -125,9 +125,9 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `saucer.CF` | Fielder saucer in the Gap throat | (275, 910) | Between and just behind the singles |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
-| `saucer.2B` | Fielder saucer | (350, 765) | Between the Gap and the right ramp |
-| `ramp.STEAL` | Right ramp | entrance (408, 790), 56 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
-| `saucer.RF` | Fielder saucer | (465, 750) | Between the right ramp and the right orbit |
+| `saucer.2B` | Fielder saucer | (348, 745) | Between the Gap and the right ramp (20 mm further down the table than SS, to make room for the wider ramp mouth) |
+| `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
+| `saucer.RF` | Fielder saucer | (465, 730) | Between the right ramp and the right orbit (moved down 20 mm, as 2B) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
 | `lanes.RBI` | Top rollover lanes | x = 245 / 275 / 305, y 1075–1125 | Drop into the back of the Gap. Lane change with the flipper buttons. |
 | `shooter` | Shooter lane + plunger | x 550–590, plunger at (570, 40) | Leadoff launch and skill shot |
@@ -283,13 +283,15 @@ game, because a make needed a lit STEAL (three R-U-N hits) and a runner on base.
 | Area | Change | Result |
 |---|---|---|
 | Rules | The right ramp steals directly whenever a runner is on; no lighting. R-U-N now lights a **double steal** (every runner moves up one). Unlit right-ramp shots no longer spot R-U-N letters. | 0.6-0.8 steals a game from the rule change alone |
-| Steal ramp mouth | 52 → **56 mm**, guard posts moved out. The 2B and RF glove posts shifted 2 mm to keep a ball-wide (≥ 27.5 mm) gap, so no notch can hold a ball. | The make window grew about 40 % (grid test: 45 → 63 makes). The HR ramp is unchanged. |
+| Steal ramp mouth | 52 → **70 mm**, guard posts moved out. The 2B and RF saucers moved 20 mm down the table (and their glove posts 2 mm out) so every guard post keeps a ball-wide (≥ 27.5 mm) gap and no notch can hold a ball. A first try at 56 mm was not visibly wider and gained only 40 %. | The make window is about 2.2× the HR ramp's (grid test: 45 → 99 makes); from real flipper shots the steal ramp is made about 70 % more often than the HR ramp. The HR ramp is unchanged. |
 | Playfield art | The label by the R-U-N bank reads DOUBLE STEAL | |
 
-**Result (sim bot, 60 games each):** steals 1.1 a game (average profile) and 0.9 (rookie), against
-1.7-2.2 home runs. A human aiming at the ramp with a runner on should do better than the bot, which
-does not aim. The 2B/RF lip shift cost about 2 points of fielder outs (16 % → 14 % of PAs).
+**Result (sim bot, 60 games each):** steals 1.55 a game (average profile) and 1.9 (rookie), against
+1.7-2.2 home runs. Runs per game rose from about 4.6 to 5.4 (average) and 6.0 (rookie), above the
+3-5 target, because steals move runners and steals of home score; fielder outs fell from 16 % to
+about 13.6 % of PAs. If the extra runs are too many, the levers are the pitch speed, the
+steal-home award, or tightening the Gap. The bot does not aim, so a person aiming at the ramp
+with a runner on should steal more.
 
 **Not done (the next step in the plan):** the W-A-L-K bank (a fourth target and a walk), more
-bumpers, and the bumper-driven meters. The ramp mouth cannot widen further without moving the 2B
-and RF saucers; at 68 mm the make window would roughly double.
+bumpers, and the bumper-driven meters. 

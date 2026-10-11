@@ -41,6 +41,69 @@ export function watchContextLoss(
   });
 }
 
+export type WatchdogAction = 'none' | 'soft' | 'fallback';
+
+/**
+ * Turns observations of the canvas ("is anything drawn?") into recovery steps. A healthy canvas
+ * that goes blank gets a soft nudge after 3 blank checks and a fallback after 8 (checks are about
+ * half a second apart). A canvas that was never seen drawing gets the fallback after 12, so a
+ * browser where the probe can't tell is switched to the safer backend rather than left blank.
+ */
+export class BlankTracker {
+  private blank = 0;
+  private everHealthy = false;
+  private nudged = false;
+
+  /** `hasContent`: true = drawn, false = empty, null = the browser would not say. */
+  observe(hasContent: boolean | null): WatchdogAction {
+    if (hasContent === null) return 'none';
+    if (hasContent) {
+      this.everHealthy = true;
+      this.blank = 0;
+      this.nudged = false;
+      return 'none';
+    }
+    this.blank++;
+    if (this.blank >= (this.everHealthy ? 8 : 12)) {
+      this.blank = 0;
+      return 'fallback';
+    }
+    if (this.everHealthy && this.blank >= 3 && !this.nudged) {
+      this.nudged = true;
+      return 'soft';
+    }
+    return 'none';
+  }
+}
+
+/** Reads back a few pixels of the game canvas to see whether anything was presented. */
+export class CanvasProbe {
+  private readonly ctx: CanvasRenderingContext2D | null;
+
+  constructor(private readonly canvas: HTMLCanvasElement) {
+    const probe = document.createElement('canvas');
+    probe.width = probe.height = 8;
+    this.ctx = probe.getContext('2d', { willReadFrequently: true });
+  }
+
+  /**
+   * Call right after a frame is rendered (the drawing buffer is only readable in that task). The
+   * scene always has an opaque background, so any transparent result means nothing was drawn.
+   */
+  hasContent(): boolean | null {
+    if (!this.ctx) return null;
+    try {
+      this.ctx.clearRect(0, 0, 8, 8);
+      this.ctx.drawImage(this.canvas, 0, 0, 8, 8);
+      const px = this.ctx.getImageData(0, 0, 8, 8).data;
+      for (let i = 3; i < px.length; i += 4) if (px[i] !== 0) return true;
+      return false;
+    } catch {
+      return null;
+    }
+  }
+}
+
 /** Counts consecutive failing frames; returns true once the loop should give up. */
 export class FrameGuard {
   private failures = 0;
