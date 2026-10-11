@@ -122,6 +122,8 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `ramp.HR` | Left ramp, "Over the Wall" | entrance (142, 790), 52 mm wide | HR gate at the crest (75, 1010). Wireform to the left inlane. |
 | `saucer.SS` | Fielder saucer | (200, 765) | Between the left ramp and the Gap |
 | `gap.mouth` | The Gap entrance | x 240–310 at y = 805 | Funnel walls into the nest |
+| `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (130, 610) / (430, 640), 17 mm | Score no hit; feed HUSTLE. Soft kick (1.5 m/s, the Gap pops' is 3.4). |
+| `hustle.1`-`.5` | HUSTLE meter lamps | (243 + 16 i, 612) | One lamp per three bumper hits after a hit |
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `saucer.CF` | Fielder saucer in the Gap throat | (275, 910) | Between and just behind the singles |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
@@ -317,4 +319,21 @@ letter now glows three ways: the **plate** itself, a **lit pad** on the playfiel
 All three come from the rules' letter state, so they persist through innings and clear when the
 word is spelled (the four plates flash as the walk is awarded).
 
-**Not done (the next steps in the plan):** more bumpers and the bumper-driven meters.
+### Bumpers that matter: outfield bumpers and HUSTLE
+
+Playtest feedback: more bumpers, somewhere other than the Gap for the ball to bang around, and
+banging that actually matters. Until now, once a hit landed the Gap pops did nothing at all.
+
+| Area | Change | Result |
+|---|---|---|
+| Bumpers | Two **outfield bumpers** in the mid-field, at (130, 610) and (430, 640), 17 mm, mint caps. Placed by sweeping candidate layouts in the simulation (as for the W-A-L-K bank), scored by flipper timings that touch a bumper and by what happens to the ramp, Gap and orbit shots. Candidates near the right orbit's line (for instance (440, 575)) cut orbit shots from 7 to 1-3 and were rejected. | **35 % of flipper shots touch a bumper**; the Gap, HR ramp, steal ramp and orbit shots stay within 1-2 of their old counts. The printed shot arrows near them (orbit L/R, HOME RUN, STEAL) moved clear so no cap sits on an arrow. |
+| Meter | **HUSTLE**: while the ball is live after a hit, every bumper hit counts (the Gap pops too, which used to be decoration). 15 hits fill it; five lamps, and a chip in the HUD. Full: every runner takes an extra base. | 1.4 payouts a game for the bot. |
+| Counting | At most one hit per 0.4 s, and only after a hit. | Counting every contact paid out about 14 times a game: a ball ricocheting through the nest's four pops makes dozens of contacts in a second or two. Counting hits before the result (46 a game for the bot) would have paid out about 7 times a game, so those just deflect the ball. |
+| Strength | Outfield bumpers kick at **1.5 m/s** (new per-bumper `kick` override; Gap pops stay 3.4). | At full strength the bumpers kept balls alive and fed the Gap: hit rate 30 → 37 %, **runs per game 5.5 → 9.5**. Soft bumpers keep runs at 5.6 with the hit rate at 31 %. 2.2 m/s gave 7.2 runs. |
+
+**Result (sim bot, 100 games each):** average profile 5.6 runs, hit rate 31 %, 1.4 HUSTLE payouts, 1.5
+steals and 1.9 walks a game; rookie 5.6 runs, 1.5 HUSTLE, 1.3 steals, 1.6 walks. If the bumpers feel
+too gentle, raise their `kick` (each +0.5 m/s adds roughly 1.5 runs a game), or tighten the Gap.
+
+**Not done:** a lead-off meter that builds steals from bumper hits, the infield base bumper, and
+bumper-fed Hot Bat. All three were options in the plan.

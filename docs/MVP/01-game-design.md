@@ -203,6 +203,7 @@ Resolution details:
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
 | **STEAL** | A runner is on base. No lighting is needed: the right ramp's arrow blinks while a steal is available. | A **right ramp** shot moves the lead runner who can advance up one base (stealing home scores a run). With the bases empty the shot does nothing but a callout. |
 | **WALK** | Spell **W-A-L-K** on the four standups at the lower right. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
+| **HUSTLE** | **After a hit, while the ball is still live,** every bumper hit counts: the two **outfield bumpers**, or the Gap pops (which score nothing then). At most one hit counts per 0.4 s, so a ricochet through the nest earns by how long it keeps bouncing, not by contacts. 15 hits fill the meter (five lamps of three). | **Every runner takes an extra base** (the runner on third scores). With the bases empty a full meter waits and pays on the next bumper hit once a runner is on. It persists through innings. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-B-I lanes lit) carries over between PAs and

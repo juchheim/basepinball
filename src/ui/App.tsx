@@ -107,6 +107,17 @@ function Hud() {
       <div class="hud-chips">
         {g.hotBat && <span class="chip hot">HOT BAT</span>}
         {g.stealReady && <span class="chip steal">STEAL: RIGHT RAMP</span>}
+        {g.hustle > 0 && (
+          <span
+            class={`chip hustle ${g.hustle >= g.hustleTarget ? 'ready' : ''}`}
+            aria-label={`Hustle ${g.hustle} of ${g.hustleTarget}`}
+          >
+            HUSTLE
+            {[1, 2, 3, 4, 5].map((i) => (
+              <i class={g.hustle >= (i * g.hustleTarget) / 5 ? 'on' : ''} />
+            ))}
+          </span>
+        )}
         {g.walkHit.some(Boolean) && (
           <span class="chip walk" aria-label="W-A-L-K progress">
             {['W', 'A', 'L', 'K'].map((l, i) => (
@@ -265,6 +276,11 @@ function HowToPlay() {
           runner on third steals home). Spell <b>W-A-L-K</b> on the four targets at the lower right
           and the batter takes a <b>walk</b>: first base, forcing any runners ahead of him. Letters
           you've hit glow on the table and in the HUD, and stay lit until the word is spelled.
+        </li>
+        <li>
+          <b>Bumpers matter</b>: once the ball is in play, every bumper hit that isn't itself a hit
+          (the two <b>outfield bumpers</b>, or the Gap after a hit) fills the <b>HUSTLE</b> meter.
+          Full, with a runner on, every runner takes an extra base.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.

@@ -278,12 +278,17 @@ export class Figures {
     if (r) this.runTo(r, from + 2);
   }
 
-  /** A walk: the batter trots to first and the forced runners (`moved`: bases they left) go up one. */
-  walk(moved: number[]): void {
+  /** Runners on the bases listed in `moved` (0 = first) each take the next base. */
+  advance(moved: number[]): void {
     for (const from of moved) {
       const r = this.runners.find((x) => !x.scoring && Math.round(x.at) === from + 1);
       if (r) this.runTo(r, from + 2);
     }
+  }
+
+  /** A walk: the batter trots to first and the forced runners (`moved`: bases they left) go up one. */
+  walk(moved: number[]): void {
+    this.advance(moved);
     const batter = this.newRunner();
     if (batter) this.runTo(batter, 1);
   }

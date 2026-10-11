@@ -46,6 +46,8 @@ export interface PopDef {
   /** Cap label and colour key for the renderer. */
   label?: string;
   color?: number;
+  /** Kick speed (m/s) this bumper gives the ball; the physics parameter `popKickSpeed` if omitted. */
+  kick?: number;
 }
 
 export interface SaucerDef {

@@ -182,6 +182,7 @@ export function playfieldSvg(table: TableDef): string {
 
   // ---- rally meter, feature inserts, banks, lanes
   text(275, 566, 'RALLY', 7, C.gold);
+  text(275, 598, 'HUSTLE', 7, '#7bd88f');
   const hot = lamp('lamp.hotbat');
   if (hot) text(hot.x, hot.y - 18, 'HOT BAT', 8, C.red);
   // The W-A-L-K bank's sign, behind its lamps.
