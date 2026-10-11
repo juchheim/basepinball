@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import * as THREE from 'three/webgpu';
+import { BRAND } from './app/brand';
 import { FixedLoop } from './app/loop';
 import { createPanel, loadParams } from './debug/panel';
 import { bindInput, type InputEvent } from './input/input';
@@ -7,14 +8,19 @@ import { World, type PhysicsEvent } from './physics/world';
 import { GameRules } from './rules/game';
 import type { RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
+import { AdaptiveQuality, initialTier, type Quality } from './render/quality';
+import { Stadium } from './render/stadium';
+import { STANDEE_CELLS, STANDEE_GRID } from './render/standeeAtlas';
 import { Stage } from './render/stage';
 import { TableView } from './render/tableView';
+import { loadSlot } from './render/textures';
 import { addHighScore, loadHighScores, qualifies } from './storage/highscores';
 import { m0TestTable } from './table/m0TestTable';
 import { v1Table } from './table/v1Table';
 import { App } from './ui/App';
 import {
   calloutFor,
+  pitchCueFor,
   finalStats,
   highScores,
   lastRank,
@@ -49,9 +55,48 @@ async function main(): Promise<void> {
   const MM = 0.001;
 
   const view = new TableView(table, world);
-  view.group.rotation.x = -Math.PI / 2 + (params.slopeDeg * Math.PI) / 180;
-  stage.scene.add(view.group);
-  stage.fit(view.group);
+  const stadium = new Stadium(BRAND.game);
+  const tilt = (): void => {
+    for (const g of [view.group, stadium.group])
+      g.rotation.x = -Math.PI / 2 + (params.slopeDeg * Math.PI) / 180;
+    stage.scene.updateMatrixWorld();
+    // Key lights shine from the light towers onto the middle of the playfield.
+    stage.aimKeyLights(
+      stadium.towerHeads.map((h) => stadium.group.localToWorld(h.clone())),
+      view.group.localToWorld(new THREE.Vector3(0.275, 0.55, 0)),
+    );
+    // Keep the top of the backboard (and its scoreboard) in the shot.
+    stage.fit(
+      view.group,
+      [new THREE.Vector3(0, 1.17, 0.26), new THREE.Vector3(0.59, 1.17, 0.26)].map((p) =>
+        view.group.localToWorld(p),
+      ),
+    );
+  };
+  stage.scene.add(view.group, stadium.group);
+  tilt();
+
+  // ---- quality tier, textures, standees, reflections
+  let textureWidth = 0;
+  const applyQuality = (q: Quality): void => {
+    stage.applyQuality(q);
+    view.setReflections(q.reflectionSize, q.reflectionEvery);
+    stadium.setCrowd(q.crowd);
+    if (q.playfieldTexture !== textureWidth && !freePlay) {
+      textureWidth = q.playfieldTexture;
+      void loadSlot('playfield.base', q.playfieldTexture).then(
+        (tex) => tex && view.setPlayfieldTexture(tex),
+      );
+    }
+  };
+  const quality = new AdaptiveQuality(initialTier(query), applyQuality);
+  quality.enabled = !query.has('quality');
+  applyQuality(quality.tier);
+  void loadSlot('standees', 600).then(
+    (tex) => tex && view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID),
+  );
+  // Redraw the scoreboard once the display font is ready.
+  void document.fonts?.load('bold 40px Oswald').then(() => stadium.update(null, BRAND.game));
 
   let rules: GameRules | null = null;
   const timers: { at: number; run: () => void }[] = [];
@@ -82,6 +127,7 @@ async function main(): Promise<void> {
   };
   const presentRules = (e: RulesEvent): void => {
     calloutFor(e);
+    pitchCueFor(e);
     if (e.type === 'runs') view.flash('base.home');
     if (e.type === 'gameOver') {
       after(2.2, () => {
@@ -230,7 +276,7 @@ async function main(): Promise<void> {
     createPanel(params, {
       onParamsChange: () => {
         world.applyParams();
-        view.group.rotation.x = -Math.PI / 2 + (params.slopeDeg * Math.PI) / 180;
+        tilt();
       },
       spawn: () => world.serveBall(),
       pitch: () => world.pitchBall(0.221, 0.175, 1.2),
@@ -287,9 +333,11 @@ async function main(): Promise<void> {
     (window as unknown as Record<string, unknown>).__bp = {
       stage,
       view,
+      stadium,
       world,
       loop,
       params,
+      quality,
       getRules: () => rules,
     };
   }
@@ -306,14 +354,18 @@ async function main(): Promise<void> {
     last = now;
     if (rules) {
       for (const [id, mode] of Object.entries(rules.lamps())) view.setLamp(id, mode);
-      // The HUD only needs ~10 updates a second.
-      if (now - lastHud > 100) {
-        lastHud = now;
-        snapshot.value = rules.snapshot();
-      }
+    }
+    // The HUD and scoreboard only need ~10 updates a second.
+    if (now - lastHud > 100) {
+      lastHud = now;
+      const snap = rules ? rules.snapshot() : null;
+      if (snap) snapshot.value = snap;
+      stadium.update(snap, BRAND.game);
     }
     view.update(loop.alpha, dt);
+    view.updateReflections(stage.renderer, stage.scene);
     stage.render();
+    quality.frame(now, dt * 1000);
 
     frames++;
     physicsMsAvg = physicsMsAvg * 0.95 + loop.lastPhysicsMs * 0.05;
@@ -321,7 +373,7 @@ async function main(): Promise<void> {
       const fps = (frames * 1000) / (now - fpsAt);
       frames = 0;
       fpsAt = now;
-      perf.textContent = `${stage.backend} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}`;
+      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}`;
     }
     requestAnimationFrame(tick);
   };

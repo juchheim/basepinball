@@ -1,6 +1,6 @@
 import { dcos, dsin, DEG } from '../core/dmath';
 import { Rng } from '../core/rng';
-import type { TableDef, Vec3 } from '../table/schema';
+import type { SaucerDef, TableDef, Vec3 } from '../table/schema';
 import { Ball } from './ball';
 import { Flipper } from './flipper';
 import { restitution, type Material, type MaterialName, type PhysicsParams } from './params';
@@ -1086,7 +1086,22 @@ export class World {
             tri(l0, up(l1), up(l0), 'plastic');
             tri(r0, r1, up(r1), 'plastic');
             tri(r0, up(r1), up(r0), 'plastic');
+            // Skirts from the floor edges down to the playfield, so no ball can wedge itself
+            // under a ramp.
+            for (const [a, b] of [
+              [l0, l1],
+              [r0, r1],
+            ] as const) {
+              const down = (v: Vec3): Vec3 => [v[0], v[1], 0];
+              if (b[2] > 0.5) tri(a, b, down(b), 'plastic');
+              if (a[2] > 0.5) tri(a, down(b), down(a), 'plastic');
+            }
           }
+          // And across the far end.
+          const le = left[left.length - 1]!;
+          const re = right[right.length - 1]!;
+          tri(le, re, [re[0], re[1], 0], 'plastic');
+          tri(le, [re[0], re[1], 0], [le[0], le[1], 0], 'plastic');
           break;
         }
         case 'wireform': {
@@ -1154,13 +1169,8 @@ export class World {
           const la = el.lipAngle * DEG;
           if (el.lip === 'none') break;
           if (el.lip === 'post') {
-            circle(
-              el.x + (el.radius + 8) * dcos(la),
-              el.y + (el.radius + 8) * dsin(la),
-              8,
-              'glove',
-              12,
-            );
+            const post = saucerLipPost(el);
+            circle(post.x, post.y, post.radius, 'glove', 12);
             break;
           }
           const lx = el.x + (el.radius + 6) * dcos(la);
@@ -1187,6 +1197,14 @@ export class World {
 // ---------------------------------------------------------------- geometry helpers
 
 /** Left/right floor edges of a ramp (mm), offset horizontally from the centre line. */
+/** Centre (mm) and radius of a saucer's round lip post. */
+export function saucerLipPost(el: SaucerDef): { x: number; y: number; radius: number } {
+  if (el.lipPost)
+    return { x: el.x + el.lipPost.dx, y: el.y + el.lipPost.dy, radius: el.lipPost.radius };
+  const la = el.lipAngle * DEG;
+  return { x: el.x + (el.radius + 8) * dcos(la), y: el.y + (el.radius + 8) * dsin(la), radius: 8 };
+}
+
 export function rampEdges(
   path: readonly Vec3[],
   width: number,

@@ -64,6 +64,12 @@ export interface SaucerDef {
    * 'none': no backstop (the saucer only catches balls that are already slow).
    */
   lip?: 'bar' | 'post' | 'none';
+  /**
+   * For 'post': its centre offset from the dish centre and radius (mm). Default: radius 8, just
+   * behind the rim at `lipAngle`. Small, offset posts leave a ball-wide gap to their neighbours
+   * on both sides, so nothing can wedge between them.
+   */
+  lipPost?: { dx: number; dy: number; radius: number };
   label?: string;
 }
 

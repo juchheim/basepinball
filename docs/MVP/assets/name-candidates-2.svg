@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1240">
+<rect width="100%" height="100%" fill="#0b1020"/>
+<g transform="translate(40 40)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">POP FLY</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Pop bumpers + a pop fly: the pinball and baseball meanings in two words</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">1</text>
+</g>
+<g transform="translate(40 190)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">RALLY BALL</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Named for the rally mechanic: keep the ball live, keep the inning alive</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">2</text>
+</g>
+<g transform="translate(40 340)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">SWING &amp; FLIP</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Says both games outright; friendly and clear</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">3</text>
+</g>
+<g transform="translate(40 490)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">MOONSHOT</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Slang for a towering home run; works as a logo and a ramp name</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">4</text>
+</g>
+<g transform="translate(40 640)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">FLIPPER FIELD</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Plain-spoken: a ballfield made of flippers</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">5</text>
+</g>
+<g transform="translate(40 790)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">FAIR OR FOUL</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Every shot is a call; pairs with the foul-out outlanes</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">6</text>
+</g>
+<g transform="translate(40 940)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">CAN OF CORN</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Baseball slang for an easy fly ball; quirky and memorable</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">7</text>
+</g>
+<g transform="translate(40 1090)">
+  <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
+  <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">SEVENTH-INNING TILT</text>
+  <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Seventh-inning stretch with a pinball twist; playful but long</text>
+  <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">8</text>
+</g>
+</svg>

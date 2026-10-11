@@ -153,7 +153,11 @@ Resolution details:
 
 - The ball is delivered by a **ball lift (VUK) inside the mound**. The pitcher standee winds up, and
   a small kicker sends the ball down the slope toward the flippers.
-- **Pitch types (MVP):** each type is telegraphed by a lamp on the mound about 0.6 s before release.
+- **The windup (pre-pitch indicator):** for 1.5 s before release, the pitch-type lamp on the mound
+  blinks. A HUD panel in mid-field shows the pitch type and an arrow to the target flipper. Its
+  countdown bar empties at the moment of release, then "PITCH!" flashes. The lamp holds steady
+  while the ball is in flight.
+- **Pitch types (MVP):**
   - **Fastball (FB)**: fast, straight at a flipper.
   - **Changeup (CH)**: slow, arrives late.
   - **Curveball (CB)**: medium speed. A magnet under the playfield bends it late toward the other
@@ -165,18 +169,21 @@ Resolution details:
 - **Difficulty curve:** innings 1–3 are mostly FB/CH at moderate speed. Innings 4–6 add CB. Innings
   7–9 bring faster fastballs and more curves. All of this is data-driven.
 - **Pace:** after an out, the ball takes 2.0 s (fielder catch and throw) or 1.6 s (from the drain)
-  to reach the mound. Then the pitch-type lamp shows for 0.8 s (the windup) before release. The
-  side-retired break is 5 s.
-- **Calibrated templates (M2):**
+  to reach the mound. Then the 1.5 s windup runs before release. The side-retired break is 5 s.
+- **Calibrated templates (M3 playtest: slowed so a person can react):**
 
-  | Type | Speed | Aim |
-  |------|-------|-----|
-  | FB | 1.15–1.45 m/s | Middle of the bat |
-  | CH | 0.70–0.85 m/s | 6 mm toward the pivot |
-  | CB | 0.95–1.10 m/s | 28 mm outside the bat, bent back onto it by a 0.2 s full-power magnet pulse (about 20 mm of break) |
+  | Type | Speed | Release → bat | Aim |
+  |------|-------|---------------|-----|
+  | FB | 0.42–0.56 m/s | ~0.33–0.40 s | Middle of the bat |
+  | CH | 0.28–0.34 m/s | ~0.45–0.49 s | Middle of the bat |
+  | CB | 0.36–0.46 m/s | ~0.40–0.45 s | 45 mm outside, bent back onto the bat by a 0.2 s, 60 % magnet pulse |
 
-  Speeds rise within each range as the innings go on. Every template is verified in
-  `tests/rules/pitching.test.ts`.
+  At these speeds the playfield's slope does much of the work. Slower pitches are bent further
+  toward the flipper tip on the way down, so the aim point depends on speed
+  (`aimForSpeed` in `src/rules/pitching.ts`). Speeds rise within each range as the innings go on.
+  Every template is verified in `tests/rules/pitching.test.ts`, including at least 0.3 s from
+  release to the bat. (M2 had FB at 1.15–1.45 m/s, about 0.13 s to the bat. In playtesting that
+  was too fast to react to.)
 
 ### 4.7 Leadoff skill shot (P1)
 
@@ -193,7 +200,7 @@ Resolution details:
 | Goal | How | Reward |
 |------|-----|--------|
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
-| **STEAL** | Hit all three **R-U-N** standups | The next **right ramp** shot advances the lead runner who can advance by one base (stealing home scores a run). Used up when the steal happens. |
+| **STEAL** | Hit all three **R-U-N** standups | The next **right ramp** shot advances the lead runner who can advance by one base (stealing home scores a run). Used up when the steal happens. With the bases empty it stays lit. **Unlit**, a right-ramp shot spots the next R-U-N letter, so two ramp shots plus a standup also light STEAL. Every right-ramp shot gets a callout. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-U-N letters lit) carries over between PAs and
@@ -281,14 +288,13 @@ Targets for an **average player** (validated by playtests plus the headless simu
 | Runs per game | 3–5 (median 4) | 4.7 (median 4) ✅ |
 | Hit rate (hits / PA) | ~30 % | 30.5 % ✅ |
 | Hit mix | ~55 % 1B, 25 % 2B, 8 % 3B, 12 % HR | 54.5 / 23.9 / 8.1 / 13.5 ✅ |
-| Drain outs (K + foul out) | ≤ 25 % of PAs. Saucer outs should be the most common out. | **55 % drains, 14 % fielder outs** ❌ (see below) |
+| Drain outs (K + foul out) | Drains are the most common out; fielders punish missed shots (revised in M2) | 55 % drains, 14 % fielder outs ✅ |
 | Rally PAs | 15–25 % of PAs | 25.6 % ✅ |
 | Ball stuck events | < 1 per 20 games | 0 rescues in 30 games ✅ |
 
-**Drain outs vs fielder outs.** With every drain an out (your rule), drains are the most common
-out: post-hit balls draining, pitches the batter misses, and outlane drains all count. Fielder outs
-can be pushed up with bigger or deader gloves, but that also cuts hits. This is an open question
-in the [M2 report](m2-report.md).
+**Drain outs vs fielder outs (decided after M2: accepted).** With every drain an out, drains are
+the most common out: post-hit balls draining, pitches the batter misses, and outlane drains all
+count. Fielders punish missed shots.
 
 For a **skilled player**, the target is 8–15 runs, with the ceiling set by the ramp's difficulty and
 the pitch mix. **Main tuning levers:** fielder saucer size and lip, post spacing between shots, pop

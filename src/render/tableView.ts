@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { ElementDef, TableDef, Vec2, Vec3 } from '../table/schema';
-import { rampEdges, wireformRails, type World } from '../physics/world';
+import { rampEdges, saucerLipPost, wireformRails, type World } from '../physics/world';
 import type { Flipper } from '../physics/flipper';
 
 /**
@@ -12,8 +12,27 @@ import type { Flipper } from '../physics/flipper';
 
 const MM = 0.001;
 
+function rampMaterial(color: number): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.15,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.5,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+}
+
 const mats = {
-  floor: new THREE.MeshStandardMaterial({ color: 0x3d5a45, roughness: 0.35, metalness: 0 }),
+  // The printed playfield under a clear coat (art texture applied once it loads).
+  floor: new THREE.MeshPhysicalMaterial({
+    color: 0x3d5a45,
+    roughness: 0.55,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.06,
+  }),
   wood: new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.6 }),
   metal: new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.25, metalness: 0.9 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 }),
@@ -24,24 +43,17 @@ const mats = {
     transparent: true,
     opacity: 0.85,
   }),
-  ramp: new THREE.MeshStandardMaterial({
-    color: 0xcfe3ff,
-    roughness: 0.15,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.45,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  }),
+  // Tinted clear plastics tell the two ramps apart: red "Over the Wall" (home run), teal Steal.
+  rampHR: rampMaterial(0xffb3a8),
+  rampSteal: rampMaterial(0x9ff0e6),
   wire: new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.15, metalness: 1 }),
   flipper: new THREE.MeshStandardMaterial({ color: 0xf4efe1, roughness: 0.35 }),
   flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc8282a, roughness: 0.6 }),
   saucer: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 }),
-  standee: new THREE.MeshStandardMaterial({ color: 0x1b2a4a, roughness: 0.5 }),
   mound: new THREE.MeshStandardMaterial({ color: 0xb4683c, roughness: 0.9 }),
   popBody: new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.6 }),
   sensor: new THREE.MeshStandardMaterial({ color: 0x9aa6c4, roughness: 0.4, metalness: 0.8 }),
-  ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.06, metalness: 1 }),
+  ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 1 }),
 };
 
 function materialFor(name: string): THREE.Material {
@@ -81,6 +93,14 @@ export class TableView {
   private readonly lights = new Map<string, Light[]>();
   private readonly ballMeshes: THREE.Mesh[] = [];
   private readonly colliderLines: THREE.LineSegments;
+  /** Where standees go (filled while building, placed when the art loads). */
+  private readonly standeeSpots: { cell: string; x: number; y: number }[] = [];
+  private ballEnv: {
+    camera: THREE.CubeCamera;
+    target: THREE.CubeRenderTarget;
+    every: number;
+    frame: number;
+  } | null = null;
   /** Static geometry waiting to be merged, per material. */
   private readonly pending = new Map<THREE.Material, THREE.BufferGeometry[]>();
 
@@ -110,6 +130,84 @@ export class TableView {
 
   get showColliders(): boolean {
     return this.colliderLines.visible;
+  }
+
+  /** Apply the printed playfield art. */
+  setPlayfieldTexture(tex: THREE.Texture): void {
+    const old = mats.floor.map;
+    mats.floor.map = tex;
+    mats.floor.color.set(0xffffff);
+    mats.floor.needsUpdate = true;
+    old?.dispose();
+  }
+
+  /**
+   * Printed-acrylic player standees (docs/MVP/05 § 5.3): an alpha-cut figure from the standee atlas
+   * on a thin clear plate, standing behind each fielder's glove and on the mound.
+   */
+  addStandees(
+    atlas: THREE.Texture,
+    cells: readonly string[],
+    grid: { cols: number; rows: number },
+  ): void {
+    const mat = new THREE.MeshStandardMaterial({
+      map: atlas,
+      alphaTest: 0.5,
+      side: THREE.DoubleSide,
+      roughness: 0.35,
+      // A little self-light, as GI under the playfield plastics would give.
+      emissiveMap: atlas,
+      emissive: new THREE.Color(0xffffff),
+      emissiveIntensity: 0.25,
+    });
+    for (const spot of this.standeeSpots) {
+      const index = cells.indexOf(spot.cell);
+      if (index < 0) continue;
+      const col = index % grid.cols;
+      const row = Math.floor(index / grid.cols);
+      const h = 0.062;
+      const g = new THREE.PlaneGeometry(h / 2, h);
+      const uv = g.getAttribute('uv') as THREE.BufferAttribute;
+      for (let i = 0; i < uv.count; i++) {
+        uv.setXY(i, (col + uv.getX(i)) / grid.cols, 1 - (row + 1 - uv.getY(i)) / grid.rows);
+      }
+      g.rotateX(Math.PI / 2);
+      const m = new THREE.Mesh(g, mat);
+      m.position.set(spot.x * MM, spot.y * MM, h / 2 + 0.001);
+      m.castShadow = true;
+      this.group.add(m);
+    }
+  }
+
+  /**
+   * Dynamic ball reflections (docs/MVP/05 § 4): a cube camera follows the ball and renders the
+   * table around it, so the chrome ball mirrors lamps, rails and flippers. Size 0 uses the static
+   * scene environment instead.
+   */
+  setReflections(size: number, every: number): void {
+    if (this.ballEnv) {
+      this.ballEnv.target.dispose();
+      this.ballEnv = null;
+    }
+    mats.ball.envMap = null;
+    if (size > 0) {
+      const target = new THREE.CubeRenderTarget(size);
+      const camera = new THREE.CubeCamera(0.005, 5, target);
+      this.ballEnv = { camera, target, every: Math.max(1, every), frame: 0 };
+      mats.ball.envMap = target.texture;
+    }
+    mats.ball.needsUpdate = true;
+  }
+
+  updateReflections(renderer: THREE.WebGPURenderer, scene: THREE.Scene): void {
+    const env = this.ballEnv;
+    const ball = this.ballMeshes[0];
+    if (!env || !ball || !ball.visible) return;
+    if (env.frame++ % env.every !== 0) return;
+    ball.getWorldPosition(env.camera.position);
+    ball.visible = false;
+    env.camera.update(renderer, scene);
+    ball.visible = true;
   }
 
   /** Brighten a device or lamp briefly. */
@@ -192,7 +290,7 @@ export class TableView {
       const merged = mergeGeometries(geometries, false);
       if (!merged) continue;
       const mesh = new THREE.Mesh(merged, material);
-      mesh.castShadow = material !== mats.ramp;
+      mesh.castShadow = material !== mats.rampHR && material !== mats.rampSteal;
       mesh.receiveShadow = true;
       this.group.add(mesh);
     }
@@ -356,7 +454,7 @@ export class TableView {
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
         g.computeVertexNormals();
-        this.addStatic(g, mats.ramp);
+        this.addStatic(g, el.id === 'ramp.STEAL' ? mats.rampSteal : mats.rampHR);
         break;
       }
       case 'wireform': {
@@ -378,9 +476,7 @@ export class TableView {
         g.rotateX(Math.PI / 2);
         g.translate(el.x * MM, el.y * MM, 0);
         this.addStatic(g, mats.mound);
-        const standee = new THREE.BoxGeometry(0.022, 0.004, 0.05);
-        standee.translate(el.x * MM, (el.y + 18) * MM, 0.025);
-        this.addStatic(standee, mats.standee);
+        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 20 });
         break;
       }
       case 'kickback':
@@ -420,23 +516,17 @@ export class TableView {
             mats.rubber,
           );
         } else if (lip === 'post') {
-          this.addStatic(
-            this.cylinderGeometry(
-              el.x + (el.radius + 8) * Math.cos(la),
-              el.y + (el.radius + 8) * Math.sin(la),
-              8,
-              12,
-            ),
-            mats.rubber,
-          );
+          const post = saucerLipPost(el);
+          this.addStatic(this.cylinderGeometry(post.x, post.y, post.radius, 12), mats.rubber);
         }
-        // Fielder standee placeholder behind the lip.
-        const sx = el.x + (el.radius + 16) * Math.cos(la);
-        const sy = el.y + (el.radius + 16) * Math.sin(la);
-        const standee = new THREE.BoxGeometry(0.03, 0.004, 0.05);
-        standee.rotateZ(la - Math.PI / 2);
-        standee.translate(sx * MM, sy * MM, 0.025);
-        this.addStatic(standee, mats.standee);
+        // Fielder standee behind the lip (added when the standee art loads).
+        if (el.label) {
+          this.standeeSpots.push({
+            cell: el.label,
+            x: el.x + (el.radius + 16) * Math.cos(la),
+            y: el.y + (el.radius + 16) * Math.sin(la),
+          });
+        }
         break;
       }
       case 'lamp': {

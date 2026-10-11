@@ -1,4 +1,5 @@
 import { signal } from '@preact/signals';
+import type { PitchType, Side } from '../rules/pitching';
 import type { GameSnapshot, GameStats, RulesEvent } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 
@@ -22,6 +23,36 @@ export const highScores = signal<HighScore[]>([]);
 export const lastRank = signal(-1);
 /** Whether the finished game makes the high-score table. */
 export const qualified = signal(false);
+
+/**
+ * The pre-pitch indicator: shown through the windup with a countdown to release, then "PITCH!"
+ * briefly as the ball is thrown. `lead` is the windup length (s).
+ */
+export interface PitchCue {
+  id: number;
+  type: PitchType;
+  side: Side;
+  lead: number;
+  phase: 'windup' | 'release';
+}
+export const pitchCue = signal<PitchCue | null>(null);
+
+let cueId = 0;
+let cueTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function pitchCueFor(e: RulesEvent): void {
+  if (e.type === 'pitchTell') {
+    clearTimeout(cueTimer);
+    pitchCue.value = { id: ++cueId, type: e.pitch, side: e.side, lead: e.lead, phase: 'windup' };
+  } else if (e.type === 'pitch' && pitchCue.value) {
+    pitchCue.value = { ...pitchCue.value, phase: 'release' };
+    clearTimeout(cueTimer);
+    cueTimer = setTimeout(() => (pitchCue.value = null), 700);
+  } else if (e.type === 'gameStart' || e.type === 'inningEnd' || e.type === 'tilt') {
+    clearTimeout(cueTimer);
+    pitchCue.value = null;
+  }
+}
 
 let calloutId = 0;
 let clearTimer: ReturnType<typeof setTimeout> | undefined;
@@ -84,6 +115,12 @@ export function calloutFor(e: RulesEvent): void {
           ' · next hit +1 base',
         'info',
       );
+    case 'stealRamp':
+      return e.result === 'letter'
+        ? e.letters < 3
+          ? showCallout('STEAL RAMP', `R-U-N: ${e.letter} lit · ${e.letters} of 3`, 'info', 1100)
+          : undefined // the stealLit callout follows
+        : showCallout('STEAL RAMP', 'Nobody on base to steal · STEAL stays lit', 'info', 1300);
     case 'stealLit':
       return showCallout('STEAL LIT', 'Shoot the right ramp', 'info');
     case 'kickbackLit':

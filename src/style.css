@@ -1,3 +1,10 @@
+@font-face {
+  font-family: Oswald;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Oswald-Bold.ttf') format('truetype');
+}
+
 :root {
   color-scheme: dark;
   --bg: #0b1020;
@@ -146,6 +153,99 @@ canvas {
 .chip.warn {
   background: #ff9f1c;
   color: #0b1020;
+}
+
+/* The pre-pitch indicator: mid-field, clear of the mound and flippers so the pitch stays visible. */
+.pitch-cue {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translateX(-50%);
+  min-width: 200px;
+  padding: 8px 16px 10px;
+  text-align: center;
+  background: rgba(11, 16, 32, 0.82);
+  border: 1px solid rgba(242, 179, 61, 0.55);
+  border-radius: 12px;
+  box-shadow: 0 0 18px rgba(242, 179, 61, 0.25);
+  animation: callout-in 160ms ease-out;
+  pointer-events: none;
+}
+.pitch-cue-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.pitch-cue-name {
+  font-size: clamp(20px, 5vw, 30px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #f2b33d;
+}
+.pitch-cue-arrow {
+  min-width: 1em;
+  font-size: clamp(20px, 5vw, 28px);
+  color: #7fd1ff;
+  animation: cue-nudge 0.5s ease-in-out infinite alternate;
+}
+.pitch-cue.left .pitch-cue-arrow {
+  animation-name: cue-nudge-left;
+}
+.pitch-cue-bar {
+  height: 6px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: rgba(244, 241, 232, 0.15);
+  overflow: hidden;
+}
+.pitch-cue-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #f2b33d);
+  transform-origin: left;
+  animation: cue-drain var(--lead) linear forwards;
+}
+.pitch-cue-sub {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pitch-cue.release {
+  border-color: #fff;
+}
+.pitch-cue.release .pitch-cue-name {
+  color: #fff;
+}
+.pitch-cue.paused *,
+.pitch-cue.paused {
+  animation-play-state: paused;
+}
+@keyframes cue-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+@keyframes cue-nudge {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(5px);
+  }
+}
+@keyframes cue-nudge-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-5px);
+  }
 }
 
 .callout {

@@ -79,7 +79,7 @@ regular pinball.
 | 1 | **Left orbit** (spinner) | Right | **TRIPLE.** The ball strikes the top-left corner kicker, loops the arch, and drops through the R-B-I lanes into the Gap. | 3B side saucer on the approach (catches weak shots), LF on the inside |
 | 2 | **Left ramp: "Over the Wall"** | Right | **HOME RUN** at the crest gate. The wireform returns the ball to the **left inlane**, setting up a rally. | LF and SS flank the entrance. A missed ramp rolls back toward them. |
 | 3 | **The Gap** (center pop nest) | Either | **SINGLE** (front pops) or **DOUBLE** (back pops). A slow, straight-up-the-middle ball can drop into the **CF** saucer in the throat. | SS and 2B flank the mouth. CF is inside. |
-| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** When STEAL is lit, the lead runner advances one base (stealing home scores). The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
+| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** When STEAL is lit, the lead runner advances one base (stealing home scores). Unlit, it spots the next R-U-N letter. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
 | 7 | **R-U-N standups** (right wall) | Left | Feature: completing the bank lights **STEAL** on the right ramp | — |
@@ -258,3 +258,18 @@ the [M1 report](m1-report.md).
 | Saucer skim speed | 1.1 → 1.6 m/s | More moderately fast misses are caught |
 | Triples | Counted only for a clean orbit shot (orbit entered within 1 s of the swing) | Slingshot ricochets wandering up an orbit made triples 25 % of hits. Now 8 %. |
 
+
+### M3 playtest fixes (stuck balls)
+
+The stuck-ball test had only ever run on the M0 test table. Run on the v1 table, it found two kinds
+of ledge. In the sim bot, one game in 30 never finished because of them.
+
+| Area | Change | Why |
+|---|---|---|
+| LF, SS, 2B, RF backstops | The straight 36 mm lip bar is now a small round post (5 mm radius), offset so a ball-wide gap (≥ 27.5 mm) stays open on both sides to the neighbouring posts, guides and ramp walls | The top of each bar was a flat shelf, and its ends formed pockets with the ramp-entrance posts and orbit guides. Fielder outs did not drop (16.5 % of PAs). |
+| Ramps | Skirts from the ramp floor edges, and across the far end, down to the playfield | A ball could slide under a ramp's side and wedge beneath the floor |
+| Rules | After three failed ball searches, the ball is rescued | Each search kick moved the ball, which reset the idle timer, so a ball wedged in place was searched for forever and never rescued |
+
+A ball that lands within about 1° of the very top of a round post can balance there, held by
+rolling resistance. This is rare (1 in about 1,300 drops in a dense scan), and the first ball search
+knocks it off.

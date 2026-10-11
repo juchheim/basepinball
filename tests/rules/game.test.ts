@@ -232,6 +232,22 @@ describe('event resolution table', () => {
     }
   });
 
+  it('a ball that each search kick only rocks in place is still rescued', () => {
+    const h = inInPlay();
+    h.m.speed = 0;
+    for (let i = 0; i < 300 && h.count('ballRescued') === 0; i++) {
+      const searches = h.m.calls.filter((c) => c === 'search').length;
+      h.wait(0.1);
+      if (h.m.calls.filter((c) => c === 'search').length > searches) {
+        // The kick moves the ball for a moment, then it settles back into the same spot.
+        h.m.speed = 0.3;
+        h.wait(0.5);
+        h.m.speed = 0;
+      }
+    }
+    expect(h.count('ballRescued')).toBe(1);
+  });
+
   it('a cradled ball (flipper held) is never treated as stuck', () => {
     const h = inInPlay();
     h.m.speed = 0;
@@ -319,9 +335,21 @@ describe('feature goals', () => {
     expect(h.g.stealLit).toBe(true);
     h.ev('sensor', 'gate.STEAL');
     expect(h.g.stealLit).toBe(true); // nobody on base: stays lit
+    expect(h.g.events.some((e) => e.type === 'stealRamp' && e.result === 'noRunner')).toBe(true);
     h.ev('pop', 'pop.1B.L').ev('sensor', 'gate.STEAL');
     expect(h.g.bases).toEqual([false, true, false]);
     expect(h.g.stealLit).toBe(false);
+  });
+
+  it('an unlit Steal ramp shot spots the next R-U-N letter; three light STEAL', () => {
+    const h = inInPlay().ev('standup', 'standup.U');
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.lamps()['lamp.standup.R']).toBe('on');
+    expect(h.g.stealLit).toBe(false);
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.stealLit).toBe(true);
+    expect(h.g.bases).toEqual([false, false, false]);
+    expect(h.g.outs).toBe(0);
   });
 
   it('stealing home scores a run', () => {

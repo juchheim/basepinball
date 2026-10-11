@@ -49,7 +49,7 @@ export interface PanelHooks {
 }
 
 export function createPanel(params: PhysicsParams, hooks: PanelHooks): Pane {
-  const pane = new Pane({ title: 'BasePinball M1 — physics', expanded: window.innerWidth > 800 });
+  const pane = new Pane({ title: 'Physics tuning', expanded: window.innerWidth > 800 });
   const changed = (): void => {
     saveParams(params);
     hooks.onParamsChange();

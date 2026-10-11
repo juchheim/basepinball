@@ -157,6 +157,7 @@ const fieldSaucer = (
   y: number,
   lipAngle = 90,
   lip: 'bar' | 'post' | 'none' = 'bar',
+  lipPost?: { dx: number; dy: number; radius: number },
 ): ElementDef => ({
   type: 'saucer',
   id,
@@ -167,6 +168,7 @@ const fieldSaucer = (
   depth: 7,
   lipAngle,
   lip,
+  ...(lipPost ? { lipPost } : {}),
 });
 
 /** Drop target / standup plate centred at (x, y), facing `toward`. */
@@ -339,11 +341,11 @@ const elements: ElementDef[] = [
 
   // ---- fielders (7 saucers)
   fieldSaucer('saucer.3B', '3B', 25, 478, 180),
-  fieldSaucer('saucer.LF', 'LF', 85, 750),
-  fieldSaucer('saucer.SS', 'SS', 200, 765),
+  fieldSaucer('saucer.LF', 'LF', 85, 750, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
+  fieldSaucer('saucer.SS', 'SS', 200, 765, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
   fieldSaucer('saucer.CF', 'CF', 275, 918, 90, 'none'),
-  fieldSaucer('saucer.2B', '2B', 350, 765),
-  fieldSaucer('saucer.RF', 'RF', 465, 750),
+  fieldSaucer('saucer.2B', '2B', 350, 765, 90, 'post', { dx: -4, dy: 25, radius: 5 }),
+  fieldSaucer('saucer.RF', 'RF', 465, 750, 90, 'post', { dx: 4, dy: 20, radius: 5 }),
   fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
 
   // ---- ramps
