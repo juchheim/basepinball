@@ -1,3 +1,4 @@
+import type { MaterialName } from './params';
 /** A steel ball: the only dynamic body in the simulation. Units are SI. */
 export class Ball {
   px = 0;
@@ -29,6 +30,8 @@ export class Ball {
   active = true;
   /** True if the ball touched the playfield floor during the last substep. */
   onFloor = false;
+  /** Material of the last surface the ball rolled on (for the rolling sound). */
+  surface: MaterialName = 'playfield';
 
   readonly invMass: number;
   readonly inertia: number;

@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { Rng } from '../core/rng';
+import { Particles, type Palette } from '../fx/particles';
 import type { GameSnapshot } from '../rules/types';
 
 /**
@@ -26,12 +27,34 @@ export class Stadium {
   };
   private lastBoard = '';
   private crowd: THREE.InstancedMesh | null = null;
+  private crowdBase: THREE.Matrix4[] = [];
+  /** Crowd excitement (0-1): fans bounce, decaying back to a murmur. */
+  private energy = 0;
+  private clock = 0;
+  private message: { text: string; sub: string; color: string; until: number } | null = null;
+  private readonly towerLamp = new THREE.MeshStandardMaterial({
+    color: 0xfff4dc,
+    emissive: new THREE.Color(0xfff4dc),
+    emissiveIntensity: 3,
+  });
+  private towerLevel = 1;
+  private towerTarget = 1;
+  /** Fireworks over the backboard (docs/MVP/05 § 9). */
+  readonly particles = new Particles(500);
+  private readonly launches: {
+    at: number;
+    x: number;
+    z: number;
+    palette: Palette;
+    onBoom?: () => void;
+  }[] = [];
 
   constructor(title: string) {
     this.buildCabinet();
     this.buildBackboard();
     this.buildTowers();
     this.buildSky();
+    this.group.add(this.particles.group);
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 256;
@@ -75,6 +98,7 @@ export class Stadium {
       emissive: new THREE.Color(0x222222),
     });
     const mesh = new THREE.InstancedMesh(geo, mat, count);
+    this.crowdBase = [];
     const m = new THREE.Matrix4();
     const shirts = [0x1b2a4a, 0xf4efe1, 0xc9ced6, 0xf2b33d, 0x8a2b2b, 0x2e6b34, 0x3d8bfd, 0x555b66];
     const color = new THREE.Color();
@@ -86,6 +110,7 @@ export class Stadium {
       const z = 0.27 + row * 0.018 + rng.range(0, 0.004);
       m.makeTranslation(x, y, z);
       mesh.setMatrixAt(i, m);
+      this.crowdBase.push(m.clone());
       mesh.setColorAt(i, color.setHex(shirts[Math.floor(rng.next() * shirts.length)]!));
     }
     this.crowd = mesh;
@@ -94,13 +119,158 @@ export class Stadium {
 
   /** Redraw the LED scoreboard when the game state changes. */
   update(g: GameSnapshot | null, title: string): void {
+    if (this.message && this.clock > this.message.until) this.message = null;
     this.drawScoreboard(g, title);
   }
+
+  /** A big scoreboard message ("HOME RUN", "K") over the line score for a while. */
+  showMessage(text: string, sub: string, color: string, seconds: number): void {
+    this.message = { text, sub, color, until: this.clock + seconds };
+    this.lastBoard = '';
+  }
+
+  /** Make the crowd jump (0-1); it settles back over a few seconds. */
+  excite(level: number): void {
+    this.energy = Math.max(this.energy, Math.min(1, level));
+  }
+
+  /** The light towers: off (attract dark), or on with a warm-up flicker. */
+  setTowers(on: boolean): void {
+    this.towerTarget = on ? 1 : 0.08;
+    if (!on) this.towerLevel = 0.08;
+  }
+
+  /** Launch `count` fireworks over the backboard; `onBoom` fires as each one bursts. */
+  fireworks(count: number, onLaunch?: () => void, onBoom?: () => void): void {
+    const palettes: Palette[] = ['gold', 'red', 'white', 'blue', 'teal', 'violet'];
+    for (let i = 0; i < count; i++) {
+      const delay = i * (0.35 + Math.random() * 0.25);
+      // Over the stands either side of the scoreboard (the HUD sits over the middle), just
+      // clearing the top of the backboard.
+      const side = i % 2 === 0 ? -1 : 1;
+      const x = W / 2 + side * (0.12 + Math.random() * 0.14);
+      const z = 0.29 + Math.random() * 0.06;
+      const palette = palettes[Math.floor(Math.random() * palettes.length)]!;
+      this.launches.push({ at: this.clock + delay, x, z, palette, ...(onBoom ? { onBoom } : {}) });
+      if (onLaunch)
+        this.launches.push({
+          at: this.clock + delay - 0.001,
+          x: -1,
+          z: 0,
+          palette,
+          onBoom: onLaunch,
+        });
+    }
+  }
+
+  /** Per-frame animation: crowd, towers, fireworks. */
+  tick(dt: number): void {
+    this.clock += dt;
+    // Fireworks: a rising spark, then a burst at the top.
+    for (let i = this.launches.length - 1; i >= 0; i--) {
+      const l = this.launches[i]!;
+      if (this.clock < l.at) continue;
+      this.launches.splice(i, 1);
+      if (l.x < 0) {
+        l.onBoom?.();
+        continue;
+      }
+      const rise = 0.55;
+      const startZ = 0.16;
+      this.particles.burst({
+        at: { x: l.x, y: L + 0.03, z: startZ },
+        count: 1,
+        palette: 'white',
+        speed: [0, 0],
+        bias: { x: 0, y: 0, z: (l.z - startZ) / rise + 0.5 * 0.6 * rise },
+        life: [rise, rise],
+        size: 0.004,
+        gravity: { x: 0, y: 0, z: -0.6 },
+      });
+      this.launches.push({
+        at: this.clock + rise,
+        x: -1,
+        z: 0,
+        palette: l.palette,
+        onBoom: () => {
+          this.particles.burst({
+            at: { x: l.x, y: L + 0.03, z: l.z },
+            count: 70,
+            palette: l.palette,
+            speed: [0.07, 0.13],
+            life: [0.9, 1.5],
+            size: 0.0035,
+            gravity: { x: 0, y: 0, z: -0.12 },
+            drag: 1.2,
+          });
+          l.onBoom?.();
+        },
+      });
+    }
+    this.particles.update(dt);
+
+    // Towers warm up like big bulbs, with a flicker on the way.
+    if (this.towerLevel !== this.towerTarget) {
+      const step = dt * (this.towerTarget > this.towerLevel ? 0.8 : 3);
+      this.towerLevel =
+        this.towerTarget > this.towerLevel
+          ? Math.min(this.towerTarget, this.towerLevel + step)
+          : Math.max(this.towerTarget, this.towerLevel - step);
+      const flicker = this.towerLevel < 0.6 && Math.random() < 0.15 ? 0.5 : 1;
+      this.towerLamp.emissiveIntensity = 3 * this.towerLevel * flicker;
+    }
+
+    // The crowd bounces with excitement, each fan on their own rhythm.
+    const crowd = this.crowd;
+    if (crowd && (this.energy > 0.005 || this.wasBouncing)) {
+      const m = new THREE.Matrix4();
+      const e = this.energy;
+      for (let i = 0; i < this.crowdBase.length; i++) {
+        const base = this.crowdBase[i]!;
+        const phase = (i * 0.618) % 1;
+        const hop =
+          e > 0.005
+            ? Math.max(0, Math.sin(this.clock * (5 + phase * 3) + phase * 6.28)) * 0.005 * e
+            : 0;
+        m.copy(base);
+        m.elements[14] += hop;
+        crowd.setMatrixAt(i, m);
+      }
+      crowd.instanceMatrix.needsUpdate = true;
+      this.wasBouncing = e > 0.005;
+      this.energy = Math.max(0, this.energy - dt * 0.25);
+    }
+  }
+
+  private wasBouncing = false;
 
   private drawScoreboard(g: GameSnapshot | null, title: string): void {
     const key = g
       ? `${g.inning}|${g.outs}|${g.stats.runsByInning.join(',')}|${g.stats.hits}|${g.bases.join()}|${g.state}`
       : `title:${title}`;
+    const msg = this.message;
+    if (msg) {
+      if (this.lastBoard === `msg:${msg.text}`) return;
+      this.lastBoard = `msg:${msg.text}`;
+      const { ctx, canvas, texture } = this.scoreboard;
+      ctx.fillStyle = '#05070d';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0c1220';
+      for (let y = 4; y < canvas.height; y += 8)
+        for (let x = 4; x < canvas.width; x += 8) ctx.fillRect(x, y, 3, 3);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = msg.color;
+      ctx.font = 'bold 120px Oswald, "Arial Narrow", Arial, sans-serif';
+      ctx.fillText(msg.text, canvas.width / 2, msg.sub ? 105 : 128);
+      if (msg.sub) {
+        ctx.fillStyle = '#f4f1e8';
+        ctx.font = 'bold 40px Oswald, "Arial Narrow", Arial, sans-serif';
+        ctx.fillText(msg.sub, canvas.width / 2, 205);
+      }
+      texture.needsUpdate = true;
+      return;
+    }
     if (key === this.lastBoard) return;
     this.lastBoard = key;
     const { ctx, canvas, texture } = this.scoreboard;
@@ -258,11 +428,7 @@ export class Stadium {
       roughness: 0.5,
       metalness: 0.7,
     });
-    const lamp = new THREE.MeshStandardMaterial({
-      color: 0xfff4dc,
-      emissive: new THREE.Color(0xfff4dc),
-      emissiveIntensity: 3,
-    });
+    const lamp = this.towerLamp;
     for (const head of this.towerHeads) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, head.z, 10), steel);
       pole.rotation.x = Math.PI / 2;

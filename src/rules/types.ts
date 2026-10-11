@@ -29,7 +29,6 @@ export type RulesEvent =
   /** The windup: `lead` seconds before release, the pitch type and target flipper are shown. */
   | { type: 'pitchTell'; pitch: PitchType; side: Side; lead: number }
   | { type: 'pitch'; pitch: PitchType }
-  | { type: 'batterUp'; rally: number }
   | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
   | { type: 'out'; how: OutHow; position?: Position; outs: number }
   | { type: 'runs'; runs: number }
