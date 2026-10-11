@@ -107,6 +107,9 @@ export function createOutput(d: {
     excite(level) {
       d.stadium.excite(level);
     },
+    wave() {
+      d.stadium.wave();
+    },
     lights(on) {
       d.setLights(on);
     },

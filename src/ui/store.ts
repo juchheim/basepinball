@@ -2,6 +2,8 @@ import { signal } from '@preact/signals';
 import type { PitchType, Side } from '../rules/pitching';
 import type { GameSnapshot, GameStats, RulesEvent } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
+import { EMPTY_LIFETIME, type Lifetime } from '../storage/lifetime';
+import { DEFAULT_SETTINGS, type RemappableAction, type Settings } from '../storage/settings';
 
 /** UI state shared between the game controller and the Preact overlay. */
 
@@ -23,6 +25,15 @@ export const highScores = signal<HighScore[]>([]);
 export const lastRank = signal(-1);
 /** Whether the finished game makes the high-score table. */
 export const qualified = signal(false);
+export const settings = signal<Settings>(DEFAULT_SETTINGS);
+export const settingsOpen = signal(false);
+/** The action waiting for a key press in the settings (key remapping), or null. */
+export const remapping = signal<RemappableAction | null>(null);
+/** Resume countdown after a pause (3-2-1), or null. */
+export const resumeCount = signal<number | null>(null);
+export const lifetime = signal<Lifetime>(EMPTY_LIFETIME);
+/** A note from the settings (e.g. motion permission denied). */
+export const settingsNote = signal('');
 
 /**
  * The pre-pitch indicator: shown through the windup with a countdown to release, then "PITCH!"

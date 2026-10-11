@@ -1,15 +1,29 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { BRAND } from '../app/brand';
-import type { GameStats } from '../rules/types';
+import type { GameSnapshot, GameStats } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
+import { battingAverage } from '../storage/lifetime';
+import {
+  keyName,
+  REMAPPABLE,
+  type QualitySetting,
+  type RemappableAction,
+  type Settings,
+} from '../storage/settings';
 import {
   callout,
   finalStats,
   highScores,
   lastRank,
+  lifetime,
   pitchCue,
   qualified,
+  remapping,
+  resumeCount,
   screen,
+  settings,
+  settingsNote,
+  settingsOpen,
   snapshot,
 } from './store';
 
@@ -20,19 +34,44 @@ export interface UiActions {
   resume: () => void;
   quit: () => void;
   saveInitials: (initials: string) => void;
+  pause: () => void;
+  openSettings: () => void;
+  closeSettings: () => void;
+  updateSettings: (patch: Partial<Settings>) => void;
+  remap: (action: RemappableAction) => void;
+  resetKeys: () => void;
 }
 
 export function App({ actions }: { actions: UiActions }) {
   const s = screen.value;
+  const inGame = s === 'playing' || s === 'paused';
+  const large = settings.value.hudScale === 'large';
   return (
-    <div class="ui">
-      {(s === 'playing' || s === 'paused') && <Hud />}
-      {(s === 'playing' || s === 'paused') && <PitchIndicator paused={s === 'paused'} />}
+    <div class={`ui ${large ? 'hud-large' : ''}`}>
+      {inGame && <Hud />}
+      {inGame && <LineScore />}
+      {inGame && <PitchIndicator paused={s === 'paused'} />}
+      {s === 'playing' && (
+        <button class="pause-button" aria-label="Pause" onClick={actions.pause}>
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+            <rect x="3" y="2" width="3.5" height="12" rx="1" fill="currentColor" />
+            <rect x="9.5" y="2" width="3.5" height="12" rx="1" fill="currentColor" />
+          </svg>
+        </button>
+      )}
       <CalloutView />
-      {s === 'title' && <Title actions={actions} />}
-      {s === 'paused' && <Pause actions={actions} />}
+      {resumeCount.value !== null && (
+        <div class="resume-count" key={resumeCount.value}>
+          {resumeCount.value}
+        </div>
+      )}
+      {s === 'title' && !settingsOpen.value && <Title actions={actions} />}
+      {s === 'paused' && !settingsOpen.value && resumeCount.value === null && (
+        <Pause actions={actions} />
+      )}
       {s === 'gameover' && <GameOver actions={actions} />}
       {s === 'scores' && <Scores actions={actions} />}
+      {settingsOpen.value && <SettingsPanel actions={actions} />}
     </div>
   );
 }
@@ -107,6 +146,167 @@ function PitchIndicator({ paused }: { paused: boolean }) {
   );
 }
 
+/** Landscape only (CSS): the full line score, 1-9, R and H, as on the ballpark board. */
+function LineScore() {
+  const g: GameSnapshot | null = snapshot.value;
+  if (!g) return null;
+  return (
+    <div class="linescore" aria-hidden="true">
+      <table>
+        <thead>
+          <tr>
+            {Array.from({ length: 9 }, (_, i) => (
+              <th class={i + 1 === g.inning ? 'now' : ''}>{i + 1}</th>
+            ))}
+            <th>R</th>
+            <th>H</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {Array.from({ length: 9 }, (_, i) => (
+              <td class={i + 1 === g.inning ? 'now' : ''}>{g.stats.runsByInning[i] ?? ''}</td>
+            ))}
+            <td class="total">{g.stats.runs}</td>
+            <td class="total">{g.stats.hits}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Lifetime() {
+  const l = lifetime.value;
+  if (l.games === 0) return null;
+  return (
+    <p class="lifetime">
+      {l.games} game{l.games === 1 ? '' : 's'} · best {l.bestRuns} R · {l.homeRuns} HR · AVG{' '}
+      {battingAverage(l)} · longest rally {l.longestRally}
+    </p>
+  );
+}
+
+const QUALITY: { value: QualitySetting; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'ultra', label: 'Ultra' },
+];
+
+function SettingsPanel({ actions }: { actions: UiActions }) {
+  const st = settings.value;
+  const vol = (key: keyof Settings['volume'], label: string) => (
+    <label class="row">
+      <span>{label}</span>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={Math.round(st.volume[key] * 100)}
+        onInput={(e) =>
+          actions.updateSettings({
+            volume: { ...st.volume, [key]: Number((e.target as HTMLInputElement).value) / 100 },
+          })
+        }
+      />
+    </label>
+  );
+  const choice = <T extends string>(
+    label: string,
+    value: T,
+    options: { value: T; label: string }[],
+    set: (v: T) => void,
+  ) => (
+    <div class="row">
+      <span>{label}</span>
+      <div class="seg" role="radiogroup" aria-label={label}>
+        {options.map((o) => (
+          <button
+            role="radio"
+            aria-checked={o.value === value}
+            class={o.value === value ? 'on' : ''}
+            onClick={() => set(o.value)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+  const toggle = (label: string, value: boolean, set: (v: boolean) => void) =>
+    choice(
+      label,
+      value ? 'on' : 'off',
+      [
+        { value: 'on', label: 'On' },
+        { value: 'off', label: 'Off' },
+      ],
+      (v) => set(v === 'on'),
+    );
+  return (
+    <div class="panel settings" onPointerDown={(e) => e.stopPropagation()}>
+      <h2>Settings</h2>
+      <h3>Sound</h3>
+      {vol('master', 'Master')}
+      {vol('sfx', 'Machine')}
+      {vol('crowd', 'Crowd')}
+      {vol('music', 'Organ')}
+      {toggle('Mute (M)', st.muted, (muted) => actions.updateSettings({ muted }))}
+      <h3>Display</h3>
+      {choice('Quality', st.quality, QUALITY, (quality) => actions.updateSettings({ quality }))}
+      {choice(
+        'HUD size',
+        st.hudScale,
+        [
+          { value: 'normal', label: 'Normal' },
+          { value: 'large', label: 'Large' },
+        ],
+        (hudScale) => actions.updateSettings({ hudScale }),
+      )}
+      {choice(
+        'Reduced motion',
+        st.reducedMotion,
+        [
+          { value: 'system', label: 'System' },
+          { value: 'on', label: 'On' },
+          { value: 'off', label: 'Off' },
+        ],
+        (reducedMotion) => actions.updateSettings({ reducedMotion }),
+      )}
+      <h3>Controls</h3>
+      {toggle('Vibration', st.haptics, (haptics) => actions.updateSettings({ haptics }))}
+      {toggle('Shake phone to nudge', st.motionNudge, (motionNudge) =>
+        actions.updateSettings({ motionNudge }),
+      )}
+      {settingsNote.value && <p class="note">{settingsNote.value}</p>}
+      <table class="keys">
+        <tbody>
+          {REMAPPABLE.map(({ action, label }) => (
+            <tr>
+              <td>{label}</td>
+              <td>
+                <button class="key" onClick={() => actions.remap(action)}>
+                  {remapping.value === action
+                    ? 'Press a key… (Esc cancels)'
+                    : st.keys[action].map(keyName).join(' · ')}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div class="buttons">
+        <button class="secondary" onClick={actions.resetKeys}>
+          Reset keys
+        </button>
+        <button onClick={actions.closeSettings}>Done</button>
+      </div>
+    </div>
+  );
+}
+
 function Diamond({ bases }: { bases: readonly boolean[] }) {
   // 2B at top, 3B left, 1B right.
   return (
@@ -159,11 +359,23 @@ function Title({ actions }: { actions: UiActions }) {
       <p class="tagline">Nine innings. Hit 'em where they ain't.</p>
       <p class="cta">Press Enter or tap to play</p>
       {scores.length > 0 && <ScoreTable scores={scores.slice(0, 5)} highlight={-1} />}
+      <Lifetime />
       <p class="controls">
         Flippers: Shift or ← → · Plunger: hold ↓ or Enter · Nudge: Z / Space · Sound: M
         <br />
-        Touch: left / right half flips · hold the lower-right corner to plunge
+        Touch: left / right half flips · drag the plunger knob (lower right) down and let go · flick
+        near the top to nudge · Gamepad: bumpers flip, A plunges
       </p>
+      <button
+        class="secondary small"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          actions.openSettings();
+        }}
+      >
+        Settings
+      </button>
     </div>
   );
 }
@@ -173,6 +385,9 @@ function Pause({ actions }: { actions: UiActions }) {
     <div class="panel pause">
       <h2>Paused</h2>
       <button onClick={actions.resume}>Resume</button>
+      <button class="secondary" onClick={actions.openSettings}>
+        Settings
+      </button>
       <button class="secondary" onClick={actions.quit}>
         Quit game
       </button>
@@ -262,6 +477,7 @@ function Scores({ actions }: { actions: UiActions }) {
     <div class="panel scores">
       <h2>High scores</h2>
       <ScoreTable scores={highScores.value} highlight={lastRank.value} />
+      <Lifetime />
       <button onClick={actions.start}>Play again</button>
     </div>
   );

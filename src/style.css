@@ -419,3 +419,191 @@ canvas {
 .empty {
   color: var(--muted);
 }
+
+/* ---------------------------------------------------------------- M5: pause, countdown, settings */
+
+.pause-button {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(10px, env(safe-area-inset-right));
+  width: 40px;
+  height: 40px;
+  font: inherit;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--fg);
+  background: rgba(11, 16, 32, 0.7);
+  border: 1px solid rgba(244, 241, 232, 0.2);
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.resume-count {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(64px, 20vw, 140px);
+  font-weight: 700;
+  color: #f2b33d;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.8);
+  animation: callout-in 200ms ease-out;
+}
+
+.panel button.small {
+  width: auto;
+  display: inline-block;
+  padding: 7px 16px;
+  font-size: 15px;
+}
+
+.lifetime {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.settings {
+  text-align: left;
+  width: min(520px, calc(100vw - 24px));
+}
+.settings h3 {
+  margin: 16px 0 6px;
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f2b33d;
+}
+.settings .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+}
+.settings input[type='range'] {
+  width: 55%;
+  accent-color: #f2b33d;
+}
+.settings .seg {
+  display: flex;
+  gap: 4px;
+}
+.panel .settings .seg button,
+.settings .seg button {
+  width: auto;
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--fg);
+  background: rgba(244, 241, 232, 0.12);
+}
+.settings .seg button.on {
+  color: #0b1020;
+  background: #f2b33d;
+}
+.settings .keys {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+}
+.settings .keys td {
+  padding: 3px 0;
+}
+.settings .keys button.key {
+  margin: 0;
+  padding: 5px 8px;
+  font-size: 13px;
+  color: var(--fg);
+  background: rgba(244, 241, 232, 0.1);
+  border: 1px solid rgba(244, 241, 232, 0.2);
+}
+.settings .note {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #ff9f1c;
+}
+.settings .buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* Large HUD (accessibility): bigger HUD, callouts and pitch cue. */
+.hud-large .hud-bar,
+.hud-large .pitch-cue {
+  zoom: 1.35;
+}
+.hud-large .callout-text {
+  font-size: clamp(38px, 10vw, 80px);
+}
+.hud-large .callout-sub {
+  font-size: clamp(18px, 4.4vw, 26px);
+}
+
+/* The full line score only fits in landscape. */
+.linescore {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- landscape layout (P1) */
+@media (orientation: landscape) and (min-aspect-ratio: 5/4) {
+  /* The HUD moves to a side panel left of the table, with the full line score under it. */
+  .hud-bar {
+    top: 50%;
+    left: max(16px, env(safe-area-inset-left));
+    transform: translateY(-50%);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    width: min(180px, calc((100vw - 56vh) / 2 - 32px));
+    max-width: none;
+    padding: 14px;
+    gap: 12px;
+  }
+  .hud-chips {
+    flex-direction: column;
+    align-items: center;
+  }
+  .linescore {
+    display: block;
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    padding: 8px 10px;
+    background: rgba(11, 16, 32, 0.78);
+    border: 1px solid rgba(244, 241, 232, 0.15);
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .linescore table {
+    border-collapse: collapse;
+  }
+  .linescore th,
+  .linescore td {
+    min-width: 20px;
+    padding: 2px 4px;
+    text-align: center;
+  }
+  .linescore th {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .linescore .now {
+    color: #f2b33d;
+  }
+  .linescore .total {
+    color: #f2b33d;
+    border-left: 1px solid rgba(244, 241, 232, 0.2);
+  }
+  /* Top-left, clear of the plunger's touch zone in the lower-right corner. */
+  .pause-button {
+    right: auto;
+    left: max(16px, env(safe-area-inset-left));
+  }
+}

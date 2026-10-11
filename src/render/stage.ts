@@ -27,6 +27,10 @@ export class Stage {
   private shakeAmp = 0;
   private shakeUntil = 0;
   private shakeLength = 1;
+  /** Attract-mode camera orbit, 0 (player view) to 1 (full slow orbit). */
+  orbit = 0;
+  private readonly orbitCenter = new THREE.Vector3();
+  private orbitClock = 0;
 
   constructor(container: HTMLElement, forceWebGL: boolean) {
     this.renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL });
@@ -173,6 +177,7 @@ export class Stage {
       else lo = mid;
     }
     fits(hi);
+    this.orbitCenter.copy(center);
   }
 
   /** A small camera shake (nudges); off under reduced motion. */
@@ -183,6 +188,21 @@ export class Stage {
   }
 
   render(): void {
+    if (this.orbit > 0.001) {
+      // A slow sway around the table for attract mode; dead-ball only (docs/MVP/05 § 7).
+      this.orbitClock += 1 / 60;
+      const saved = this.camera.position.clone();
+      const yaw = Math.sin(this.orbitClock * 0.15) * 0.3 * this.orbit;
+      const offset = saved.clone().sub(this.orbitCenter);
+      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+      offset.multiplyScalar(1 + 0.08 * this.orbit);
+      this.camera.position.copy(this.orbitCenter).add(offset);
+      this.camera.lookAt(this.orbitCenter);
+      this.pipeline.render();
+      this.camera.position.copy(saved);
+      this.camera.lookAt(this.orbitCenter);
+      return;
+    }
     const left = this.shakeUntil - performance.now();
     if (left > 0) {
       const k = (left / this.shakeLength) * this.shakeAmp;

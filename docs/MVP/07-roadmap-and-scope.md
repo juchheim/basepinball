@@ -89,6 +89,8 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M5: Mobile, polish & tuning
 
+> **Status:** built; device checks and playtests pending. See the [M5 report](m5-report.md).
+
 - Touch controls polish, landscape layouts, gamepad, settings, accessibility options, P1 features.
 - Final balance tuning with playtest data. Load-time optimisation.
 - **Exit:** acceptance criteria in § 5 pass.

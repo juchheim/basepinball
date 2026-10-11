@@ -32,6 +32,8 @@ runs as you can.
 | M0 | [M0 Report](m0-report.md) | Physics spike results, Rapier comparison, go/no-go recommendation, feel-review checklist |
 | M3 | [M3 Report](m3-report.md) | Art pass: asset pipeline, playfield art, standees, stadium, lighting, quality tiers |
 | M4 | [M4 Report](m4-report.md) | Presentation: synthesised audio (SFX, crowd, organ), lamp shows, figure animation, particles, stadium reactions |
+| M5 | [M5 Report](m5-report.md) | Settings, touch and gamepad controls, landscape, lifetime stats, P1 polish, acceptance-criteria status |
+| QA | [QA checklist](qa-checklist.md) | The manual pass for acceptance criteria 1-3 on each browser and device |
 | — | [Naming](naming.md) | Final game name candidates |
 | M2 | [M2 Report](m2-report.md) | Rules engine, pitching, game flow, sim bot and balance report |
 | M1 | [M1 Report](m1-report.md) | Whitebox table: shot map, ramp threshold, stuck-ball search, layout changes, sandbox controls |

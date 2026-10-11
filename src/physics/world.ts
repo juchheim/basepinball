@@ -153,6 +153,8 @@ export interface Plunger {
   tipY: number;
   /** 0..1 pull-back. */
   pull: number;
+  /** How far the player is pulling (1 = all the way; a touch drag can hold it part way). */
+  pullTarget: number;
   pressed: boolean;
 }
 
@@ -278,6 +280,15 @@ export class World {
     if (!pl) return;
     if (pl.pressed && !pressed) this.releasePlunger(pl);
     pl.pressed = pressed;
+    pl.pullTarget = 1;
+  }
+
+  /** Hold the plunger pulled back to `amount` (0-1), e.g. dragging the knob on a touch screen. */
+  setPlungerPull(amount: number): void {
+    const pl = this.plunger;
+    if (!pl) return;
+    pl.pressed = true;
+    pl.pullTarget = Math.max(0, Math.min(1, amount));
   }
 
   /** Pitch from the mound: the ball appears at the pitch spot and is kicked toward (tx, ty) (m). */
@@ -476,8 +487,13 @@ export class World {
     }
     const pl = this.plunger;
     if (pl) {
-      if (pl.pressed) pl.pull = Math.min(1, pl.pull + dt / p.plungerPullTime);
-      else pl.pull = Math.max(0, pl.pull - dt * 40);
+      if (pl.pressed) {
+        // The spring takes time to pull back, and eases forward if the player lets it.
+        pl.pull =
+          pl.pull < pl.pullTarget
+            ? Math.min(pl.pullTarget, pl.pull + dt / p.plungerPullTime)
+            : Math.max(pl.pullTarget, pl.pull - dt / p.plungerPullTime);
+      } else pl.pull = Math.max(0, pl.pull - dt * 40);
     }
     // Tilt bob: a damped pendulum.
     const w0 = 2 * Math.PI * p.tilt.frequency;
@@ -1167,6 +1183,7 @@ export class World {
             x1: el.x1 * MM,
             tipY: el.tipY * MM,
             pull: 0,
+            pullTarget: 1,
             pressed: false,
           };
           seg([el.x0, el.tipY], [el.x1, el.tipY], 1, 'rubberPost', 25);

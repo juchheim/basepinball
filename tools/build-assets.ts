@@ -94,6 +94,11 @@ async function build(): Promise<void> {
   // The display font (Oswald, OFL) for the UI and the scoreboard canvas.
   mkdirSync(join(root, 'public/fonts'), { recursive: true });
   copyFileSync(fontFile, join(root, 'public/fonts/Oswald-Bold.ttf'));
+  // The OFL requires the license to travel with the font.
+  copyFileSync(
+    join(root, 'node_modules/@expo-google-fonts/oswald/LICENSE_FONT'),
+    join(root, 'public/fonts/OFL.txt'),
+  );
 }
 
 if (process.argv.includes('--generate')) generateSources();

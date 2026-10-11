@@ -49,7 +49,6 @@ export interface VoiceOptions {
 export type Recipe = (a: AudioEngine, out: AudioNode, t: number, rnd: () => number) => number;
 
 const MAX_VOICES = 24;
-const STORAGE_KEY = 'bp.audio.v1';
 
 export class AudioEngine {
   ctx: AudioContext | null = null;
@@ -63,7 +62,7 @@ export class AudioEngine {
   private paused = false;
 
   constructor() {
-    this.volumes = loadVolumes();
+    this.volumes = { ...DEFAULT_VOLUMES };
   }
 
   get ready(): boolean {
@@ -185,14 +184,12 @@ export class AudioEngine {
   toggleMute(): boolean {
     this.volumes = { ...this.volumes, muted: !this.volumes.muted };
     this.applyVolumes();
-    saveVolumes(this.volumes);
     return this.volumes.muted;
   }
 
   setVolumes(v: Partial<Volumes>): void {
     this.volumes = { ...this.volumes, ...v };
     this.applyVolumes();
-    saveVolumes(this.volumes);
   }
 
   /** Two seconds of white noise, shared by every noisy recipe. */
@@ -223,22 +220,4 @@ export class AudioEngine {
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
-}
-
-function loadVolumes(): Volumes {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...DEFAULT_VOLUMES, ...(JSON.parse(raw) as Partial<Volumes>) };
-  } catch {
-    // Storage unavailable: defaults.
-  }
-  return { ...DEFAULT_VOLUMES };
-}
-
-function saveVolumes(v: Volumes): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
-  } catch {
-    // Not critical.
-  }
 }
