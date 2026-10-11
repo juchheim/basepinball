@@ -2,7 +2,16 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { BRAND } from '../app/brand';
 import type { GameStats } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
-import { callout, finalStats, highScores, lastRank, qualified, screen, snapshot } from './store';
+import {
+  callout,
+  finalStats,
+  highScores,
+  lastRank,
+  pitchCue,
+  qualified,
+  screen,
+  snapshot,
+} from './store';
 
 /** The DOM overlay: HUD, callouts and menus (docs/MVP/05 § 8). Basic M2 styling; art is M3. */
 
@@ -18,6 +27,7 @@ export function App({ actions }: { actions: UiActions }) {
   return (
     <div class="ui">
       {(s === 'playing' || s === 'paused') && <Hud />}
+      {(s === 'playing' || s === 'paused') && <PitchIndicator paused={s === 'paused'} />}
       <CalloutView />
       {s === 'title' && <Title actions={actions} />}
       {s === 'paused' && <Pause actions={actions} />}
@@ -57,16 +67,42 @@ function Hud() {
         {g.hotBat && <span class="chip hot">HOT BAT</span>}
         {g.stealLit && <span class="chip steal">STEAL</span>}
         {g.rally >= 2 && <span class="chip rally">RALLY ×{g.rally}</span>}
-        {g.pitch && (
-          <span class="chip pitch">
-            {{ FB: 'FASTBALL', CH: 'CHANGEUP', CB: 'CURVEBALL' }[g.pitch]}
-          </span>
-        )}
         {g.tiltWarnings > 0 && !g.tilted && <span class="chip warn">WARNING {g.tiltWarnings}</span>}
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (
           <span class="chip info">SKILL SHOT: {g.skillLane} LANE</span>
         )}
       </div>
+    </div>
+  );
+}
+
+const PITCH_NAMES = { FB: 'FASTBALL', CH: 'CHANGEUP', CB: 'CURVEBALL' } as const;
+
+/**
+ * The pre-pitch indicator, low on the screen near the flippers: the pitch type, an arrow to the
+ * flipper it is thrown at, and a countdown bar that empties at the moment of release.
+ */
+function PitchIndicator({ paused }: { paused: boolean }) {
+  const c = pitchCue.value;
+  if (!c) return null;
+  const left = c.side === 'L';
+  return (
+    <div
+      class={`pitch-cue ${c.phase} ${left ? 'left' : 'right'} ${paused ? 'paused' : ''}`}
+      key={c.id}
+      style={{ '--lead': `${c.lead}s` }}
+    >
+      <div class="pitch-cue-row">
+        <span class="pitch-cue-arrow">{left ? '◀' : ''}</span>
+        <span class="pitch-cue-name">{c.phase === 'release' ? 'PITCH!' : PITCH_NAMES[c.type]}</span>
+        <span class="pitch-cue-arrow">{left ? '' : '▶'}</span>
+      </div>
+      {c.phase === 'windup' && (
+        <div class="pitch-cue-bar">
+          <i />
+        </div>
+      )}
+      {c.phase === 'windup' && <div class="pitch-cue-sub">{left ? 'left' : 'right'} flipper</div>}
     </div>
   );
 }

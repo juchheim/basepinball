@@ -1,7 +1,7 @@
 import { Rng } from '../core/rng';
 import type { PhysicsEvent } from '../physics/world';
 import { advance, EMPTY, runnersOn, steal, type Bases } from './bases';
-import { choosePitch, type PitchSpec, type PitchType } from './pitching';
+import { choosePitch, type PitchSpec, type PitchType, type Side } from './pitching';
 import {
   DEFAULT_TIMING,
   emptyStats,
@@ -55,6 +55,8 @@ export class GameRules {
   tilted = false;
   skillLane: Lane | null = null;
   pitchType: PitchType | null = null;
+  pitchSide: Side | null = null;
+  pitchPhase: 'windup' | 'flight' | null = null;
 
   private readonly rng: Rng;
   private readonly timing: RulesTiming;
@@ -67,6 +69,8 @@ export class GameRules {
   private launched = false;
   private lastActivity = 0;
   private lastSearch = -Infinity;
+  /** Ball searches since the last real switch hit; a search's own kick is not progress. */
+  private searches = 0;
   private lastOutlane = -Infinity;
   private lastKickback = -Infinity;
   private readonly rbi = new Set<Lane>();
@@ -122,6 +126,7 @@ export class GameRules {
   onSwitch(e: PhysicsEvent): void {
     this.now = Math.max(this.now, e.time);
     if (e.type !== 'eos') this.lastActivity = this.now;
+    if (e.type !== 'eos' && e.type !== 'swing') this.searches = 0;
     if (this.state === 'GAME_OVER' || this.state === 'INNING_BREAK') return;
 
     if (this.tilted) {
@@ -304,7 +309,9 @@ export class GameRules {
     const spec = choosePitch(this.inning, this.rng);
     this.after(delay, () => {
       this.pitchType = spec.type;
-      this.emit({ type: 'pitchTell', pitch: spec.type });
+      this.pitchSide = spec.side;
+      this.pitchPhase = 'windup';
+      this.emit({ type: 'pitchTell', pitch: spec.type, side: spec.side, lead: this.timing.tell });
       this.after(this.timing.tell, () => this.releasePitch(spec));
     });
   }
@@ -313,6 +320,7 @@ export class GameRules {
     this.tiltWarnings = 0;
     this.machine.pitch(spec);
     this.state = 'PITCH';
+    this.pitchPhase = 'flight';
     this.lastActivity = this.now;
     this.emit({ type: 'pitch', pitch: spec.type });
     if (spec.curve) {
@@ -321,8 +329,14 @@ export class GameRules {
       this.after(c.delay + c.duration, () => this.machine.setMagnet(0));
     }
     this.after(1.5, () => {
-      if (this.pitchType === spec.type) this.pitchType = null;
+      if (this.pitchType === spec.type && this.pitchPhase === 'flight') this.clearPitch();
     });
+  }
+
+  private clearPitch(): void {
+    this.pitchType = null;
+    this.pitchSide = null;
+    this.pitchPhase = null;
   }
 
   // ---------------------------------------------------------------- innings
@@ -352,7 +366,7 @@ export class GameRules {
     });
     this.bases = EMPTY;
     this.endRally();
-    this.pitchType = null;
+    this.clearPitch();
     this.skillLane = null;
     // Partial progress resets at the inning change; lit awards carry over (docs/MVP/01 § 4.8).
     this.rbi.clear();
@@ -465,7 +479,13 @@ export class GameRules {
       return;
     }
     const idle = this.now - this.lastActivity;
-    if (idle > this.timing.rescueAfter) {
+    // Rescue after a long still spell, or when searches keep failing (the search kick moves the
+    // ball, so it can settle back into the same spot without the ball ever staying still for long).
+    if (
+      idle > this.timing.rescueAfter ||
+      (idle > this.timing.ballSearchAfter && this.searches >= 3)
+    ) {
+      this.searches = 0;
       // Rescue (docs/MVP/01 § 4.3): a PA in progress is voided and re-pitched.
       this.emit({ type: 'ballRescued' });
       this.endRally();
@@ -474,6 +494,7 @@ export class GameRules {
     }
     if (idle > this.timing.ballSearchAfter && this.now - this.lastSearch > 3) {
       this.lastSearch = this.now;
+      this.searches++;
       this.emit({ type: 'ballSearch' });
       this.machine.ballSearch();
     }
@@ -497,12 +518,16 @@ export class GameRules {
       tilted: this.tilted,
       skillLane: this.skillLane,
       pitch: this.pitchType,
+      pitchSide: this.pitchSide,
+      pitchPhase: this.pitchPhase,
     };
   }
 
   /** Lamp states for the playfield inserts. */
   lamps(): Record<string, LampMode> {
     const on = (b: boolean): LampMode => (b ? 'on' : 'off');
+    const pitchLamp = (t: PitchType): LampMode =>
+      this.pitchType !== t ? 'off' : this.pitchPhase === 'windup' ? 'blink' : 'on';
     const out: Record<string, LampMode> = {
       'base.1B': on(this.bases[0]),
       'base.2B': on(this.bases[1]),
@@ -511,9 +536,10 @@ export class GameRules {
       'lamp.steal': this.stealLit ? 'blink' : 'off',
       'lamp.kickback': on(this.kickbackLit),
       'arrow.ramp.STEAL': this.stealLit && runnersOn(this.bases) > 0 ? 'blink' : 'off',
-      'pitch.FB': on(this.pitchType === 'FB'),
-      'pitch.CH': on(this.pitchType === 'CH'),
-      'pitch.CB': on(this.pitchType === 'CB'),
+      // The pitch lamp blinks through the windup and holds steady once the ball is thrown.
+      'pitch.FB': pitchLamp('FB'),
+      'pitch.CH': pitchLamp('CH'),
+      'pitch.CB': pitchLamp('CB'),
     };
     for (const lane of LANES) {
       out[`lamp.lane.${lane}`] = this.skillLane === lane ? 'blink' : on(this.rbi.has(lane));

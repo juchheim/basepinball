@@ -258,3 +258,18 @@ the [M1 report](m1-report.md).
 | Saucer skim speed | 1.1 → 1.6 m/s | More moderately fast misses are caught |
 | Triples | Counted only for a clean orbit shot (orbit entered within 1 s of the swing) | Slingshot ricochets wandering up an orbit made triples 25 % of hits. Now 8 %. |
 
+
+### M3 playtest fixes (stuck balls)
+
+The stuck-ball test had only ever run on the M0 test table. Run on the v1 table, it found two kinds
+of ledge. In the sim bot, one game in 30 never finished because of them.
+
+| Area | Change | Why |
+|---|---|---|
+| LF, SS, 2B, RF backstops | The straight 36 mm lip bar is now a small round post (5 mm radius), offset so a ball-wide gap (≥ 27.5 mm) stays open on both sides to the neighbouring posts, guides and ramp walls | The top of each bar was a flat shelf, and its ends formed pockets with the ramp-entrance posts and orbit guides. Fielder outs did not drop (16.5 % of PAs). |
+| Ramps | Skirts from the ramp floor edges, and across the far end, down to the playfield | A ball could slide under a ramp's side and wedge beneath the floor |
+| Rules | After three failed ball searches, the ball is rescued | Each search kick moved the ball, which reset the idle timer, so a ball wedged in place was searched for forever and never rescued |
+
+A ball that lands within about 1° of the very top of a round post can balance there, held by
+rolling resistance. This is rare (1 in about 1,300 drops in a dense scan), and the first ball search
+knocks it off.

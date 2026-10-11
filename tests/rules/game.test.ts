@@ -232,6 +232,22 @@ describe('event resolution table', () => {
     }
   });
 
+  it('a ball that each search kick only rocks in place is still rescued', () => {
+    const h = inInPlay();
+    h.m.speed = 0;
+    for (let i = 0; i < 300 && h.count('ballRescued') === 0; i++) {
+      const searches = h.m.calls.filter((c) => c === 'search').length;
+      h.wait(0.1);
+      if (h.m.calls.filter((c) => c === 'search').length > searches) {
+        // The kick moves the ball for a moment, then it settles back into the same spot.
+        h.m.speed = 0.3;
+        h.wait(0.5);
+        h.m.speed = 0;
+      }
+    }
+    expect(h.count('ballRescued')).toBe(1);
+  });
+
   it('a cradled ball (flipper held) is never treated as stuck', () => {
     const h = inInPlay();
     h.m.speed = 0;

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Rng } from '../../src/core/rng';
-import { buildPitch, TEMPLATES, type PitchType, type Side } from '../../src/rules/pitching';
+import {
+  aimForSpeed,
+  buildPitch,
+  TEMPLATES,
+  type PitchType,
+  type Side,
+} from '../../src/rules/pitching';
 import { simulatePitch } from './pitchSim';
 
 // Pitch fairness (docs/MVP/01 § 4.6): with no swing, every pitch reaches the middle of a flipper
@@ -29,6 +35,16 @@ describe('pitch templates', () => {
     }
   }
 
+  it('every pitch leaves time to react (≥ 0.3 s from release to the bat)', () => {
+    for (const type of ['FB', 'CH', 'CB'] as PitchType[]) {
+      const t = TEMPLATES[type];
+      const spec = { ...buildPitch(t, 'L', 9, new Rng(1)), speed: t.speed[1] };
+      spec.targetX = 0.221 + aimForSpeed(t.speed[1]) + t.aimOffset;
+      const r = simulatePitch(spec);
+      expect(r.time, type).toBeGreaterThan(0.3);
+    }
+  });
+
   it('the extremes of every template are still fair', () => {
     for (const type of ['FB', 'CH', 'CB'] as PitchType[]) {
       const t = TEMPLATES[type];
@@ -37,7 +53,8 @@ describe('pitch templates', () => {
         for (const speed of t.speed) {
           for (const j of [-t.aimJitter, t.aimJitter]) {
             const spec = { ...buildPitch(t, side, 1, new Rng(1)), speed };
-            spec.targetX = (side === 'L' ? 0.221 : 0.329) + dir * (t.aimOffset + j);
+            spec.targetX =
+              (side === 'L' ? 0.221 : 0.329) + dir * (aimForSpeed(speed) + t.aimOffset + j);
             const r = simulatePitch(spec);
             expect(r.contact, `${type} ${side} v=${speed} jitter=${j}`).toBeGreaterThan(0.25);
             expect(r.contact!).toBeLessThan(0.75);

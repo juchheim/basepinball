@@ -1,5 +1,5 @@
 import type { Bases } from './bases';
-import type { PitchSpec, PitchType } from './pitching';
+import type { PitchSpec, PitchType, Side } from './pitching';
 
 /** Ball states of the at-bat state machine (docs/MVP/01 § 4.2). */
 export type BallState =
@@ -26,7 +26,8 @@ export type Position = keyof typeof POSITIONS;
 export type RulesEvent =
   | { type: 'gameStart' }
   | { type: 'inningStart'; inning: number }
-  | { type: 'pitchTell'; pitch: PitchType }
+  /** The windup: `lead` seconds before release, the pitch type and target flipper are shown. */
+  | { type: 'pitchTell'; pitch: PitchType; side: Side; lead: number }
   | { type: 'pitch'; pitch: PitchType }
   | { type: 'batterUp'; rally: number }
   | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
@@ -103,8 +104,10 @@ export interface GameSnapshot {
   tiltWarnings: number;
   tilted: boolean;
   skillLane: 'R' | 'B' | 'I' | null;
-  /** Pitch being telegraphed or in flight. */
+  /** Pitch being telegraphed or in flight, the flipper it is thrown at, and which. */
   pitch: PitchType | null;
+  pitchSide: Side | null;
+  pitchPhase: 'windup' | 'flight' | null;
 }
 
 /** Commands the rules issue to the machine (physics), like coil drivers on a real table. */
@@ -132,7 +135,7 @@ export interface RulesTiming {
   /** Ball travels the subway from a saucer / the trough to the mound. */
   routeFromSaucer: number;
   routeFromDrain: number;
-  /** Pitch-type lamp lights this long before release. */
+  /** The windup: pitch type and target flipper are shown this long before release. */
   tell: number;
   inningBreak: number;
   /** No switch activity and a still ball for this long → ball search; then rescue. */
@@ -146,7 +149,7 @@ export interface RulesTiming {
 export const DEFAULT_TIMING: RulesTiming = {
   routeFromSaucer: 2.0,
   routeFromDrain: 1.6,
-  tell: 0.8,
+  tell: 1.5,
   inningBreak: 5,
   ballSearchAfter: 6,
   rescueAfter: 15,

@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { ElementDef, TableDef, Vec2, Vec3 } from '../table/schema';
-import { rampEdges, wireformRails, type World } from '../physics/world';
+import { rampEdges, saucerLipPost, wireformRails, type World } from '../physics/world';
 import type { Flipper } from '../physics/flipper';
 
 /**
@@ -510,15 +510,8 @@ export class TableView {
             mats.rubber,
           );
         } else if (lip === 'post') {
-          this.addStatic(
-            this.cylinderGeometry(
-              el.x + (el.radius + 8) * Math.cos(la),
-              el.y + (el.radius + 8) * Math.sin(la),
-              8,
-              12,
-            ),
-            mats.rubber,
-          );
+          const post = saucerLipPost(el);
+          this.addStatic(this.cylinderGeometry(post.x, post.y, post.radius, 12), mats.rubber);
         }
         // Fielder standee behind the lip (added when the standee art loads).
         if (el.label) {

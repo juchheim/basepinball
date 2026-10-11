@@ -20,6 +20,7 @@ import { v1Table } from './table/v1Table';
 import { App } from './ui/App';
 import {
   calloutFor,
+  pitchCueFor,
   finalStats,
   highScores,
   lastRank,
@@ -126,6 +127,7 @@ async function main(): Promise<void> {
   };
   const presentRules = (e: RulesEvent): void => {
     calloutFor(e);
+    pitchCueFor(e);
     if (e.type === 'runs') view.flash('base.home');
     if (e.type === 'gameOver') {
       after(2.2, () => {

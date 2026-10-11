@@ -71,12 +71,45 @@ The starting tier is medium on touch or small screens and high otherwise. `?qual
 tier. When the median frame over about 2 s is slower than about 48 fps, the controller steps down
 one tier. Stalls (tab switches, loading) are ignored.
 
+## Playtest fixes (after the first feel review)
+
+- **Pitches slowed down.** In M2 the fastball reached the bat in about 0.13 s, too fast to react
+  to. Now:
+  - fastball 0.42–0.56 m/s, about 0.33–0.40 s to the bat
+  - change-up 0.28–0.34 m/s, about 0.45–0.49 s
+  - curveball 0.36–0.46 m/s, with a gentler magnet pulse
+
+  Aim points are recalibrated by speed, and the fairness tests still pass, including a new
+  "at least 0.3 s to react" check. See [01 § 4.6](01-game-design.md#46-pitching).
+- **Pre-pitch indicator.** A 1.5 s windup (was 0.8 s):
+  - the mound lamp for the pitch type blinks
+  - a mid-field panel shows the pitch type and an arrow to the target flipper
+  - its countdown bar empties at release, then "PITCH!" flashes
+  - it pauses with the game
+- **Stuck balls.** One sim game in 30 never finished: the ball was wedged on a fielder's lip bar,
+  and the ball search looped forever. The fixes are:
+  - the upper fielders' lip bars are now small offset posts
+  - the ramps have skirts down to the playfield
+  - a rescue follows three failed searches
+  - the stuck-ball test now runs on the v1 table
+
+  See [02 § 10](02-playfield-design.md#m3-playtest-fixes-stuck-balls).
+- **Balance after the changes** (`npm run simbot -- 30 average`):
+  - 30/30 games complete
+  - 4.7 runs per game
+  - 30.6 % hit rate
+  - fielder outs 16.5 % of PAs (was 12 %)
+
+  The rookie profile scores 4.5 runs.
+
 ## Needs you
 
 1. ~~Pick the name~~: **Rally Ball** (decided).
-2. **Visual review** of the preview, especially:
+2. **Pitch feel:** are the slower pitches and the windup indicator right? Speeds and the windup
+   length are single numbers to tune.
+3. **Visual review** of the preview, especially:
    - overall mood: too dark or too bright?
    - the playfield art's readability
    - the standees
    - the stadium
-3. **Phone check:** frame rate and look at the medium tier.
+4. **Phone check:** frame rate and look at the medium tier.
