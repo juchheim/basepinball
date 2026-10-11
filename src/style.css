@@ -1,3 +1,10 @@
+@font-face {
+  font-family: Oswald;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Oswald-Bold.ttf') format('truetype');
+}
+
 :root {
   color-scheme: dark;
   --bg: #0b1020;

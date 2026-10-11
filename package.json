@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run assets && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -18,7 +18,10 @@
     "bench:physics": "vitest run tests/physics/perf.test.ts",
     "bench:rapier": "RAPIER_BENCH=1 vitest run tests/bench --reporter=verbose --silent=false",
     "layout:svg": "tsx tools/export-layout.ts",
-    "simbot": "tsx tools/simbot.ts"
+    "simbot": "tsx tools/simbot.ts",
+    "art": "tsx tools/build-assets.ts --generate",
+    "assets": "tsx tools/build-assets.ts",
+    "predev": "npm run assets"
   },
   "dependencies": {
     "@preact/signals": "^2.11.3",
@@ -29,12 +32,15 @@
   "devDependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
     "@eslint/js": "^10.0.1",
+    "@expo-google-fonts/oswald": "^0.4.2",
+    "@resvg/resvg-js": "^2.6.2",
     "@tweakpane/core": "^2.0.5",
     "@types/node": "^20.19.43",
     "@types/three": "^0.186.0",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.1",

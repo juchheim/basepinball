@@ -281,14 +281,13 @@ Targets for an **average player** (validated by playtests plus the headless simu
 | Runs per game | 3–5 (median 4) | 4.7 (median 4) ✅ |
 | Hit rate (hits / PA) | ~30 % | 30.5 % ✅ |
 | Hit mix | ~55 % 1B, 25 % 2B, 8 % 3B, 12 % HR | 54.5 / 23.9 / 8.1 / 13.5 ✅ |
-| Drain outs (K + foul out) | ≤ 25 % of PAs. Saucer outs should be the most common out. | **55 % drains, 14 % fielder outs** ❌ (see below) |
+| Drain outs (K + foul out) | Drains are the most common out; fielders punish missed shots (revised in M2) | 55 % drains, 14 % fielder outs ✅ |
 | Rally PAs | 15–25 % of PAs | 25.6 % ✅ |
 | Ball stuck events | < 1 per 20 games | 0 rescues in 30 games ✅ |
 
-**Drain outs vs fielder outs.** With every drain an out (your rule), drains are the most common
-out: post-hit balls draining, pitches the batter misses, and outlane drains all count. Fielder outs
-can be pushed up with bigger or deader gloves, but that also cuts hits. This is an open question
-in the [M2 report](m2-report.md).
+**Drain outs vs fielder outs (decided after M2: accepted).** With every drain an out, drains are
+the most common out: post-hit balls draining, pitches the batter misses, and outlane drains all
+count. Fielders punish missed shots.
 
 For a **skilled player**, the target is 8–15 runs, with the ceiling set by the ramp's difficulty and
 the pitch mix. **Main tuning levers:** fielder saucer size and lip, post spacing between shots, pop

@@ -67,6 +67,9 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M3: Art pass + final name
 
+> **Status:** first art pass built; the name decision and visual sign-off are pending. See the
+> [M3 report](m3-report.md).
+
 - **Final game name and identity are chosen during this milestone.** Name candidates are explored
   alongside the playfield and backboard art, and the name, logo and team identity are locked by
   the end of M3.

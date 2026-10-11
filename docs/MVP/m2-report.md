@@ -72,19 +72,11 @@ possible M5 addition.
 - **Triples need a clean orbit shot**, entered within 1 s of the swing. Slingshot ricochets
   previously made triples 25 % of hits.
 
-## Open questions for you
+## Decisions
 
-1. **Drains vs fielder outs.** With every drain an out, drains are 55 % of plate appearances and
-   fielder catches 14 %. The original target was "fielder outs most common". Options:
-   - **(a) Accept it.** It's pinball: the drain is the big threat, and fielders punish missed shots.
-   - **(b) Bigger, deader gloves.** Pushes fielder outs up, but also cuts hits, so we would rebalance
-     elsewhere.
-   - **(c) Lower outlane drains**, for example by keeping the kickback lit more often.
-
-   My recommendation is **(a)** for now, then revisit after your playtest.
-2. **Game length.** Bot games take about 5 sim minutes. Real players cradle, aim and pause, so
-   human games will run longer. Your first few full games will tell us whether to add presentation
-   time (celebrations, inning transitions) toward the 8–12 minute target.
+1. **Drains vs fielder outs:** accepted as is (55 % drains, 14 % fielder outs). The drain is the
+   big threat, and fielders punish missed shots.
+2. **Game length:** to be judged in your playtests. Presentation time can be added in M4.
 
 ## Try it
 

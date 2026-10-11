@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { BRAND } from '../app/brand';
 import type { GameStats } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 import { callout, finalStats, highScores, lastRank, qualified, screen, snapshot } from './store';
@@ -118,7 +119,7 @@ function Title({ actions }: { actions: UiActions }) {
   const scores = highScores.value;
   return (
     <div class="panel title" onPointerDown={actions.start}>
-      <h1>BasePinball</h1>
+      <h1>{BRAND.game}</h1>
       <p class="tagline">Nine innings. Hit 'em where they ain't.</p>
       <p class="cta">Press Enter or tap to play</p>
       {scores.length > 0 && <ScoreTable scores={scores.slice(0, 5)} highlight={-1} />}
@@ -197,7 +198,7 @@ function BoxScore({ stats }: { stats: GameStats }) {
         </thead>
         <tbody>
           <tr>
-            <td class="team">SILVERBALLS</td>
+            <td class="team">{BRAND.teamShort.toUpperCase()}</td>
             {innings.map((r) => (
               <td>{r}</td>
             ))}
