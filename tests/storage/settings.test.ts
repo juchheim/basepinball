@@ -80,6 +80,9 @@ describe('settings storage', () => {
     expect(s.volume).toEqual({ master: 1, sfx: 1, crowd: 0.2, music: 0.6 });
     expect(s.hudScale).toBe('normal');
     expect(s.quality).toBe('medium');
+    expect(s.graphics).toBe('auto');
+    expect(sanitize({ graphics: 'compat' }).graphics).toBe('compat');
+    expect(sanitize({ graphics: 'nonsense' }).graphics).toBe('auto');
     expect(s.keys.flipperL).toEqual(['KeyQ']);
     expect(s.keys.flipperR).toEqual(DEFAULT_SETTINGS.keys.flipperR);
     expect(s.keys.pause).toEqual(DEFAULT_SETTINGS.keys.pause);

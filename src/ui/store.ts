@@ -115,7 +115,7 @@ export function calloutFor(e: RulesEvent): void {
     }
     case 'steal':
       return showCallout(
-        e.runs > 0 ? 'STEALS HOME!' : 'STOLEN BASE!',
+        e.double ? 'DOUBLE STEAL!' : e.runs > 0 ? 'STEALS HOME!' : 'STOLEN BASE!',
         e.runs > 0 ? '1 run scores' : undefined,
         'hit',
       );
@@ -129,13 +129,9 @@ export function calloutFor(e: RulesEvent): void {
         'info',
       );
     case 'stealRamp':
-      return e.result === 'letter'
-        ? e.letters < 3
-          ? showCallout('STEAL RAMP', `R-U-N: ${e.letter} lit · ${e.letters} of 3`, 'info', 1100)
-          : undefined // the stealLit callout follows
-        : showCallout('STEAL RAMP', 'Nobody on base to steal · STEAL stays lit', 'info', 1300);
-    case 'stealLit':
-      return showCallout('STEAL LIT', 'Shoot the right ramp', 'info');
+      return showCallout('STEAL RAMP', 'Nobody on base to steal', 'info', 1100);
+    case 'doubleStealLit':
+      return showCallout('DOUBLE STEAL LIT', 'Next right-ramp steal moves every runner', 'info');
     case 'kickbackLit':
       return showCallout('KICKBACK LIT', undefined, 'info', 1000);
     case 'tiltWarning':

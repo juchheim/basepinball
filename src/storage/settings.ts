@@ -30,6 +30,8 @@ export interface Settings {
   reducedMotion: 'system' | 'on' | 'off';
   hudScale: 'normal' | 'large';
   quality: QualitySetting;
+  /** 'compat' forces the WebGL2 backend (a reload applies it); 'auto' prefers WebGPU. */
+  graphics: 'auto' | 'compat';
   /** Vibration (Android) and gamepad rumble. */
   haptics: boolean;
   /** Tilt the phone to nudge (asks for motion permission on iOS). */
@@ -56,6 +58,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: 'system',
   hudScale: 'normal',
   quality: 'auto',
+  graphics: 'auto',
   haptics: true,
   motionNudge: false,
   keys: DEFAULT_KEYS,
@@ -109,6 +112,7 @@ export function sanitize(data: unknown): Settings {
   if (o.hudScale === 'normal' || o.hudScale === 'large') d.hudScale = o.hudScale;
   if (['auto', 'low', 'medium', 'high', 'ultra'].includes(o.quality as string))
     d.quality = o.quality as QualitySetting;
+  if (o.graphics === 'auto' || o.graphics === 'compat') d.graphics = o.graphics;
   if (typeof o.haptics === 'boolean') d.haptics = o.haptics;
   if (typeof o.motionNudge === 'boolean') d.motionNudge = o.motionNudge;
   const keys = (o.keys ?? {}) as Record<string, unknown>;

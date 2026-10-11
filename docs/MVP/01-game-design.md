@@ -34,7 +34,7 @@ the crowd roars. Nine innings, three outs each. Score as many runs as you can.
 | Single / Double | **The Gap** pop-bumper nest: front pops = single, back pops = double |
 | Triple | Corner kicker bumpers at the top of each orbit ("down the line, into the corner") |
 | Home run | Left ramp, "Over the Wall", crossing the HR gate |
-| Stolen base | Right ramp ("Steal" ramp), when lit by the R-U-N standups |
+| Stolen base | Right ramp ("Steal" ramp), with a runner on base |
 | Hot bat | B-A-T drop-target bank or the skill shot: next hit +1 base |
 | Base runners | Figures in lit basepath channels under the playfield glass |
 | Scoreboard | In-world outfield scoreboard, plus a HUD line score |
@@ -200,11 +200,12 @@ Resolution details:
 | Goal | How | Reward |
 |------|-----|--------|
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
-| **STEAL** | Hit all three **R-U-N** standups | The next **right ramp** shot advances the lead runner who can advance by one base (stealing home scores a run). Used up when the steal happens. With the bases empty it stays lit. **Unlit**, a right-ramp shot spots the next R-U-N letter, so two ramp shots plus a standup also light STEAL. Every right-ramp shot gets a callout. |
+| **STEAL** | A runner is on base. No lighting is needed: the right ramp's arrow blinks while a steal is available. | A **right ramp** shot moves the lead runner who can advance up one base (stealing home scores a run). With the bases empty the shot does nothing but a callout. |
+| **DOUBLE STEAL** | Hit all three **R-U-N** standups | The next right-ramp steal moves **every** runner up one base at once (a runner on third scores). Used up when it happens. With the bases empty it stays lit, including across innings. (A planned follow-up turns R-U-N into W-A-L-K and a walk.) |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-U-N letters lit) carries over between PAs and
-resets at the inning change. A **lit** award (HOT BAT, STEAL, kickback) stays lit until it is used,
+resets at the inning change. A **lit** award (HOT BAT, DOUBLE STEAL, kickback) stays lit until it is used,
 including across innings.
 
 #### 4.8.1 HOT BAT in detail

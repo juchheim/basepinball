@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
 import type { PhysicsEvent } from '../physics/world';
-import { advance, EMPTY, runnersOn, steal, type Bases } from './bases';
+import { advance, doubleSteal, EMPTY, runnersOn, steal, type Bases } from './bases';
 import { choosePitch, type PitchSpec, type PitchType, type Side } from './pitching';
 import {
   DEFAULT_TIMING,
@@ -49,7 +49,8 @@ export class GameRules {
   bases: Bases = EMPTY;
   rally = 0;
   hotBat = false;
-  stealLit = false;
+  /** R-U-N lit a double steal: the next steal moves every runner up a base. */
+  doubleStealLit = false;
   kickbackLit = true;
   tiltWarnings = 0;
   tilted = false;
@@ -424,36 +425,52 @@ export class GameRules {
     this.run.add(id);
     if (this.run.size === 3) {
       this.run.clear();
-      if (!this.stealLit) {
-        this.stealLit = true;
-        this.emit({ type: 'stealLit' });
+      if (!this.doubleStealLit) {
+        this.doubleStealLit = true;
+        this.emit({ type: 'doubleStealLit' });
       }
     }
   }
 
+  /** A runner can steal whenever one is on base (the right ramp is always armed for them). */
+  get stealReady(): boolean {
+    return steal(this.bases) !== null;
+  }
+
   /**
-   * The right ramp. With STEAL lit and a runner on, the lead runner steals a base. Otherwise the
-   * shot still counts: unlit, it spots the next R-U-N letter (three light STEAL); lit with the
-   * bases empty, STEAL stays lit for later.
+   * The right ramp (docs/MVP/01 § 4.8). With a runner on, the shot steals: the lead runner who can
+   * advance takes the next base, and stealing home scores. If R-U-N lit a double steal, every
+   * runner advances at once and the double steal is used up. With the bases empty nothing happens
+   * (and a lit double steal waits).
    */
   private stealShot(): void {
     if (!LIVE.includes(this.state)) return;
-    if (!this.stealLit) {
-      const next = ['R', 'U', 'N'].find((l) => !this.run.has(`standup.${l}`))!;
-      const letters = this.run.size + 1;
-      this.emit({ type: 'stealRamp', result: 'letter', letter: next, letters });
-      this.standup(`standup.${next}`);
-      return;
-    }
-    const result = steal(this.bases);
+    const double = this.doubleStealLit ? doubleSteal(this.bases) : null;
+    const single = double ? null : steal(this.bases);
+    const result = double
+      ? {
+          bases: double.bases,
+          runs: double.runs,
+          from: double.moved[double.moved.length - 1]!,
+          moved: double.moved,
+        }
+      : single
+        ? { ...single, moved: [single.from] }
+        : null;
     if (!result) {
       this.emit({ type: 'stealRamp', result: 'noRunner' });
       return;
     }
     this.bases = result.bases;
-    this.stealLit = false;
+    if (double) this.doubleStealLit = false;
     this.stats.steals++;
-    this.emit({ type: 'steal', from: result.from, runs: result.runs });
+    this.emit({
+      type: 'steal',
+      from: result.from,
+      runs: result.runs,
+      moved: result.moved,
+      double: !!double,
+    });
     if (result.runs > 0) this.score(result.runs);
   }
 
@@ -527,7 +544,8 @@ export class GameRules {
       stats: this.stats,
       rally: this.rally,
       hotBat: this.hotBat,
-      stealLit: this.stealLit,
+      stealReady: this.stealReady,
+      doubleStealLit: this.doubleStealLit,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,
@@ -548,9 +566,10 @@ export class GameRules {
       'base.2B': on(this.bases[1]),
       'base.3B': on(this.bases[2]),
       'lamp.hotbat': this.hotBat ? 'blink' : 'off',
-      'lamp.steal': this.stealLit ? 'blink' : 'off',
+      // The lamp by the R-U-N bank is the double-steal award; the ramp arrow shows a steal is on.
+      'lamp.steal': this.doubleStealLit ? 'blink' : 'off',
       'lamp.kickback': on(this.kickbackLit),
-      'arrow.ramp.STEAL': this.stealLit && runnersOn(this.bases) > 0 ? 'blink' : 'off',
+      'arrow.ramp.STEAL': this.stealReady ? 'blink' : 'off',
       // The pitch lamp blinks through the windup and holds steady once the ball is thrown.
       'pitch.FB': pitchLamp('FB'),
       'pitch.CH': pitchLamp('CH'),

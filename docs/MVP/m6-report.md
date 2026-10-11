@@ -54,6 +54,43 @@ address `/#how-to-play` (for linking). It covers:
 | Safari, Firefox, Edge desktop; iOS Safari; Android Chrome | ⏳ Needs devices. See the [QA checklist](qa-checklist.md). |
 | Soak: 100 sim-bot games, no soft locks | ✅ (M5) |
 
+## Known issue: blank canvas (follow-up, root cause not yet confirmed)
+
+Testers saw the canvas go empty (the page's background color, with the HUD still running) a few
+seconds after starting, in **both Safari and Chrome**. It could not be reproduced in the
+development browser. The black area is exactly the page background, not a dark rendered frame, so
+the browser was not presenting the canvas. A Safari screenshot showed `WebGL2 · high · 16 fps`
+during the blank and `WebGL2 · medium · 45 fps` after it cleared (when the quality controller
+stepped down). No errors were logged.
+
+Leading theory: **GPU memory**. The scene was drawn into two 16-bit-float targets (image plus bloom
+glow) with 4× MSAA, and the renderer also made a 4× MSAA canvas that only a full-screen quad draws
+to. At a Retina window size that is about **1.2 GB** of GPU memory, enough to fail silently on a
+laptop. Changes made, in order of likelihood:
+
+- **Memory cut about 6×:** no MSAA on the canvas, none on the scene pass either (Ultra can turn it
+  back on), and **FXAA** smooths edges on High and Medium instead. About 1.2 GB → about 200 MB at
+  9 MP.
+- **Pixel budget:** the canvas is capped at 1.5 / 3 / 6 / 12 million pixels on Low / Medium / High /
+  Ultra.
+- **Starting tier and controller:** Safari, the WebGL2 renderer and phones start at Medium. The
+  adaptive controller judges the median of 45 frames after a 1.5 s warm-up, steps down **two tiers**
+  under about 22 fps, and ignores only frames over 250 ms (it used to need 120 frames and ignored
+  anything over 100 ms, so a struggling GPU sat blank for about 8 s).
+- **High uses the 2048 px playfield texture** (about 2× its on-screen width); only Ultra uses 4096 px
+  (about 180 MB of GPU memory).
+- **Blank-canvas watchdog** (`src/app/resilience.ts`): every half second the game reads back a few
+  canvas pixels. If the canvas is empty it nudges the renderer after 1 s, rebuilds the render
+  targets after 2 s, and after 4 s restarts on the WebGL2 renderer ("Switching to compatibility
+  mode"), remembering the choice. A canvas never seen drawing gets the fallback after 6 s.
+- **Settings → Graphics:** Auto, or Compatibility (WebGL2). `?webgpu` overrides a saved choice.
+- **Diagnostics:** `?debug` shows a timestamped event log (boot, resizes, quality changes, texture
+  loads, game start, blank detected or recovered, watchdog steps) and a GPU error count. If the
+  canvas blanks again, a screenshot shows what happened just before.
+- **Tests:** `tests/app/resilience.test.ts` (the watchdog's escalation) and
+  `tests/render/quality.test.ts` (starting tier, the controller). The whole recovery path was run in
+  the browser with `__bp.breakCanvas()` in `?debug`.
+
 ## Name check
 
 > **Outcome:** *Rally Ball* was dropped and the game renamed **Steel Diamond** (see

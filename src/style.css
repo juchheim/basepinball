@@ -88,6 +88,21 @@ canvas {
   letter-spacing: 0.02em;
 }
 
+.diag {
+  position: fixed;
+  left: 12px;
+  bottom: 30px;
+  margin: 0;
+  max-width: 46vw;
+  font:
+    10px/1.35 ui-monospace,
+    Menlo,
+    monospace;
+  color: #9aa6c4;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
 .perf {
   position: fixed;
   left: 12px;

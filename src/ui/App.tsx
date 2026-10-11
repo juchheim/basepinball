@@ -106,7 +106,8 @@ function Hud() {
       </div>
       <div class="hud-chips">
         {g.hotBat && <span class="chip hot">HOT BAT</span>}
-        {g.stealLit && <span class="chip steal">STEAL</span>}
+        {g.doubleStealLit && <span class="chip steal">DOUBLE STEAL</span>}
+        {g.stealReady && !g.doubleStealLit && <span class="chip steal">STEAL: RIGHT RAMP</span>}
         {g.rally >= 2 && <span class="chip rally">RALLY ×{g.rally}</span>}
         {g.tiltWarnings > 0 && !g.tilted && <span class="chip warn">WARNING {g.tiltWarnings}</span>}
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (
@@ -254,8 +255,9 @@ function HowToPlay() {
           <b>B-A-T</b> drop targets: <b>Hot Bat</b>, your next hit goes one base further.
         </li>
         <li>
-          <b>R-U-N</b> targets (or right-ramp shots): light <b>STEAL</b>, then the right ramp moves
-          your lead runner up.
+          <b>The right ramp</b> steals: with a runner on, the lead runner takes the next base (a
+          runner on third steals home). Complete <b>R-U-N</b> first for a <b>double steal</b>: every
+          runner moves up at once.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.
@@ -368,6 +370,18 @@ function SettingsPanel({ actions }: { actions: UiActions }) {
       {toggle('Mute (M)', st.muted, (muted) => actions.updateSettings({ muted }))}
       <h3>Display</h3>
       {choice('Quality', st.quality, QUALITY, (quality) => actions.updateSettings({ quality }))}
+      {choice(
+        'Graphics',
+        st.graphics,
+        [
+          { value: 'auto', label: 'Auto' },
+          { value: 'compat', label: 'Compatibility' },
+        ],
+        (graphics) => {
+          actions.updateSettings({ graphics });
+          settingsNote.value = 'Reload the page to apply the graphics change.';
+        },
+      )}
       {choice(
         'HUD size',
         st.hudScale,

@@ -64,10 +64,11 @@ built for your visual review.
 | Shadow lights | 0 | 1 × 1024 | 2 × 2048 | 2 × 2048 |
 | Ball reflections | static | 64 px every other frame | 128 px | 256 px |
 | Bloom | off | on | on | on |
-| Playfield texture | 2048 | 2048 | 4096 | 4096 |
+| Playfield texture | 2048 | 2048 | 2048 (4096 until M6) | 4096 |
 | Crowd | 300 | 900 | 2,200 | 4,000 |
 
-The starting tier is medium on touch or small screens and high otherwise. `?quality=` forces a
+The starting tier is medium on touch or small screens, in Safari, and on the WebGL2 renderer (changed
+in M6, below); otherwise high. `?quality=` forces a
 tier. When the median frame over about 2 s is slower than about 48 fps, the controller steps down
 one tier. Stalls (tab switches, loading) are ignored.
 

@@ -1,5 +1,16 @@
 import * as THREE from 'three/webgpu';
-import { emissive, mrt, output, pass, saturation, screenUV, smoothstep, vec4 } from 'three/tsl';
+import {
+  emissive,
+  mrt,
+  output,
+  pass,
+  renderOutput,
+  saturation,
+  screenUV,
+  smoothstep,
+  vec4,
+} from 'three/tsl';
+import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import type { Quality } from './quality';
 
@@ -21,9 +32,14 @@ export class Stage {
   bloomEnabled = true;
   private readonly bloomPass: ReturnType<typeof bloom>;
   private readonly scenePassColor;
+  private readonly scenePass: ReturnType<typeof pass>;
+  private fxaaEnabled = true;
   private fitTarget: THREE.Object3D | null = null;
   private fitExtra: THREE.Vector3[] = [];
   private dprCap = 2;
+  private maxPixels = 6e6;
+  /** Called after every canvas resize (diagnostics). */
+  onResize: ((w: number, h: number, pixelRatio: number) => void) | null = null;
   private shakeAmp = 0;
   private shakeUntil = 0;
   private shakeLength = 1;
@@ -33,7 +49,9 @@ export class Stage {
   private orbitClock = 0;
 
   constructor(container: HTMLElement, forceWebGL: boolean) {
-    this.renderer = new THREE.WebGPURenderer({ antialias: true, forceWebGL });
+    this.renderer = // No MSAA on the canvas: the scene is drawn into the post-processing pass and only a
+      // full-screen quad reaches the canvas, so a multisampled canvas just burns GPU memory.
+      new THREE.WebGPURenderer({ antialias: false, forceWebGL });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.dprCap));
     this.renderer.toneMapping = THREE.AgXToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -72,12 +90,15 @@ export class Stage {
 
     // Selective bloom: only emissive surfaces (lamps, pop caps, flashes) glow, via an MRT
     // emissive target, so bright white plastics under the key lights stay crisp.
-    const scenePass = pass(this.scene, this.camera);
+    // The pass is unsampled by default (a Retina-size 4x MSAA pair of 16-bit targets is ~600 MB);
+    // FXAA smooths edges instead, and Ultra can turn MSAA back on.
+    const scenePass = pass(this.scene, this.camera, { samples: 0 });
+    this.scenePass = scenePass;
     scenePass.setMRT(mrt({ output, emissive }));
     this.scenePassColor = scenePass.getTextureNode('output');
     this.bloomPass = bloom(scenePass.getTextureNode('emissive'), 1.1, 0.4, 0);
     this.pipeline = new THREE.RenderPipeline(this.renderer);
-    this.setBloom(true);
+    this.setPost(true, true);
 
     window.addEventListener('resize', () => this.resize());
   }
@@ -94,12 +115,32 @@ export class Stage {
   }
 
   setBloom(on: boolean): void {
-    this.bloomEnabled = on;
-    const color = on ? this.scenePassColor.add(this.bloomPass) : this.scenePassColor;
+    this.setPost(on, this.fxaaEnabled);
+  }
+
+  /** Rebuild the post-processing chain: optional bloom, the night grade, optional FXAA. */
+  setPost(bloomOn: boolean, fxaaOn: boolean): void {
+    this.bloomEnabled = bloomOn;
+    this.fxaaEnabled = fxaaOn;
+    const color = bloomOn ? this.scenePassColor.add(this.bloomPass) : this.scenePassColor;
     // Night grade: +8 % saturation and a soft vignette.
     const graded = saturation(color.rgb, 1.08);
     const vignette = smoothstep(0.85, 0.35, screenUV.sub(0.5).length()).mul(0.22).add(0.78);
-    this.pipeline.outputNode = vec4(graded.mul(vignette), 1);
+    const out = vec4(graded.mul(vignette), 1);
+    if (fxaaOn) {
+      // FXAA needs display-ready (tone-mapped, sRGB) input, so do the output transform first.
+      this.pipeline.outputColorTransform = false;
+      this.pipeline.outputNode = fxaa(renderOutput(out));
+    } else {
+      this.pipeline.outputColorTransform = true;
+      this.pipeline.outputNode = out;
+    }
+    this.pipeline.needsUpdate = true;
+  }
+
+  /** MSAA samples for the scene pass (0 = off). */
+  setMSAA(samples: 0 | 4): void {
+    (this.scenePass as unknown as { options: { samples: number } }).options.samples = samples;
     this.pipeline.needsUpdate = true;
   }
 
@@ -115,7 +156,7 @@ export class Stage {
 
   applyQuality(q: Quality): void {
     this.dprCap = q.dpr;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.dpr));
+    this.maxPixels = q.maxPixels;
     this.keyLights.forEach((light, i) => {
       const on = i < q.shadowLights;
       if (light.shadow.mapSize.x !== q.shadowMapSize) {
@@ -125,7 +166,8 @@ export class Stage {
       }
       light.castShadow = on;
     });
-    if (q.bloom !== this.bloomEnabled) this.setBloom(q.bloom);
+    this.setMSAA(q.msaa);
+    if (q.bloom !== this.bloomEnabled || q.fxaa !== this.fxaaEnabled) this.setPost(q.bloom, q.fxaa);
     this.resize();
   }
 
@@ -142,7 +184,13 @@ export class Stage {
   private resize(): void {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    // The pixel ratio is the device's, capped by the tier and by the canvas's total pixel budget.
+    const budget = Math.sqrt(this.maxPixels / Math.max(1, w * h));
+    this.renderer.setPixelRatio(
+      Math.max(0.75, Math.min(window.devicePixelRatio, this.dprCap, budget)),
+    );
     this.renderer.setSize(w, h);
+    this.onResize?.(w, h, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     if (!this.fitTarget) return;
@@ -178,6 +226,21 @@ export class Stage {
     }
     fits(hi);
     this.orbitCenter.copy(center);
+  }
+
+  /**
+   * Nudge a renderer that has stopped presenting. Soft: rebuild the post pipeline and resize the
+   * canvas. Hard: also rebuild the post-processing chain's nodes from scratch.
+   */
+  recover(hard = false): void {
+    if (hard) this.setPost(this.bloomEnabled, this.fxaaEnabled);
+    this.pipeline.needsUpdate = true;
+    this.resize();
+  }
+
+  /** The WebGPU device, if that is the backend in use. */
+  get gpuDevice(): GPUDevice | undefined {
+    return (this.renderer as unknown as { backend: { device?: GPUDevice } }).backend.device;
   }
 
   /** A small camera shake (nudges); off under reduced motion. */

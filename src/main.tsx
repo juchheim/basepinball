@@ -1,8 +1,16 @@
 import { render } from 'preact';
 import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
+import { DiagLog } from './app/diag';
 import { FixedLoop } from './app/loop';
-import { FrameGuard, showFatal, startupFailure, watchContextLoss } from './app/resilience';
+import {
+  BlankTracker,
+  CanvasProbe,
+  FrameGuard,
+  showFatal,
+  startupFailure,
+  watchContextLoss,
+} from './app/resilience';
 import { Crowd } from './audio/crowd';
 import { AudioEngine } from './audio/engine';
 import { playStinger } from './audio/organ';
@@ -67,13 +75,17 @@ async function main(): Promise<void> {
   const container = document.getElementById('app')!;
   const query = new URLSearchParams(location.search);
   const debug = query.has('debug');
+  // Settings first: "Graphics: Compatibility" (or the watchdog, after a blank canvas) forces the
+  // WebGL2 backend. `?webgl` forces it too; `?webgpu` overrides the saved choice.
+  let cfg: Settings = loadSettings();
+  const forceWebGL = query.has('webgl') || (cfg.graphics === 'compat' && !query.has('webgpu'));
   let stage: Stage;
   try {
-    stage = new Stage(container, query.has('webgl'));
+    stage = new Stage(container, forceWebGL);
     await stage.init();
   } catch (err) {
     console.error(err);
-    showFatal(startupFailure(err, query.has('webgl')));
+    showFatal(startupFailure(err, forceWebGL));
     return;
   }
 
@@ -118,7 +130,6 @@ async function main(): Promise<void> {
   const unlock = (): void => audio.unlock();
   window.addEventListener('pointerdown', unlock);
   window.addEventListener('keydown', unlock);
-  let cfg: Settings = loadSettings();
   settings.value = cfg;
   const shows = new LampShows(table);
   // Light level: the towers and key lights dim for attract mode and warm up at game start.
@@ -138,29 +149,40 @@ async function main(): Promise<void> {
     audio.play(name, s.bus, s.recipe, { poly: s.poly });
   };
 
+  // ---- diagnostics (shown with ?debug): what happened just before, if the canvas ever blanks
+  const diag = new DiagLog();
+  diag.log(`boot ${stage.backend}, dpr ${window.devicePixelRatio}`);
+  stage.onResize = (w, h, pr) =>
+    diag.log(`resize ${w}x${h} @${pr.toFixed(2)} = ${Math.round(w * pr)}x${Math.round(h * pr)}`);
+
   // ---- quality tier, textures, standees, reflections
   let textureWidth = 0;
   const applyQuality = (q: Quality): void => {
+    diag.log(`quality -> ${q.name}`);
     stage.applyQuality(q);
     view.setReflections(q.reflectionSize, q.reflectionEvery);
     stadium.setCrowd(q.crowd);
     if (q.playfieldTexture !== textureWidth && !freePlay) {
       textureWidth = q.playfieldTexture;
-      void loadSlot('playfield.base', q.playfieldTexture).then(
-        (tex) => tex && view.setPlayfieldTexture(tex),
-      );
+      void loadSlot('playfield.base', q.playfieldTexture).then((tex) => {
+        if (!tex) return;
+        view.setPlayfieldTexture(tex);
+        diag.log(`playfield texture ${q.playfieldTexture} applied`);
+      });
     }
   };
-  const quality = new AdaptiveQuality(initialTier(query), applyQuality);
+  const quality = new AdaptiveQuality(initialTier(query, stage.backend), applyQuality);
   quality.enabled = !query.has('quality');
   if (!query.has('quality') && cfg.quality !== 'auto') {
     quality.tier = TIERS[cfg.quality];
     quality.enabled = false;
   }
   applyQuality(quality.tier);
-  void loadSlot('standees', 600).then(
-    (tex) => tex && view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID),
-  );
+  void loadSlot('standees', 600).then((tex) => {
+    if (!tex) return;
+    view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID);
+    diag.log('standees built');
+  });
   // Redraw the scoreboard once the display font is ready.
   void document.fonts?.load('bold 40px Oswald').then(() => stadium.update(null, BRAND.game));
 
@@ -245,6 +267,7 @@ async function main(): Promise<void> {
   // ---- game flow
   const start = (): void => {
     ui('uiConfirm');
+    diag.log('game start');
     world.reset();
     timers.length = 0;
     rules = new GameRules(machine, { seed: (Date.now() & 0x7fffffff) >>> 0 });
@@ -491,6 +514,60 @@ async function main(): Promise<void> {
       });
     },
   );
+  // GPU validation errors are silent by default; keep a count and log the first few (they are the
+  // usual evidence when the canvas goes blank).
+  let gpuErrors = 0;
+  stage.gpuDevice?.addEventListener('uncapturederror', (e) => {
+    gpuErrors++;
+    if (gpuErrors <= 5) console.error('GPU error', (e as GPUUncapturedErrorEvent).error?.message);
+  });
+
+  // Blank-canvas watchdog: if the canvas stops showing the scene (the renderer stopped presenting
+  // while the page carries on, as seen in Safari), nudge it, then switch to the WebGL2 backend.
+  const probe = new CanvasProbe(stage.renderer.domElement);
+  const blank = new BlankTracker();
+  let faultInjected = false;
+  const watchCanvas = (): void => {
+    const had = blank.blankCount;
+    const seen = faultInjected ? false : probe.hasContent();
+    const action = blank.observe(seen);
+    if (seen === false && had === 0) diag.log('canvas reads BLANK');
+    if (seen === true && had > 0) diag.log(`canvas recovered after ${had} blank checks`);
+    if (action === 'soft') {
+      console.warn('canvas blank: nudging the renderer', diag.lines());
+      diag.log('watchdog: nudge');
+      stage.recover();
+    } else if (action === 'rebuild') {
+      console.warn('canvas still blank: rebuilding render targets', diag.lines());
+      diag.log('watchdog: rebuild');
+      stage.recover(true);
+      view.setReflections(quality.tier.reflectionSize, quality.tier.reflectionEvery);
+    } else if (action === 'fallback') {
+      console.warn(`canvas blank: ${stage.backend} stopped drawing`, diag.lines());
+      diag.log('watchdog: fallback');
+      stopped = true;
+      if (stage.backend === 'WebGPU') {
+        // Remember the choice, and restart in compatibility mode.
+        updateSettings({ graphics: 'compat' });
+        showFatal({
+          title: 'Switching to compatibility mode',
+          body: 'The graphics stopped drawing, so Steel Diamond is restarting with the more widely supported WebGL2 renderer. Your settings and high scores are kept.',
+          action: 'webgl',
+        });
+        setTimeout(() => {
+          const url = new URL(location.href);
+          url.searchParams.set('webgl', '');
+          location.href = url.toString();
+        }, 2500);
+      } else {
+        showFatal({
+          title: 'The graphics stopped drawing',
+          body: 'The display stopped updating. Reload to start again; high scores and settings are safe.',
+          action: 'reload',
+        });
+      }
+    }
+  };
   applySettings();
   // Motion nudge (if it was on last time) starts with the first gesture (iOS permission rules).
   if (cfg.motionNudge) {
@@ -506,6 +583,7 @@ async function main(): Promise<void> {
     if (!debug) pauseGame();
   });
   document.addEventListener('visibilitychange', () => {
+    diag.log(document.hidden ? 'tab hidden' : 'tab visible');
     if (document.hidden) pauseGame();
     else loop.resync();
     // Hidden: fade out and suspend; the pause menu keeps it silent until resumed.
@@ -515,6 +593,7 @@ async function main(): Promise<void> {
 
   // ---- debug tools
   let perf: HTMLDivElement | null = null;
+  let diagEl: HTMLPreElement | null = null;
   if (debug) {
     const state = { timeScale: 1, colliders: false, bloom: true, paused: false };
     // The tuning panel (and its UI library) loads only in debug mode.
@@ -543,6 +622,9 @@ async function main(): Promise<void> {
     perf = document.createElement('div');
     perf.className = 'perf';
     document.body.appendChild(perf);
+    diagEl = document.createElement('pre');
+    diagEl.className = 'diag';
+    document.body.appendChild(diagEl);
     // Mouse: click-drag on the table to throw a ball.
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
@@ -588,6 +670,10 @@ async function main(): Promise<void> {
       director,
       shows,
       audio,
+      /** Simulate a renderer that stops presenting (tests the blank-canvas watchdog). */
+      breakCanvas: () => (faultInjected = true),
+      probe,
+      watchCanvas,
       getRules: () => rules,
     };
   }
@@ -653,7 +739,16 @@ async function main(): Promise<void> {
     }
     view.update(loop.alpha, dt);
     view.updateReflections(stage.renderer, stage.scene);
-    stage.render();
+    if (faultInjected) {
+      // Debug fault injection: skip drawing and empty the canvas (assigning its width clears it),
+      // the symptom the watchdog looks for.
+      const c = stage.renderer.domElement;
+      const w = c.width;
+      c.width = 1;
+      c.width = w;
+    } else stage.render();
+    // Every half second (and never while the tab is hidden): did that frame actually draw?
+    if (frames % 30 === 29 && !document.hidden) watchCanvas();
     quality.frame(now, dt * 1000);
 
     frames++;
@@ -662,7 +757,8 @@ async function main(): Promise<void> {
       const fps = (frames * 1000) / (now - fpsAt);
       frames = 0;
       fpsAt = now;
-      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}`;
+      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}${gpuErrors ? ` · GPU errors ${gpuErrors}` : ''}`;
+      if (diagEl) diagEl.textContent = diag.lines().join('\n');
     }
   };
   requestAnimationFrame(tick);
