@@ -18,6 +18,10 @@ export interface Quality {
   reflectionSize: number;
   reflectionEvery: number;
   bloom: boolean;
+  /** MSAA samples on the scene pass (0 or 4). 4x MSAA on two 16-bit targets is ~600 MB at Retina size. */
+  msaa: 0 | 4;
+  /** FXAA edge smoothing, the cheap replacement for MSAA. */
+  fxaa: boolean;
   /** Playfield texture width (px). */
   playfieldTexture: number;
   /** Crowd figures in the stands. */
@@ -34,6 +38,8 @@ export const TIERS: Record<TierName, Quality> = {
     reflectionSize: 0,
     reflectionEvery: 0,
     bloom: false,
+    msaa: 0,
+    fxaa: false,
     playfieldTexture: 2048,
     crowd: 300,
   },
@@ -46,6 +52,8 @@ export const TIERS: Record<TierName, Quality> = {
     reflectionSize: 64,
     reflectionEvery: 2,
     bloom: true,
+    msaa: 0,
+    fxaa: true,
     playfieldTexture: 2048,
     crowd: 900,
   },
@@ -58,6 +66,8 @@ export const TIERS: Record<TierName, Quality> = {
     reflectionSize: 128,
     reflectionEvery: 1,
     bloom: true,
+    msaa: 0,
+    fxaa: true,
     // 2048 px is already about twice the playfield's on-screen width; 4096 px costs ~180 MB of GPU
     // memory, so only Ultra uses it.
     playfieldTexture: 2048,
@@ -72,6 +82,8 @@ export const TIERS: Record<TierName, Quality> = {
     reflectionSize: 256,
     reflectionEvery: 1,
     bloom: true,
+    msaa: 4,
+    fxaa: false,
     playfieldTexture: 4096,
     crowd: 4000,
   },

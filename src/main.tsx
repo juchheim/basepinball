@@ -1,6 +1,7 @@
 import { render } from 'preact';
 import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
+import { DiagLog } from './app/diag';
 import { FixedLoop } from './app/loop';
 import {
   BlankTracker,
@@ -148,17 +149,26 @@ async function main(): Promise<void> {
     audio.play(name, s.bus, s.recipe, { poly: s.poly });
   };
 
+  // ---- diagnostics (shown with ?debug): what happened just before, if the canvas ever blanks
+  const diag = new DiagLog();
+  diag.log(`boot ${stage.backend}, dpr ${window.devicePixelRatio}`);
+  stage.onResize = (w, h, pr) =>
+    diag.log(`resize ${w}x${h} @${pr.toFixed(2)} = ${Math.round(w * pr)}x${Math.round(h * pr)}`);
+
   // ---- quality tier, textures, standees, reflections
   let textureWidth = 0;
   const applyQuality = (q: Quality): void => {
+    diag.log(`quality -> ${q.name}`);
     stage.applyQuality(q);
     view.setReflections(q.reflectionSize, q.reflectionEvery);
     stadium.setCrowd(q.crowd);
     if (q.playfieldTexture !== textureWidth && !freePlay) {
       textureWidth = q.playfieldTexture;
-      void loadSlot('playfield.base', q.playfieldTexture).then(
-        (tex) => tex && view.setPlayfieldTexture(tex),
-      );
+      void loadSlot('playfield.base', q.playfieldTexture).then((tex) => {
+        if (!tex) return;
+        view.setPlayfieldTexture(tex);
+        diag.log(`playfield texture ${q.playfieldTexture} applied`);
+      });
     }
   };
   const quality = new AdaptiveQuality(initialTier(query, stage.backend), applyQuality);
@@ -168,9 +178,11 @@ async function main(): Promise<void> {
     quality.enabled = false;
   }
   applyQuality(quality.tier);
-  void loadSlot('standees', 600).then(
-    (tex) => tex && view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID),
-  );
+  void loadSlot('standees', 600).then((tex) => {
+    if (!tex) return;
+    view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID);
+    diag.log('standees built');
+  });
   // Redraw the scoreboard once the display font is ready.
   void document.fonts?.load('bold 40px Oswald').then(() => stadium.update(null, BRAND.game));
 
@@ -255,6 +267,7 @@ async function main(): Promise<void> {
   // ---- game flow
   const start = (): void => {
     ui('uiConfirm');
+    diag.log('game start');
     world.reset();
     timers.length = 0;
     rules = new GameRules(machine, { seed: (Date.now() & 0x7fffffff) >>> 0 });
@@ -515,12 +528,23 @@ async function main(): Promise<void> {
   const blank = new BlankTracker();
   let faultInjected = false;
   const watchCanvas = (): void => {
-    const action = blank.observe(faultInjected ? false : probe.hasContent());
+    const had = blank.blankCount;
+    const seen = faultInjected ? false : probe.hasContent();
+    const action = blank.observe(seen);
+    if (seen === false && had === 0) diag.log('canvas reads BLANK');
+    if (seen === true && had > 0) diag.log(`canvas recovered after ${had} blank checks`);
     if (action === 'soft') {
-      console.warn('canvas blank: nudging the renderer');
+      console.warn('canvas blank: nudging the renderer', diag.lines());
+      diag.log('watchdog: nudge');
       stage.recover();
+    } else if (action === 'rebuild') {
+      console.warn('canvas still blank: rebuilding render targets', diag.lines());
+      diag.log('watchdog: rebuild');
+      stage.recover(true);
+      view.setReflections(quality.tier.reflectionSize, quality.tier.reflectionEvery);
     } else if (action === 'fallback') {
-      console.warn(`canvas blank: ${stage.backend} stopped drawing`);
+      console.warn(`canvas blank: ${stage.backend} stopped drawing`, diag.lines());
+      diag.log('watchdog: fallback');
       stopped = true;
       if (stage.backend === 'WebGPU') {
         // Remember the choice, and restart in compatibility mode.
@@ -559,6 +583,7 @@ async function main(): Promise<void> {
     if (!debug) pauseGame();
   });
   document.addEventListener('visibilitychange', () => {
+    diag.log(document.hidden ? 'tab hidden' : 'tab visible');
     if (document.hidden) pauseGame();
     else loop.resync();
     // Hidden: fade out and suspend; the pause menu keeps it silent until resumed.
@@ -568,6 +593,7 @@ async function main(): Promise<void> {
 
   // ---- debug tools
   let perf: HTMLDivElement | null = null;
+  let diagEl: HTMLPreElement | null = null;
   if (debug) {
     const state = { timeScale: 1, colliders: false, bloom: true, paused: false };
     // The tuning panel (and its UI library) loads only in debug mode.
@@ -596,6 +622,9 @@ async function main(): Promise<void> {
     perf = document.createElement('div');
     perf.className = 'perf';
     document.body.appendChild(perf);
+    diagEl = document.createElement('pre');
+    diagEl.className = 'diag';
+    document.body.appendChild(diagEl);
     // Mouse: click-drag on the table to throw a ball.
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
@@ -729,6 +758,7 @@ async function main(): Promise<void> {
       frames = 0;
       fpsAt = now;
       perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}${gpuErrors ? ` · GPU errors ${gpuErrors}` : ''}`;
+      if (diagEl) diagEl.textContent = diag.lines().join('\n');
     }
   };
   requestAnimationFrame(tick);

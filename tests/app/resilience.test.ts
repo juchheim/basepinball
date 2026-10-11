@@ -18,20 +18,20 @@ describe('BlankTracker', () => {
     ]);
   });
 
-  it('nudges once after 3 blank checks, then falls back after 8', () => {
+  it('escalates: a nudge after 2 blank checks, a rebuild after 4, the fallback after 8', () => {
     const t = new BlankTracker();
     t.observe(true);
     const out = feed(t, Array(8).fill(false));
-    expect(out.indexOf('soft')).toBe(2);
-    expect(out.filter((a) => a === 'soft')).toHaveLength(1);
-    expect(out[7]).toBe('fallback');
+    expect(out).toEqual(['none', 'soft', 'none', 'rebuild', 'none', 'none', 'none', 'fallback']);
   });
 
   it('a recovered canvas resets the count', () => {
     const t = new BlankTracker();
     t.observe(true);
     feed(t, [false, false, true]);
-    expect(feed(t, [false, false])).toEqual(['none', 'none']);
+    expect(t.blankCount).toBe(0);
+    // A second outage escalates from the start again.
+    expect(feed(t, [false, false])).toEqual(['none', 'soft']);
   });
 
   it('a canvas never seen drawing falls back after 12 blank checks (no nudge)', () => {
