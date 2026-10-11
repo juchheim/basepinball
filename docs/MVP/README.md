@@ -1,4 +1,7 @@
-# BasePinball — MVP Planning
+# Rally Ball — MVP Planning
+
+*Game name chosen in M3 ([naming](naming.md)). "BasePinball" was the working title and is still
+the repository name.*
 
 BasePinball is a browser-based 3D pinball game that keeps score like baseball. The table is a real
 shot-fan pinball machine: orbits, two ramps, a pop-bumper nest, drop targets, spinners and

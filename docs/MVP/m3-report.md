@@ -7,7 +7,7 @@ built for your visual review.
 
 | Criterion ([07 § M3](07-roadmap-and-scope.md#m3-art-pass--final-name)) | Status |
 |---|---|
-| Final game name and identity, decided alongside the art | ⏳ Candidates in [naming.md](naming.md). **Needs your pick.** |
+| Final game name and identity, decided alongside the art | ✅ **Rally Ball** ([naming.md](naming.md)). Trademark check still to do before launch. |
 | Playfield SVG art and the slot pipeline | ✅ Art is generated from the table data. A raster override wins. Output is WebP at 2048 and 4096 px. KTX2 is deferred (below). |
 | Standees | ✅ Printed-acrylic figures behind all 7 fielders and on the mound (catcher, umpire and runner are drawn for M4) |
 | Stadium diorama | ✅ Backboard with the outfield wall, live LED scoreboard, light towers, stands with an instanced crowd, night sky |
@@ -73,8 +73,7 @@ one tier. Stalls (tab switches, loading) are ignored.
 
 ## Needs you
 
-1. **Pick the name** (see [naming.md](naming.md)). My recommendation is *Extra Innings*, with
-   *Plunger Park* as a fallback. Check trademarks before locking it in.
+1. ~~Pick the name~~: **Rally Ball** (decided).
 2. **Visual review** of the preview, especially:
    - overall mood: too dark or too bright?
    - the playfield art's readability

@@ -1,6 +1,10 @@
 # Naming
 
-"BasePinball" is the working title. You asked to settle the final name alongside the art pass (M3).
+> **Decided (2026-10-11): the game is called _Rally Ball_.** It is named for its signature
+> mechanic: keep the ball live and the inning stays alive. "BasePinball" remains the repository
+> and project name. **Still to do before launch:** trademark, app-store and domain checks.
+
+The candidates considered are below.
 
 ![Name candidates](assets/name-candidates.png)
 

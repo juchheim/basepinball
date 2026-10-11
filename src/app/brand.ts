@@ -1,9 +1,9 @@
 /**
- * Names shown in the game. The final game name is chosen during M3 (docs/MVP/naming.md); change
- * it here and in index.html's <title>.
+ * Names shown in the game. The game name was chosen in M3 (docs/MVP/naming.md); to change it,
+ * edit it here and in index.html's <title>.
  */
 export const BRAND = {
-  game: 'BasePinball',
+  game: 'Rally Ball',
   team: 'Tilt City Silverballs',
   teamShort: 'Silverballs',
   park: 'Plunger Park',

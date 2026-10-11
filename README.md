@@ -1,6 +1,7 @@
-# BasePinball
+# Rally Ball
 
-A browser-based 3D pinball game scored like baseball. Planning docs live in [docs/MVP](docs/MVP/README.md).
+A browser-based 3D pinball game scored like baseball. The repository is `basepinball`, from the
+working title. Planning docs live in [docs/MVP](docs/MVP/README.md).
 
 **Current milestone:** M3, art pass and naming. See the [M3 report](docs/MVP/m3-report.md).
 
