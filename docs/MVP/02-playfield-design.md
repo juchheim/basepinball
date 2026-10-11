@@ -82,7 +82,7 @@ regular pinball.
 | 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); Its mouth is **70 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
-| 7 | **W-A-L-K standups** (right wall) | Left | Feature: four letters; spelling WALK walks the batter (the letters persist through innings) | — |
+| 7 | **W-A-L-K standups** (lower right, out from the wall) | Left | Feature: four letters; spelling WALK walks the batter (the letters persist through innings) | — |
 | — | **R-B-I top lanes** | Plunge / orbit | Skill shot (Hot Bat). Completing all three lights the kickback. | — |
 
 **Difficulty ladder:** singles come from the widest shot (the Gap mouth). Doubles need a hard,
@@ -114,7 +114,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `magnet.curve` | Curveball magnet | (275, 270), under the playfield | |
 | `art.diamond` | Diamond with basepath windows | home (275,230) · 1B (400,355) · 2B (275,480) · 3B (150,355) | Flat and visual only. Runners move under the glass. |
 | `drops.BAT` | 3-bank drop targets | left wall, y = 440 / 475 / 510 | Stay down while Hot Bat is lit and reset when it is used. A partly completed bank resets at the inning change. |
-| `standups.WALK` | 4 standup targets, 19.5 mm each, end to end in the 78 mm of wall the three R-U-N plates used | right wall, from y = 520 up the wall | Spelling WALK walks the batter |
+| `standups.WALK` | 4 standup targets, 26 mm each, end to end on a diagonal facing the left flipper (104 mm long) with a backstop | from (482, 445) up and left to about (413, 523) | Spelling WALK walks the batter. Its lamps sit behind it. |
 | `saucer.3B` | Fielder saucer, half recessed into the left wall | (40, 600) | Sits in the left orbit approach. A strong orbit shot skims it. |
 | `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B |
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
@@ -140,7 +140,7 @@ battery.
 
 - **Upper-right flipper** (P2) at about (470, 620), aimed up-left at the left ramp and LF. It is a
   classic "second chance at the big shot" element (*Twilight Zone*, *Funhouse*). Space is reserved
-  in the right wall region above the W-A-L-K standups.
+  in the right wall region above the 1B saucer.
 - **Captive ball** (P2), for example a "bullpen" captive ball on the right side.
 - **Combo shots** and **multiball** (P2).
 
@@ -301,13 +301,14 @@ innings** until the word is spelled.
 
 | Area | Change | Result |
 |---|---|---|
-| Bank | Three 26 mm plates → four **19.5 mm** plates, end to end in the same 78 mm of wall (a fourth full plate would hit the right funnel post). Lamps `lamp.standup.W/A/L/K`; the `lamp.steal` insert is gone, replaced by a printed WALK sign. | The bank is reached by 7.1 % of flipper timings, easier than the steal ramp (5.5 %) or HR ramp (3.2 %). Stuck-ball scans and the "every shot is makeable" check pass. |
+| Bank | Three 26 mm plates on the wall → four **26 mm** plates **out in the open** at the lower right, facing the left flipper. First tried as four 19.5 mm plates flush on the wall (a fourth full plate would not fit beside the right funnel post), which playtesting found too hard to reach: the paddles hit the bank on 8 % of flip timings, and the middle letters A and L got only 3-5 hits each. Lamps `lamp.standup.W/A/L/K` now sit behind the bank; the `lamp.steal` insert is gone, replaced by a printed WALK sign. | **Sweep of 20+ layouts in the simulation** (position, angle and plate size, scored by flip timings that reach each letter): the chosen layout is hit on **19 %** of timings (47 of 248), with W, A, L, K getting 11, 9, 10 and 17 hits, and the steal ramp (13), HR ramp (7) and orbit (7) shots unchanged. Drains do not rise (31 vs 33). Stuck-ball scans and the "every shot is makeable" check pass. |
 | Rules | `walk()` in `src/rules/bases.ts`; `stats.walks` (BB in the box score); event `walk`. A walk works in any live state and does not end or restart the plate appearance. | |
-| Letters | Persist across innings (a decision by the product owner). | 0.5 walks a game for the bot (0.04 when letters reset each inning). |
+| Letters | Persist across innings (a decision by the product owner). | |
 
-**Result (sim bot, 80 games each):** steals 1.8 and walks 0.5 a game (average profile). Runs per
-game are now about **5.9** (average) and 5.0 (rookie), above the 3-5 target: steals and walks both
-put runners on and move them. If that is too many runs, the levers are the pitch speed, the
-steal-home award, or tightening the Gap.
+**Result (sim bot, 80 games each, average profile):** steals 2.1 and walks 2.3 a game (the bot does
+not aim; it had 0.5 walks a game with the wall-hugging bank). Runs per game are about **5.5**
+(average) and 5.1 (rookie), above the 3-5 target: steals and walks both put runners on and move
+them. If that is too many runs, the levers are the pitch speed, the steal-home award, the walk
+reward, or tightening the Gap. Fielder outs are 17 % of PAs.
 
 **Not done (the next steps in the plan):** more bumpers and the bumper-driven meters.

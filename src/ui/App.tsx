@@ -255,8 +255,8 @@ function HowToPlay() {
         </li>
         <li>
           <b>The right ramp</b> steals: with a runner on, the lead runner takes the next base (a
-          runner on third steals home). Spell <b>W-A-L-K</b> on the four right-wall targets and the
-          batter takes a <b>walk</b>: first base, forcing any runners ahead of him.
+          runner on third steals home). Spell <b>W-A-L-K</b> on the four targets at the lower right
+          and the batter takes a <b>walk</b>: first base, forcing any runners ahead of him.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.

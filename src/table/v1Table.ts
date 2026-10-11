@@ -212,7 +212,7 @@ function sideBank(
   toward: Vec2,
   count = 3,
   plate = PLATE,
-): { centers: Vec2[]; backstop: [Vec2, Vec2] } {
+): { centers: Vec2[]; backstop: [Vec2, Vec2]; behind: Vec2 } {
   const dx = toward[0] - start[0];
   const dy = toward[1] - start[1];
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -227,12 +227,20 @@ function sideBank(
   return {
     centers: Array.from({ length: count }, (_, i) => at(plate * (i + 0.5))),
     backstop: [back(at(0)), back(at(plate * count))],
+    /** Unit vector pointing away from the face (toward the wall / backstop side). */
+    behind: [round(-fx * 1000) / 1000, round(-fy * 1000) / 1000],
   };
 }
 const BAT_BANK = sideBank([5.5, 520], rightFlipperPivot);
-/** W-A-L-K: four standups in the same 78 mm of wall the three R-U-N plates used (19.5 mm each). */
-const WALK_PLATE = 19.5;
-const WALK_BANK = sideBank([mx(5.5), 520], leftFlipperPivot, walk.length, WALK_PLATE);
+/**
+ * W-A-L-K: four full-size standups standing out in the open at the lower right, facing the left
+ * flipper. On the wall (first beside the right funnel, then flush from y = 520) the middle letters
+ * were almost unreachable from the paddles: a sweep of flip timings reached the bank 8 % of the
+ * time, with A and L starved (3-5 hits each). Out here it is reached about 19 % of the time, every
+ * letter 9-17 times in 248 flips, and the steal ramp, HR ramp and orbit shots are untouched
+ * (position chosen by sweeping layouts in the simulation; see docs/MVP/02 (the W-A-L-K section).
+ */
+const WALK_BANK = sideBank([482, 445], leftFlipperPivot, walk.length);
 
 const LAMP = {
   amber: 0xff9f1c,
@@ -383,14 +391,14 @@ const elements: ElementDef[] = [
   { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
-  // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (right wall)
+  // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (out in the open, lower right)
   ...BAT_BANK.centers.map(([x, y], i): ElementDef => {
     const [a, b] = plate(x, y, rightFlipperPivot);
     return { type: 'drop', id: `drop.${bat[i]}`, a, b, label: bat[i]! };
   }),
   { type: 'wall', points: BAT_BANK.backstop, material: 'rubberPost', radius: 2 },
   ...WALK_BANK.centers.map(([x, y], i): ElementDef => {
-    const [a, b] = plate(x, y, leftFlipperPivot, WALK_PLATE / 2);
+    const [a, b] = plate(x, y, leftFlipperPivot);
     return { type: 'standup', id: `standup.${walk[i]}`, a, b, label: walk[i]! };
   }),
   { type: 'wall', points: WALK_BANK.backstop, material: 'rubberPost', radius: 2 },
@@ -509,8 +517,9 @@ const elements: ElementDef[] = [
   ...WALK_BANK.centers.map(([x, y], i): ElementDef => ({
     type: 'lamp',
     id: `lamp.standup.${walk[i]}`,
-    x: x - 26,
-    y: y - 22,
+    // Behind the bank, so the letters read from the flippers' side.
+    x: round(x + WALK_BANK.behind[0] * 17),
+    y: round(y + WALK_BANK.behind[1] * 17),
     radius: 6,
     color: LAMP.violet,
   })),

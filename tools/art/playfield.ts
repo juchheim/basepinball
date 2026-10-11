@@ -184,8 +184,10 @@ export function playfieldSvg(table: TableDef): string {
   text(275, 566, 'RALLY', 7, C.gold);
   const hot = lamp('lamp.hotbat');
   if (hot) text(hot.x, hot.y - 18, 'HOT BAT', 8, C.red);
-  // The W-A-L-K bank's sign, on the mirror of HOT BAT's spot.
-  text(455, 502, 'WALK', 8, C.violet);
+  // The W-A-L-K bank's sign, behind its lamps.
+  const wa = lamp('lamp.standup.A');
+  const wl = lamp('lamp.standup.L');
+  if (wa && wl) text((wa.x + wl.x) / 2 + 10, (wa.y + wl.y) / 2 + 9, 'WALK', 8, C.violet);
   for (const l of els.filter(
     (e): e is LampDef => e.type === 'lamp' && /^lamp\.(drop|standup)\./.test(e.id),
   )) {

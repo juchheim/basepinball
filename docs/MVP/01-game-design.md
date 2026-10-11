@@ -35,7 +35,7 @@ the crowd roars. Nine innings, three outs each. Score as many runs as you can.
 | Triple | Corner kicker bumpers at the top of each orbit ("down the line, into the corner") |
 | Home run | Left ramp, "Over the Wall", crossing the HR gate |
 | Stolen base | Right ramp ("Steal" ramp), with a runner on base |
-| Walk | Spell **W-A-L-K** on the four right-wall standups |
+| Walk | Spell **W-A-L-K** on the four standups at the lower right |
 | Hot bat | B-A-T drop-target bank or the skill shot: next hit +1 base |
 | Base runners | Figures in lit basepath channels under the playfield glass |
 | Scoreboard | In-world outfield scoreboard, plus a HUD line score |
@@ -202,7 +202,7 @@ Resolution details:
 |------|-----|--------|
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
 | **STEAL** | A runner is on base. No lighting is needed: the right ramp's arrow blinks while a steal is available. | A **right ramp** shot moves the lead runner who can advance up one base (stealing home scores a run). With the bases empty the shot does nothing but a callout. |
-| **WALK** | Spell **W-A-L-K** on the four right-wall standups. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
+| **WALK** | Spell **W-A-L-K** on the four standups at the lower right. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-B-I lanes lit) carries over between PAs and
