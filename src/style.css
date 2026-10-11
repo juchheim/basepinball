@@ -198,6 +198,28 @@ canvas {
   background: #f2b33d;
   color: #0b1020;
 }
+.chip.walk {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px 6px;
+  background: rgba(155, 93, 229, 0.18);
+}
+.chip.walk b {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  font-weight: 700;
+  color: rgba(244, 241, 232, 0.35);
+  border: 1px solid rgba(155, 93, 229, 0.45);
+}
+.chip.walk b.on {
+  color: #0b1020;
+  background: #c9a2ff;
+  border-color: #c9a2ff;
+  box-shadow: 0 0 8px rgba(176, 124, 255, 0.9);
+}
 .chip.warn {
   background: #ff9f1c;
   color: #0b1020;

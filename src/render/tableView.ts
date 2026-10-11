@@ -74,6 +74,8 @@ interface Light {
   level: number;
   /** Steady state (lamps); 'blink' flashes at 2.5 Hz (under the 3 Hz photosensitivity cap). */
   mode: LampMode;
+  /** Emissive intensity added while lit (default 1.6). */
+  boost?: number;
 }
 
 function glowMaterial(color: number, base = 0): THREE.MeshStandardMaterial {
@@ -209,8 +211,13 @@ export class TableView {
   setLamp(id: string, mode: LampMode | boolean): void {
     const m: LampMode = mode === true ? 'on' : mode === false ? 'off' : mode;
     for (const l of this.lights.get(id) ?? []) l.mode = m;
+    // A target plate follows its lamp (the W-A-L-K letters glow where they were hit).
+    const linked = this.lampLink.get(id);
+    if (linked) for (const l of this.lights.get(linked) ?? []) l.mode = m;
   }
 
+  /** Lamp ids that also drive a target's own glow: `lamp.standup.W` → `standup.W`. */
+  private readonly lampLink = new Map<string, string>();
   private blinkClock = 0;
 
   update(alpha: number, dtSeconds: number): void {
@@ -241,7 +248,7 @@ export class TableView {
     for (const list of this.lights.values()) {
       for (const l of list) {
         const lit = l.mode === 'on' || (l.mode === 'blink' && blinkOn);
-        l.material.emissiveIntensity = l.base + (lit ? 1.6 : 0) + l.level * 4;
+        l.material.emissiveIntensity = l.base + (lit ? (l.boost ?? 1.6) : 0) + l.level * 4;
         l.level = Math.max(0, l.level - dtSeconds * 6);
       }
     }
@@ -421,7 +428,14 @@ export class TableView {
       case 'standup': {
         const color = el.type === 'drop' ? 0xf2b33d : 0x9b5de5;
         const mat = glowMaterial(color, 0.05);
-        this.addLight(el.id, { material: mat, base: 0.05, level: 0, mode: 'off' });
+        // Standups glow strongly once lit, so a hit letter is easy to see from the flippers.
+        this.addLight(el.id, {
+          material: mat,
+          base: 0.05,
+          level: 0,
+          mode: 'off',
+          ...(el.type === 'standup' ? { boost: 3.2 } : {}),
+        });
         const dx = (el.b[0] - el.a[0]) * MM;
         const dy = (el.b[1] - el.a[1]) * MM;
         const mesh = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(dx, dy), 0.005, 0.03), mat);
@@ -434,7 +448,24 @@ export class TableView {
         this.group.add(holder);
         if (el.type === 'drop') this.dropMeshes.set(el.id, { holder, spring: new Spring(9, 0.45) });
         // Standups flex back on their spring and wobble upright.
-        else this.addDevice(el.id, 60, (x) => (mesh.rotation.x = x * 0.3));
+        else {
+          this.addDevice(el.id, 60, (x) => (mesh.rotation.x = x * 0.3));
+          // A lit pad on the playfield in front of the plate (the side facing the flippers), like
+          // a lit insert: dark until the target has been hit.
+          const len = Math.hypot(dx, dy);
+          const localY = [-Math.sin(holder.rotation.z), Math.cos(holder.rotation.z)];
+          const toward = [0.175 - holder.position.x, 0.175 - holder.position.y];
+          const side = toward[0]! * localY[0]! + toward[1]! * localY[1]! >= 0 ? 1 : -1;
+          const padMat = glowMaterial(color, 0.0);
+          padMat.color.set(0x1b1230); // a dark slot until it lights
+          padMat.transparent = true;
+          padMat.opacity = 0.9;
+          const pad = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.94, 0.017), padMat);
+          pad.position.set(0, side * 0.015, 0.0007);
+          holder.add(pad);
+          this.addLight(el.id, { material: padMat, base: 0, level: 0, mode: 'off', boost: 3.5 });
+          this.lampLink.set(`lamp.${el.id}`, el.id);
+        }
         break;
       }
       case 'kicker': {

@@ -107,6 +107,13 @@ function Hud() {
       <div class="hud-chips">
         {g.hotBat && <span class="chip hot">HOT BAT</span>}
         {g.stealReady && <span class="chip steal">STEAL: RIGHT RAMP</span>}
+        {g.walkHit.some(Boolean) && (
+          <span class="chip walk" aria-label="W-A-L-K progress">
+            {['W', 'A', 'L', 'K'].map((l, i) => (
+              <b class={g.walkHit[i] ? 'on' : ''}>{l}</b>
+            ))}
+          </span>
+        )}
         {g.rally >= 2 && <span class="chip rally">RALLY ×{g.rally}</span>}
         {g.tiltWarnings > 0 && !g.tilted && <span class="chip warn">WARNING {g.tiltWarnings}</span>}
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (
@@ -256,7 +263,8 @@ function HowToPlay() {
         <li>
           <b>The right ramp</b> steals: with a runner on, the lead runner takes the next base (a
           runner on third steals home). Spell <b>W-A-L-K</b> on the four targets at the lower right
-          and the batter takes a <b>walk</b>: first base, forcing any runners ahead of him.
+          and the batter takes a <b>walk</b>: first base, forcing any runners ahead of him. Letters
+          you've hit glow on the table and in the HUD, and stay lit until the word is spelled.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.

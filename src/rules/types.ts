@@ -105,6 +105,8 @@ export interface GameSnapshot {
   hotBat: boolean;
   /** A runner is on, so the right ramp steals. */
   stealReady: boolean;
+  /** W, A, L, K: which letters have been hit so far. */
+  walkHit: boolean[];
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;

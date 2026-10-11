@@ -438,7 +438,9 @@ describe('feature goals', () => {
     expect(h.g.stats.walks).toBe(0);
     expect(h.g.lamps()['lamp.standup.W']).toBe('on');
     expect(h.g.lamps()['lamp.standup.K']).toBe('off');
+    expect(h.g.snapshot().walkHit).toEqual([true, true, true, false]);
     h.ev('standup', 'standup.K');
+    expect(h.g.snapshot().walkHit).toEqual([false, false, false, false]);
     expect(h.g.stats.walks).toBe(1);
     // The word resets once walked.
     expect(h.g.lamps()['lamp.standup.W']).toBe('off');

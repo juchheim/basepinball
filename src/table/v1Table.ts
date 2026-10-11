@@ -241,6 +241,12 @@ const BAT_BANK = sideBank([5.5, 520], rightFlipperPivot);
  * (position chosen by sweeping layouts in the simulation; see docs/MVP/02 (the W-A-L-K section).
  */
 const WALK_BANK = sideBank([482, 445], leftFlipperPivot, walk.length);
+/**
+ * The bank runs from the lower right up to the upper left, so as the player looks at the board it
+ * reads right to left. The letters go the other way round: W is the plate at the left end, K the
+ * one at the right, so WALK reads left to right.
+ */
+const WALK_CENTERS = [...WALK_BANK.centers].reverse();
 
 const LAMP = {
   amber: 0xff9f1c,
@@ -397,7 +403,7 @@ const elements: ElementDef[] = [
     return { type: 'drop', id: `drop.${bat[i]}`, a, b, label: bat[i]! };
   }),
   { type: 'wall', points: BAT_BANK.backstop, material: 'rubberPost', radius: 2 },
-  ...WALK_BANK.centers.map(([x, y], i): ElementDef => {
+  ...WALK_CENTERS.map(([x, y], i): ElementDef => {
     const [a, b] = plate(x, y, leftFlipperPivot);
     return { type: 'standup', id: `standup.${walk[i]}`, a, b, label: walk[i]! };
   }),
@@ -514,7 +520,7 @@ const elements: ElementDef[] = [
     radius: 6,
     color: LAMP.gold,
   })),
-  ...WALK_BANK.centers.map(([x, y], i): ElementDef => ({
+  ...WALK_CENTERS.map(([x, y], i): ElementDef => ({
     type: 'lamp',
     id: `lamp.standup.${walk[i]}`,
     // Behind the bank, so the letters read from the flippers' side.

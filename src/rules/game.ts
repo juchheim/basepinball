@@ -531,6 +531,7 @@ export class GameRules {
       rally: this.rally,
       hotBat: this.hotBat,
       stealReady: this.stealReady,
+      walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,

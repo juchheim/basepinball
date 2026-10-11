@@ -114,7 +114,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `magnet.curve` | Curveball magnet | (275, 270), under the playfield | |
 | `art.diamond` | Diamond with basepath windows | home (275,230) · 1B (400,355) · 2B (275,480) · 3B (150,355) | Flat and visual only. Runners move under the glass. |
 | `drops.BAT` | 3-bank drop targets | left wall, y = 440 / 475 / 510 | Stay down while Hot Bat is lit and reset when it is used. A partly completed bank resets at the inning change. |
-| `standups.WALK` | 4 standup targets, 26 mm each, end to end on a diagonal facing the left flipper (104 mm long) with a backstop | from (482, 445) up and left to about (413, 523) | Spelling WALK walks the batter. Its lamps sit behind it. |
+| `standups.WALK` | 4 standup targets, 26 mm each, end to end on a diagonal facing the left flipper (104 mm long) with a backstop | from (482, 445) up and left to about (413, 523). **W is the left-most plate and K the right-most**, so it reads W-A-L-K left to right as the player sees it. | Spelling WALK walks the batter. Its lamps sit behind it. |
 | `saucer.3B` | Fielder saucer, half recessed into the left wall | (40, 600) | Sits in the left orbit approach. A strong orbit shot skims it. |
 | `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B |
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
@@ -310,5 +310,11 @@ not aim; it had 0.5 walks a game with the wall-hugging bank). Runs per game are 
 (average) and 5.1 (rookie), above the 3-5 target: steals and walks both put runners on and move
 them. If that is too many runs, the levers are the pitch speed, the steal-home award, the walk
 reward, or tightening the Gap. Fielder outs are 17 % of PAs.
+
+**Showing progress (playtest follow-up):** it was hard to tell which letters had been hit. A hit
+letter now glows three ways: the **plate** itself, a **lit pad** on the playfield in front of it
+(dark until hit, like an insert), and a **W-A-L-K tracker in the HUD** (lit boxes for hit letters).
+All three come from the rules' letter state, so they persist through innings and clear when the
+word is spelled (the four plates flash as the walk is awarded).
 
 **Not done (the next steps in the plan):** more bumpers and the bumper-driven meters.
