@@ -17,7 +17,7 @@
 <g transform="translate(40 340)">
   <rect width="920" height="130" rx="14" fill="#141b33" stroke="#2a3557"/>
   <path d="M 30 26 q 12 -10 24 0 q 12 10 24 0" fill="none" stroke="#ff3b3b" stroke-width="3" stroke-dasharray="5 4"/>
-  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">SWING & FLIP</text>
+  <text x="30" y="88" font-family="Oswald" font-weight="700" font-size="64" fill="#f2b33d" letter-spacing="2">SWING &amp; FLIP</text>
   <text x="30" y="116" font-family="Oswald" font-weight="700" font-size="18" fill="#9aa6c4" letter-spacing="1">Says both games outright; friendly and clear</text>
   <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">3</text>
 </g>

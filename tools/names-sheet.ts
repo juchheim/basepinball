@@ -14,6 +14,9 @@ for (const [file, list] of [
 ] as const) {
   const svg = namesSvg(list);
   writeFileSync(`docs/MVP/assets/${file}.svg`, svg);
-  writeFileSync(`docs/MVP/assets/${file}.png`, new Resvg(svg, { fitTo: { mode: 'width', value: 1000 }, font }).render().asPng());
+  writeFileSync(
+    `docs/MVP/assets/${file}.png`,
+    new Resvg(svg, { fitTo: { mode: 'width', value: 1000 }, font }).render().asPng(),
+  );
   console.log(`wrote docs/MVP/assets/${file}.{svg,png}`);
 }
