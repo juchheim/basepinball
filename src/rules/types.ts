@@ -32,11 +32,12 @@ export type RulesEvent =
   | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
   | { type: 'out'; how: OutHow; position?: Position; outs: number }
   | { type: 'runs'; runs: number }
-  | { type: 'steal'; from: number; runs: number }
+  /** A steal: `moved` lists the bases (0 = first) runners left; `double` if every runner went. */
+  | { type: 'steal'; from: number; runs: number; moved: number[]; double: boolean }
   | { type: 'hotBat'; source: 'BAT' | 'skillShot' | 'rallyCap' }
-  | { type: 'stealLit' }
-  /** A right-ramp shot that did not steal: it spotted an R-U-N letter, or nobody was on base. */
-  | { type: 'stealRamp'; result: 'letter'; letter: string; letters: number }
+  /** R-U-N is complete: the next steal moves every runner. */
+  | { type: 'doubleStealLit' }
+  /** A right-ramp shot with nobody on base to steal. */
   | { type: 'stealRamp'; result: 'noRunner' }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
@@ -101,7 +102,10 @@ export interface GameSnapshot {
   stats: GameStats;
   rally: number;
   hotBat: boolean;
-  stealLit: boolean;
+  /** A runner is on, so the right ramp steals. */
+  stealReady: boolean;
+  /** R-U-N lit a double steal. */
+  doubleStealLit: boolean;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;

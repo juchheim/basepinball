@@ -48,6 +48,16 @@ export function steal(bases: Bases): { bases: Bases; runs: number; from: number 
   return null;
 }
 
+/**
+ * A double steal: every runner takes the next base at once (the runner on third scores). Returns
+ * null if nobody is on base.
+ */
+export function doubleSteal(bases: Bases): { bases: Bases; runs: number; moved: number[] } | null {
+  if (!bases[0] && !bases[1] && !bases[2]) return null;
+  const moved = [0, 1, 2].filter((i) => bases[i]);
+  return { bases: [false, bases[0], bases[1]], runs: bases[2] ? 1 : 0, moved };
+}
+
 export function runnersOn(bases: Bases): number {
   return (bases[0] ? 1 : 0) + (bases[1] ? 1 : 0) + (bases[2] ? 1 : 0);
 }

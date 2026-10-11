@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
-import { advance, steal } from '../../src/rules/bases';
+import { advance, doubleSteal, steal } from '../../src/rules/bases';
 import { GameRules } from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
 import type { Machine, RulesEvent } from '../../src/rules/types';
@@ -107,6 +107,17 @@ describe('base running', () => {
     expect(advance([true, false, true], 2)).toEqual({ bases: [false, true, true], runs: 1 });
     expect(advance([true, true, true], 4)).toEqual({ bases: [false, false, false], runs: 4 });
     expect(advance([false, true, false], 3)).toEqual({ bases: [false, false, true], runs: 1 });
+  });
+
+  it('a double steal moves everyone up one base', () => {
+    expect(doubleSteal([false, false, false])).toBeNull();
+    expect(doubleSteal([true, false, false])?.bases).toEqual([false, true, false]);
+    expect(doubleSteal([true, true, false])?.bases).toEqual([false, true, true]);
+    expect(doubleSteal([true, true, true])).toMatchObject({
+      bases: [false, true, true],
+      runs: 1,
+      moved: [0, 1, 2],
+    });
   });
 
   it('steals with the lead runner who can advance', () => {
@@ -327,41 +338,69 @@ describe('feature goals', () => {
     expect(h.g.hotBat).toBe(true);
   });
 
-  it('R-U-N lights STEAL; the Steal ramp then advances the lead runner', () => {
-    const h = inInPlay()
-      .ev('standup', 'standup.R')
-      .ev('standup', 'standup.U')
-      .ev('standup', 'standup.N');
-    expect(h.g.stealLit).toBe(true);
+  it('the right ramp steals directly: no R-U-N needed', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L');
+    expect(h.g.bases).toEqual([true, false, false]);
+    expect(h.g.stealReady).toBe(true);
     h.ev('sensor', 'gate.STEAL');
-    expect(h.g.stealLit).toBe(true); // nobody on base: stays lit
-    expect(h.g.events.some((e) => e.type === 'stealRamp' && e.result === 'noRunner')).toBe(true);
-    h.ev('pop', 'pop.1B.L').ev('sensor', 'gate.STEAL');
     expect(h.g.bases).toEqual([false, true, false]);
-    expect(h.g.stealLit).toBe(false);
-  });
-
-  it('an unlit Steal ramp shot spots the next R-U-N letter; three light STEAL', () => {
-    const h = inInPlay().ev('standup', 'standup.U');
-    h.ev('sensor', 'gate.STEAL');
-    expect(h.g.lamps()['lamp.standup.R']).toBe('on');
-    expect(h.g.stealLit).toBe(false);
-    h.ev('sensor', 'gate.STEAL');
-    expect(h.g.stealLit).toBe(true);
-    expect(h.g.bases).toEqual([false, false, false]);
+    expect(h.g.stats.steals).toBe(1);
     expect(h.g.outs).toBe(0);
   });
 
+  it('a right-ramp shot with nobody on base does nothing (and says so)', () => {
+    const h = inInPlay().ev('sensor', 'gate.STEAL');
+    expect(h.g.stats.steals).toBe(0);
+    expect(h.g.stealReady).toBe(false);
+    expect(h.g.events.some((e) => e.type === 'stealRamp' && e.result === 'noRunner')).toBe(true);
+  });
+
+  it('the ramp arrow blinks only while a runner can steal', () => {
+    const h = inInPlay();
+    expect(h.g.lamps()['arrow.ramp.STEAL']).toBe('off');
+    h.ev('pop', 'pop.1B.L');
+    expect(h.g.lamps()['arrow.ramp.STEAL']).toBe('blink');
+    expect(h.g.snapshot().stealReady).toBe(true);
+  });
+
   it('stealing home scores a run', () => {
-    const h = inInPlay()
-      .ev('sensor', 'orbit.L')
-      .ev('kicker', 'kicker.3B.L')
-      .ev('standup', 'standup.R')
-      .ev('standup', 'standup.U')
-      .ev('standup', 'standup.N');
+    const h = inInPlay().ev('sensor', 'orbit.L').ev('kicker', 'kicker.3B.L');
+    expect(h.g.bases).toEqual([false, false, true]);
     h.ev('sensor', 'gate.STEAL');
     expect(h.g.stats.runs).toBe(1);
     expect(h.g.bases).toEqual([false, false, false]);
+  });
+
+  it('R-U-N lights a double steal: the next steal moves every runner, then it is used up', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L').ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    expect(h.g.bases).toEqual([true, true, false]);
+    h.ev('standup', 'standup.R').ev('standup', 'standup.U').ev('standup', 'standup.N');
+    expect(h.g.doubleStealLit).toBe(true);
+    expect(h.g.lamps()['lamp.steal']).toBe('blink');
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.bases).toEqual([false, true, true]);
+    expect(h.g.doubleStealLit).toBe(false);
+    expect(h.g.stats.steals).toBe(1);
+    // The next steal is an ordinary one: the lead runner only.
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.bases).toEqual([false, true, false]);
+    expect(h.g.stats.runs).toBe(1);
+  });
+
+  it('an ordinary steal moves only the lead runner', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L').ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    h.ev('sensor', 'gate.STEAL');
+    expect(h.g.bases).toEqual([true, false, true]);
+  });
+
+  it('a lit double steal waits for a runner (the bases are empty), and carries over', () => {
+    const h = inInPlay()
+      .ev('standup', 'standup.R')
+      .ev('standup', 'standup.U')
+      .ev('standup', 'standup.N')
+      .ev('sensor', 'gate.STEAL');
+    expect(h.g.doubleStealLit).toBe(true);
+    expect(h.g.stats.steals).toBe(0);
   });
 
   it('skill shot: the lit lane on the leadoff launch lights HOT BAT; buttons move the lit lane', () => {

@@ -185,7 +185,7 @@ export function playfieldSvg(table: TableDef): string {
   const hot = lamp('lamp.hotbat');
   if (hot) text(hot.x, hot.y - 18, 'HOT BAT', 8, C.red);
   const steal = lamp('lamp.steal');
-  if (steal) text(steal.x, steal.y - 18, 'STEAL', 8, C.teal);
+  if (steal) text(steal.x, steal.y - 18, 'DOUBLE STEAL', 7, C.teal);
   for (const l of els.filter(
     (e): e is LampDef => e.type === 'lamp' && /^lamp\.(drop|standup)\./.test(e.id),
   )) {

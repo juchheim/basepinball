@@ -257,29 +257,29 @@ export class Director {
         o.excite(0.5 + e.runs * 0.1);
         return;
       case 'steal':
-        o.figure({ kind: 'steal', from: e.from });
+        for (const from of e.moved) o.figure({ kind: 'steal', from });
         o.figure({ kind: 'safe' });
         o.sound('slide');
         o.show('steal');
-        o.crowd('cheer', 0.6);
-        o.scoreboard(e.runs > 0 ? 'STEALS HOME!' : 'SAFE!', '', '#3fe0cf', 1.8);
+        o.crowd('cheer', e.double ? 0.8 : 0.6);
+        o.scoreboard(
+          e.double ? 'DOUBLE STEAL!' : e.runs > 0 ? 'STEALS HOME!' : 'SAFE!',
+          '',
+          '#3fe0cf',
+          1.8,
+        );
         return;
       case 'stealRamp':
-        if (e.result === 'letter') {
-          o.sound('rampMade');
-          o.flash(`lamp.standup.${e.letter}`);
-          o.flash('arrow.ramp.STEAL');
-        } else {
-          o.sound('uiTick');
-          o.flash('lamp.steal');
-        }
+        // A made right ramp with nobody on base to steal.
+        o.sound('uiTick');
+        o.flash('arrow.ramp.STEAL');
         return;
       case 'hotBat':
         o.sound('award');
         o.show('hotBat');
         o.crowd('cheer', 0.4);
         return;
-      case 'stealLit':
+      case 'doubleStealLit':
         o.sound('award');
         o.show('steal');
         return;

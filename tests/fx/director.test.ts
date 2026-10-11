@@ -43,15 +43,13 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
   ],
   runs: [{ type: 'runs', runs: 2 }],
   steal: [
-    { type: 'steal', from: 0, runs: 0 },
-    { type: 'steal', from: 2, runs: 1 },
+    { type: 'steal', from: 0, runs: 0, moved: [0], double: false },
+    { type: 'steal', from: 2, runs: 1, moved: [2], double: false },
+    { type: 'steal', from: 1, runs: 0, moved: [0, 1], double: true },
   ],
-  stealRamp: [
-    { type: 'stealRamp', result: 'letter', letter: 'U', letters: 2 },
-    { type: 'stealRamp', result: 'noRunner' },
-  ],
+  stealRamp: [{ type: 'stealRamp', result: 'noRunner' }],
   hotBat: [{ type: 'hotBat', source: 'BAT' }],
-  stealLit: [{ type: 'stealLit' }],
+  doubleStealLit: [{ type: 'doubleStealLit' }],
   kickbackLit: [{ type: 'kickbackLit' }],
   skillShot: [{ type: 'skillShot' }],
   rally: [

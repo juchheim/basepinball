@@ -149,6 +149,12 @@ const hrWire: Vec3[] = [
 ];
 
 const RAMP_WIDTH = 52;
+/**
+ * The Steal ramp's mouth is wider than the home-run ramp's, so the cheaper award is the easier
+ * shot (a ball must enter within roughly mouth - 44 mm of the centre line). It is as wide as the
+ * flanking 2B and RF glove posts allow: each guard post keeps a ball-wide (>= 27.5 mm) gap to them.
+ */
+const STEAL_RAMP_WIDTH = 56;
 
 const fieldSaucer = (
   id: string,
@@ -344,8 +350,8 @@ const elements: ElementDef[] = [
   fieldSaucer('saucer.LF', 'LF', 85, 750, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
   fieldSaucer('saucer.SS', 'SS', 200, 765, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
   fieldSaucer('saucer.CF', 'CF', 275, 918, 90, 'none'),
-  fieldSaucer('saucer.2B', '2B', 350, 765, 90, 'post', { dx: -4, dy: 25, radius: 5 }),
-  fieldSaucer('saucer.RF', 'RF', 465, 750, 90, 'post', { dx: 4, dy: 20, radius: 5 }),
+  fieldSaucer('saucer.2B', '2B', 350, 765, 90, 'post', { dx: -6, dy: 25, radius: 5 }),
+  fieldSaucer('saucer.RF', 'RF', 465, 750, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
   fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
 
   // ---- ramps
@@ -356,7 +362,7 @@ const elements: ElementDef[] = [
     type: 'ramp',
     id: 'ramp.STEAL',
     path: hrRamp.map(m3),
-    width: RAMP_WIDTH,
+    width: STEAL_RAMP_WIDTH,
     endWidth: 32,
     wallHeight: 40,
   },
@@ -365,8 +371,8 @@ const elements: ElementDef[] = [
   // Posts guarding the ramp entrance corners.
   { type: 'post', x: 117, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 167, y: 798, radius: 4, material: 'metal' },
-  { type: 'post', x: mx(117), y: 782, radius: 4, material: 'metal' },
-  { type: 'post', x: mx(167), y: 798, radius: 4, material: 'metal' },
+  { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
+  { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
   // ---- target banks: B-A-T drops (left wall), R-U-N standups (right wall)
   ...BAT_BANK.centers.map(([x, y], i): ElementDef => {
