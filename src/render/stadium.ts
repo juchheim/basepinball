@@ -222,7 +222,12 @@ export class Stadium {
 
     // The crowd bounces with excitement, each fan on their own rhythm.
     const crowd = this.crowd;
-    if (crowd && (this.energy > 0.005 || this.wasBouncing)) {
+    if (this.waveX !== null) {
+      this.waveX += dt * 0.28;
+      if (this.waveX > W + 0.4) this.waveX = null;
+    }
+    const wave = this.waveX;
+    if (crowd && (this.energy > 0.005 || this.wasBouncing || wave !== null)) {
       const m = new THREE.Matrix4();
       const e = this.energy;
       for (let i = 0; i < this.crowdBase.length; i++) {
@@ -233,16 +238,24 @@ export class Stadium {
             ? Math.max(0, Math.sin(this.clock * (5 + phase * 3) + phase * 6.28)) * 0.005 * e
             : 0;
         m.copy(base);
-        m.elements[14] += hop;
+        const dx = wave === null ? 9 : (base.elements[12] - wave) / 0.07;
+        m.elements[14] += hop + Math.exp(-dx * dx) * 0.012;
         crowd.setMatrixAt(i, m);
       }
       crowd.instanceMatrix.needsUpdate = true;
-      this.wasBouncing = e > 0.005;
+      this.wasBouncing = e > 0.005 || wave !== null;
       this.energy = Math.max(0, this.energy - dt * 0.25);
     }
   }
 
   private wasBouncing = false;
+  /** The 7th-inning crowd wave: the front's x (m), or null. */
+  private waveX: number | null = null;
+
+  /** A crowd wave across the stands, left to right (the 7th-inning stretch). */
+  wave(): void {
+    this.waveX = -0.4;
+  }
 
   private drawScoreboard(g: GameSnapshot | null, title: string): void {
     const key = g

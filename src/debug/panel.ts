@@ -1,42 +1,11 @@
 import { Pane } from 'tweakpane';
 import { defaultParams, type PhysicsParams } from '../physics/params';
+import { deepAssign, saveParams } from './params';
 
 /**
  * Live physics tuning (docs/MVP/03 § 9). Edits apply immediately and persist in this browser,
  * so feel-review sessions can build on each other. "Copy params" exports JSON for the repo.
  */
-
-// Bumped when defaults change meaningfully, so stale tuning from an older build is not reapplied.
-const STORAGE_KEY = 'bp.dev.physicsParams.v2';
-
-export function loadParams(): PhysicsParams {
-  const params = defaultParams();
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) deepAssign(params as unknown as Record<string, unknown>, JSON.parse(raw));
-  } catch {
-    // Storage unavailable or corrupt: fall back to defaults.
-  }
-  return params;
-}
-
-function saveParams(params: PhysicsParams): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(params));
-  } catch {
-    // Ignore (private mode, quota).
-  }
-}
-
-function deepAssign(target: Record<string, unknown>, src: unknown): void {
-  if (!src || typeof src !== 'object') return;
-  for (const [k, v] of Object.entries(src as Record<string, unknown>)) {
-    const cur = target[k];
-    if (cur && typeof cur === 'object' && v && typeof v === 'object')
-      deepAssign(cur as Record<string, unknown>, v);
-    else if (typeof cur === typeof v) target[k] = v;
-  }
-}
 
 export interface PanelHooks {
   onParamsChange: () => void;

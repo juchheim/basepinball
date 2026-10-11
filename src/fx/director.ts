@@ -40,6 +40,8 @@ export interface PresentationOut {
   fireworks(count: number): void;
   scoreboard(text: string, sub: string, color: string, seconds: number): void;
   excite(level: number): void;
+  /** The crowd does the wave (7th-inning stretch). */
+  wave(): void;
   /** Light towers and the cabinet's GI: on (with a warm-up) or dimmed for attract mode. */
   lights(on: boolean): void;
   shake(amount: number): void;
@@ -196,6 +198,7 @@ export class Director {
         o.scoreboard(e.inning === 7 ? 'STRETCH!' : `INNING ${e.inning}`, '', '#f2b33d', 2.2);
         o.crowd('cheer', 0.3);
         o.excite(e.inning === 7 ? 0.8 : 0.3);
+        if (e.inning === 7) o.wave();
         return;
       case 'pitchTell':
         o.sound(`tell${e.pitch}`);

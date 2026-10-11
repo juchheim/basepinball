@@ -256,7 +256,7 @@ A paused game shows a resume countdown (3-2-1) before physics restarts.
 | Left flipper | Left Shift, ←, A | LB / LT | Hold the left half of the lower screen |
 | Right flipper | Right Shift, →, L | RB / RT | Hold the right half of the lower screen |
 | Plunger | Hold ↓ or Enter to pull back, release to launch | Hold A, or pull the right stick down and release | Drag down on the plunger knob and release |
-| Nudge left / right / forward | Z / / (slash) / Space | Flick the left stick | Two-finger flick (to be validated in playtest), optional device-motion nudge |
+| Nudge left / right / forward | Z / / (slash) / Space | Flick the left stick | A quick flick in the top 30 % of the screen, in the nudge's direction (M5: two fingers are usually busy holding both flippers). Optional: shake the phone (setting, off by default). |
 | Lane change (skill shot) | Flipper buttons | Flipper buttons | Flipper zones |
 | Pause | Esc, P | Start | Pause button |
 

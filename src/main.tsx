@@ -10,19 +10,29 @@ import { SOUNDS } from './audio/sounds';
 import { Director } from './fx/director';
 import { LampShows } from './fx/lampShows';
 import { createOutput } from './fx/output';
-import { createPanel, loadParams } from './debug/panel';
-import { bindInput, type InputEvent } from './input/input';
+import { loadParams } from './debug/params';
+import { Input, vibrate, type InputEvent } from './input/input';
 import { World } from './physics/world';
 import { GameRules } from './rules/game';
 import type { RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
-import { AdaptiveQuality, initialTier, type Quality } from './render/quality';
+import { AdaptiveQuality, initialTier, TIERS, type Quality } from './render/quality';
 import { Stadium } from './render/stadium';
 import { STANDEE_CELLS, STANDEE_GRID } from './render/standeeAtlas';
 import { Stage } from './render/stage';
 import { TableView } from './render/tableView';
 import { loadSlot } from './render/textures';
 import { addHighScore, loadHighScores, qualifies } from './storage/highscores';
+import { loadLifetime, recordGame } from './storage/lifetime';
+import {
+  bindKey,
+  DEFAULT_KEYS,
+  loadSettings,
+  reducedMotion as isReducedMotion,
+  saveSettings,
+  type RemappableAction,
+  type Settings,
+} from './storage/settings';
 import { m0TestTable } from './table/m0TestTable';
 import { v1Table } from './table/v1Table';
 import { App } from './ui/App';
@@ -33,8 +43,14 @@ import {
   finalStats,
   highScores,
   lastRank,
+  lifetime,
   qualified,
+  remapping,
+  resumeCount,
   screen,
+  settings,
+  settingsNote,
+  settingsOpen,
   snapshot,
 } from './ui/store';
 
@@ -98,10 +114,9 @@ async function main(): Promise<void> {
   const unlock = (): void => audio.unlock();
   window.addEventListener('pointerdown', unlock);
   window.addEventListener('keydown', unlock);
-  const reducedMotion =
-    typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let cfg: Settings = loadSettings();
+  settings.value = cfg;
   const shows = new LampShows(table);
-  shows.reduced = reducedMotion;
   // Light level: the towers and key lights dim for attract mode and warm up at game start.
   const keyBase = stage.keyLights.map((l) => l.intensity);
   let lightLevel = 0.55;
@@ -114,7 +129,6 @@ async function main(): Promise<void> {
     table,
     createOutput({ audio, crowd, view, shows, stadium, stage, setLights }),
   );
-  director.reduced = reducedMotion;
   const ui = (name: 'uiTick' | 'uiConfirm'): void => {
     const s = SOUNDS[name];
     audio.play(name, s.bus, s.recipe, { poly: s.poly });
@@ -135,6 +149,10 @@ async function main(): Promise<void> {
   };
   const quality = new AdaptiveQuality(initialTier(query), applyQuality);
   quality.enabled = !query.has('quality');
+  if (!query.has('quality') && cfg.quality !== 'auto') {
+    quality.tier = TIERS[cfg.quality];
+    quality.enabled = false;
+  }
   applyQuality(quality.tier);
   void loadSlot('standees', 600).then(
     (tex) => tex && view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID),
@@ -160,13 +178,25 @@ async function main(): Promise<void> {
   world.reset();
   idleBall();
 
+  // ---- haptics: gamepad rumble (flips, bumpers, outs) and phone vibration (Android)
+  let input: Input | null = null;
+  const haptic = (strength: number, rumbleMs: number, vibrateMs: number): void => {
+    if (!cfg.haptics) return;
+    input?.rumble(strength, rumbleMs);
+    if (vibrateMs > 0) vibrate(vibrateMs);
+  };
+
   // ---- presentation of rules events
   const presentRules = (e: RulesEvent): void => {
+    if (e.type === 'out') haptic(0.7, 160, 60);
+    if (e.type === 'hit')
+      haptic(e.bases >= 4 ? 1 : 0.5, e.bases >= 4 ? 400 : 120, e.bases >= 4 ? 120 : 0);
     calloutFor(e);
     pitchCueFor(e);
     director.rules(e, rules?.snapshot() ?? null);
     if (e.type === 'gameOver') {
       after(2.2, () => {
+        lifetime.value = recordGame(rules!.stats);
         finalStats.value = { ...rules!.stats };
         qualified.value = qualifies(rules!.stats);
         screen.value = 'gameover';
@@ -181,6 +211,7 @@ async function main(): Promise<void> {
       for (const e of world.events) {
         director.physics(e, ball && ball.active ? { x: ball.px, y: ball.py } : null);
         rules?.onSwitch(e);
+        if (e.type === 'pop' || e.type === 'sling') haptic(0.3, 40, 0);
         if (freePlay && e.type === 'drain') after(1, idleBall);
       }
       world.events.length = 0;
@@ -237,11 +268,52 @@ async function main(): Promise<void> {
       if (!freePlay) start();
     },
     resume: () => {
-      audio.setPaused(false);
-      screen.value = 'playing';
-      loop.paused = false;
-      loop.resync();
+      // A 3-2-1 countdown before the physics restarts (docs/MVP/01 § 5).
+      if (resumeCount.value !== null) return;
+      settingsOpen.value = false;
+      let n = 3;
+      resumeCount.value = n;
+      ui('uiTick');
+      const step = (): void => {
+        n -= 1;
+        if (screen.value !== 'paused') {
+          resumeCount.value = null;
+          return;
+        }
+        if (n > 0) {
+          resumeCount.value = n;
+          ui('uiTick');
+          setTimeout(step, 700);
+          return;
+        }
+        resumeCount.value = null;
+        audio.setPaused(false);
+        screen.value = 'playing';
+        loop.paused = false;
+        loop.resync();
+      };
+      setTimeout(step, 700);
     },
+    pause: () => pauseGame(),
+    openSettings: () => {
+      ui('uiTick');
+      settingsOpen.value = true;
+    },
+    closeSettings: () => {
+      ui('uiTick');
+      remapping.value = null;
+      settingsOpen.value = false;
+    },
+    updateSettings: (patch: Partial<Settings>) => updateSettings(patch),
+    remap: (action: RemappableAction) => {
+      (document.activeElement as HTMLElement | null)?.blur();
+      remapping.value = action;
+      input?.captureKey((code) => {
+        remapping.value = null;
+        if (code) updateSettings({ keys: bindKey(cfg, action, code).keys });
+      });
+    },
+    resetKeys: () => updateSettings({ keys: DEFAULT_KEYS }),
     quit: toTitle,
     saveInitials: (initials: string) => {
       const stats = finalStats.value;
@@ -261,7 +333,58 @@ async function main(): Promise<void> {
     },
   };
   highScores.value = loadHighScores();
+  lifetime.value = loadLifetime();
   if (freePlay) screen.value = 'playing';
+
+  function pauseGame(): void {
+    if (screen.value !== 'playing' || !rules) return;
+    screen.value = 'paused';
+    loop.paused = true;
+    input?.releaseAll();
+    audio.setPaused(true);
+  }
+
+  // ---- settings: apply now and on every change; saved to localStorage
+  const applySettings = (): void => {
+    audio.setVolumes({
+      master: cfg.volume.master,
+      mech: cfg.volume.sfx,
+      ui: cfg.volume.sfx,
+      stadium: cfg.volume.crowd,
+      music: cfg.volume.music,
+      muted: cfg.muted,
+    });
+    const reduced = isReducedMotion(cfg);
+    shows.reduced = reduced;
+    director.reduced = reduced;
+    input?.setKeys(cfg.keys);
+    if (!query.has('quality')) {
+      if (cfg.quality === 'auto') quality.enabled = true;
+      else if (quality.tier.name !== cfg.quality || quality.enabled) {
+        quality.enabled = false;
+        quality.tier = TIERS[cfg.quality];
+        applyQuality(quality.tier);
+      }
+    }
+  };
+  function updateSettings(patch: Partial<Settings>): void {
+    cfg = { ...cfg, ...patch };
+    settings.value = cfg;
+    saveSettings(cfg);
+    applySettings();
+    if (patch.motionNudge !== undefined) {
+      settingsNote.value = '';
+      // iOS asks for motion permission here, inside the tap on the toggle.
+      void input?.enableMotion(patch.motionNudge).then((ok) => {
+        if (patch.motionNudge && !ok) {
+          settingsNote.value = 'Motion sensors are not available (or permission was denied).';
+          cfg = { ...cfg, motionNudge: false };
+          settings.value = cfg;
+          saveSettings(cfg);
+        }
+      });
+    }
+  }
 
   const uiRoot = document.createElement('div');
   document.body.appendChild(uiRoot);
@@ -278,7 +401,10 @@ async function main(): Promise<void> {
         if (!playing()) return;
         const side = e.action === 'flipperL' ? 'L' : 'R';
         // Heard at once, from the button (the coil fires with the press).
-        if (world.flippersEnabled) director.flipper(side, e.pressed);
+        if (world.flippersEnabled) {
+          director.flipper(side, e.pressed);
+          if (e.pressed) haptic(0.25, 40, 12);
+        }
         at((w) => {
           w.setFlipper(`flipper.${side}`, e.pressed);
           rules?.onButton(side, e.pressed);
@@ -286,9 +412,13 @@ async function main(): Promise<void> {
         return;
       }
       case 'plunger':
-        if (s === 'title' && e.pressed && !freePlay) return start();
-        if (s === 'scores' && e.pressed) return start();
-        if (s === 'playing') at((w) => w.setPlunger(e.pressed));
+        if (settingsOpen.value) return;
+        // Starting a game: a fresh press, not a drag in progress.
+        if (e.pressed && e.value === undefined && (s === 'title' || s === 'scores') && !freePlay)
+          return start();
+        if (s !== 'playing') return;
+        if (e.pressed && e.value !== undefined) at((w) => w.setPlungerPull(e.value!));
+        else at((w) => w.setPlunger(e.pressed));
         return;
       case 'nudgeL':
       case 'nudgeR':
@@ -304,15 +434,14 @@ async function main(): Promise<void> {
         return;
       case 'pause':
         if (!e.pressed) return;
-        if (s === 'playing' && rules) {
-          screen.value = 'paused';
-          loop.paused = true;
-          audio.setPaused(true);
-        } else if (s === 'paused') actions.resume();
+        if (settingsOpen.value) return actions.closeSettings();
+        if (s === 'playing') pauseGame();
+        else if (s === 'paused') actions.resume();
         return;
       case 'mute':
-        if (e.pressed)
-          showCallout(audio.toggleMute() ? 'SOUND OFF' : 'SOUND ON', undefined, 'info', 900);
+        if (!e.pressed) return;
+        updateSettings({ muted: !cfg.muted });
+        showCallout(cfg.muted ? 'SOUND OFF' : 'SOUND ON', undefined, 'info', 900);
         return;
     }
     if (!debug || !e.pressed) return;
@@ -324,14 +453,24 @@ async function main(): Promise<void> {
     if (e.action === 'slower') loop.timeScale = Math.max(0.05, loop.timeScale / 2);
     if (e.action === 'faster') loop.timeScale = Math.min(1, loop.timeScale * 2);
   };
-  bindInput(stage.renderer.domElement, onInput);
+  input = new Input(stage.renderer.domElement, onInput, debug);
+  applySettings();
+  // Motion nudge (if it was on last time) starts with the first gesture (iOS permission rules).
+  if (cfg.motionNudge) {
+    const once = (): void => {
+      void input?.enableMotion(true);
+      window.removeEventListener('pointerdown', once);
+    };
+    window.addEventListener('pointerdown', once);
+  }
 
-  // Auto-pause when the tab is hidden (docs/MVP/01 § 5).
+  // Auto-pause when the tab is hidden or the window loses focus (docs/MVP/01 § 5).
+  window.addEventListener('blur', () => {
+    if (!debug) pauseGame();
+  });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && screen.value === 'playing' && rules) {
-      screen.value = 'paused';
-      loop.paused = true;
-    } else if (!document.hidden) loop.resync();
+    if (document.hidden) pauseGame();
+    else loop.resync();
     // Hidden: fade out and suspend; the pause menu keeps it silent until resumed.
     if (document.hidden) audio.setPaused(true);
     else if (screen.value !== 'paused') audio.setPaused(false);
@@ -341,26 +480,29 @@ async function main(): Promise<void> {
   let perf: HTMLDivElement | null = null;
   if (debug) {
     const state = { timeScale: 1, colliders: false, bloom: true, paused: false };
-    createPanel(params, {
-      onParamsChange: () => {
-        world.applyParams();
-        tilt();
-      },
-      spawn: () => world.serveBall(),
-      pitch: () => world.pitchBall(0.221, 0.175, 1.2),
-      curveball: () => {
-        world.setMagnet('magnet.curve', 1);
-        after(0.25, () => world.setMagnet('magnet.curve', 0));
-      },
-      resetTargets: () => world.resetDropTargets(),
-      state,
-      onStateChange: () => {
-        loop.timeScale = state.timeScale;
-        loop.paused = state.paused;
-        view.showColliders = state.colliders;
-        if (stage.bloomEnabled !== state.bloom) stage.setBloom(state.bloom);
-      },
-    });
+    // The tuning panel (and its UI library) loads only in debug mode.
+    void import('./debug/panel').then(({ createPanel }) =>
+      createPanel(params, {
+        onParamsChange: () => {
+          world.applyParams();
+          tilt();
+        },
+        spawn: () => world.serveBall(),
+        pitch: () => world.pitchBall(0.221, 0.175, 1.2),
+        curveball: () => {
+          world.setMagnet('magnet.curve', 1);
+          after(0.25, () => world.setMagnet('magnet.curve', 0));
+        },
+        resetTargets: () => world.resetDropTargets(),
+        state,
+        onStateChange: () => {
+          loop.timeScale = state.timeScale;
+          loop.paused = state.paused;
+          view.showColliders = state.colliders;
+          if (stage.bloomEnabled !== state.bloom) stage.setBloom(state.bloom);
+        },
+      }),
+    );
     perf = document.createElement('div');
     perf.className = 'perf';
     document.body.appendChild(perf);
@@ -420,6 +562,7 @@ async function main(): Promise<void> {
   let last = performance.now();
   let lastHud = 0;
   const tick = (now: number): void => {
+    input?.pollGamepads();
     loop.frame(now);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
@@ -439,6 +582,11 @@ async function main(): Promise<void> {
     lightLevel += (lightTarget - lightLevel) * Math.min(1, dt * 1.5);
     stage.keyLights.forEach((l, i) => (l.intensity = keyBase[i]! * lightLevel));
     stadium.tick(dt);
+    // Attract mode sways the camera round the table; it settles into the player view as a game
+    // starts (the lights-on intro). Never during play, never with reduced motion.
+    const orbitTarget = screen.value === 'title' && !director.reduced && !debug ? 1 : 0;
+    stage.orbit += (orbitTarget - stage.orbit) * Math.min(1, dt * (orbitTarget ? 0.4 : 1.6));
+    if (director.reduced && orbitTarget === 0) stage.orbit = 0;
     // The HUD and scoreboard only need ~10 updates a second.
     if (now - lastHud > 100) {
       lastHud = now;
