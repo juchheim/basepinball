@@ -43,6 +43,9 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M1: Whitebox table
 
+> **Status:** built. Automated exit criteria pass; the feel review is pending. See the
+> [M1 report](m1-report.md).
+
 - The full v1 layout from `TableDef`: every device, both ramps, wireforms, orbits, spinners, drops,
   standups, mound VUK and pitch kicker, magnet, kickback, plunger, sensors.
 - Grey materials. Simple lamps as colored discs.

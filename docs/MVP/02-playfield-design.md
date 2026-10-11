@@ -12,11 +12,15 @@ a classic 1990s-style "shot fan" layout:
 Baseball is layered on top. **Fielders are saucers placed in the gaps between shots**, so a missed
 shot is an out and a made shot is a hit. "Hit 'em where they ain't" becomes "hit your shots."
 
-Schematic: [assets/playfield-layout-v1.svg](assets/playfield-layout-v1.svg)
+Schematics:
+- [assets/playfield-layout-v1-generated.svg](assets/playfield-layout-v1-generated.svg), generated
+  from the table data by `npm run layout:svg`. **This is the authoritative layout.**
+- [assets/playfield-layout-v1.svg](assets/playfield-layout-v1.svg), the original hand-drawn
+  concept, kept for reference.
 
-> **v1 layout.** The coordinates are a starting point for the whitebox milestone. The layout is
-> stored as data (see [04 § Table definition](04-technical-architecture.md#5-table-definition-data-driven)),
-> hot-reloads, and will be adjusted many times during tuning.
+> **Source of truth: [`src/table/v1Table.ts`](../../src/table/v1Table.ts).** The M1 whitebox
+> changed several positions in the catalog below. § 10 lists every change and why. Where the
+> catalog and the code disagree, the code wins.
 
 ## 1. Design approach
 
@@ -227,3 +231,22 @@ Measure each layout revision (playtests + headless sim bot):
   matters even more.
 - Stuck-ball hotspots (heat map of rest positions).
 - The metrics in [01 § Difficulty and tuning targets](01-game-design.md#8-difficulty-and-tuning-targets).
+
+## 10. M1 whitebox changes (v1.1)
+
+Every change below was found by the automated shot map or stuck-ball search in M1. Details are in
+the [M1 report](m1-report.md).
+
+| Area | v1 (planned) | v1.1 (as built) |
+|---|---|---|
+| Orbit mouths | Open at y = 680 | Open at y = 700, with a **funnel** below each one that steers returning balls back into play |
+| B-A-T / R-U-N banks | Spread along the side walls at y 440–510 | **Continuous banks with a backstop**, on the side walls below the funnels (y ≈ 520–600), each facing the far flipper |
+| 3B / 1B saucers | (40, 600) / (510, 600), in the orbit approach | (25, 478) / (525, 478), low on the side walls, lip into the wall |
+| The Gap | Singles (230/320, 875), doubles (225/325, 985), CF at (275, 910) with a back lip | **Singles (233/317, 868)** flank a 40 mm centre channel. **Doubles (247/303, 992)** at the back. **CF (275, 918)** in the channel with no lip. |
+| Mound + pitcher | Raised hump with a collidable pitcher post | **Visual only.** Pitches still come from the mound spot (275, 345). |
+| HR / Steal ramps | Crest at (75, 1010), straight wire | Rounded crest at ≈ (100, 1030). Ramp tapers 52 → 32 mm, with 40 mm side walls. 39 mm-radius U-turn that descends all the way. Six-rail wire with a flared entry. |
+| Top lanes | y 1075–1125 | **y 1060–1100**, so the orbit loop clears the guide posts |
+| Corner kickers | Rubber chord across each arch corner | **Flush with the arch**, low-bounce face. Placed where each orbit's ball meets the arch (not mirror images: the right orbit is inside the shooter lane). |
+| Shooter exit | Flat one-way gate | **Sloped** gate: returning balls roll off into the right orbit |
+| Lower playfield | — | Caps join each inlane-guide post to its slingshot's top post |
+

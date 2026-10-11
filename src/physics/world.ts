@@ -1,5 +1,6 @@
 import { dcos, dsin, DEG } from '../core/dmath';
-import type { TableDef } from '../table/schema';
+import { Rng } from '../core/rng';
+import type { TableDef, Vec3 } from '../table/schema';
 import { Ball } from './ball';
 import { Flipper } from './flipper';
 import { restitution, type Material, type MaterialName, type PhysicsParams } from './params';
@@ -13,10 +14,26 @@ import { restitution, type Material, type MaterialName, type PhysicsParams } fro
  *   never tunnel, including against moving flippers.
  * - Contacts are resolved with impulses: velocity-dependent restitution on the normal,
  *   Coulomb friction on the tangent (which spins the ball up), and finite flipper inertia.
+ * - Geometry is fully 3D where it matters: ramps are triangle surfaces and wireforms are
+ *   capsule rails, so a ball can roll under an elevated ramp and over playfield walls.
  * - The physics step uses no engine-dependent math (see src/core/dmath.ts).
  */
 
-export type PhysicsEventType = 'sling' | 'pop' | 'drop' | 'saucer' | 'drain' | 'eos' | 'swing';
+export type PhysicsEventType =
+  | 'sling'
+  | 'pop'
+  | 'drop'
+  | 'standup'
+  | 'kicker'
+  | 'saucer'
+  | 'drain'
+  | 'eos'
+  | 'swing'
+  | 'sensor'
+  | 'spinner'
+  | 'kickback'
+  | 'plunger'
+  | 'tiltBob';
 
 export interface PhysicsEvent {
   type: PhysicsEventType;
@@ -25,19 +42,30 @@ export interface PhysicsEvent {
   time: number;
 }
 
-type DeviceKind = 'sling' | 'pop' | 'drop' | 'none';
+type DeviceKind = 'none' | 'sling' | 'pop' | 'drop' | 'standup' | 'kicker' | 'gate';
 
-interface StaticCollider {
-  kind: 'segment' | 'circle';
+/** One static collider. Unused coordinates are 0. */
+export interface StaticCollider {
+  kind: 'segment' | 'circle' | 'triangle' | 'capsule';
   ax: number;
   ay: number;
+  az: number;
   bx: number;
   by: number;
+  bz: number;
+  cx: number;
+  cy: number;
+  cz: number;
+  /** Segment/circle/capsule radius. */
   radius: number;
+  /** Top of a segment/circle wall (it extends down to the playfield). */
   height: number;
   material: MaterialName;
   device: DeviceKind;
   deviceId: string;
+  /** One-way gate: allowed travel direction. */
+  gnx: number;
+  gny: number;
 }
 
 interface Saucer {
@@ -51,6 +79,68 @@ interface Saucer {
   bowlZ: number;
   settle: number;
   holding: boolean;
+}
+
+/** A smooth hump: z = height · (1 − (h/a)²)², flat-tangent at its rim so balls roll over it. */
+interface Dome {
+  id: string;
+  cx: number;
+  cy: number;
+  a: number;
+  height: number;
+}
+
+interface Sensor {
+  id: string;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  zMin: number;
+  zMax: number;
+  spinner: boolean;
+  /** Ball side of the line at the last substep (NaN until seen). */
+  side: number;
+}
+
+export interface SpinnerState {
+  id: string;
+  angle: number;
+  omega: number;
+  revs: number;
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+}
+
+export interface Magnet {
+  id: string;
+  cx: number;
+  cy: number;
+  radius: number;
+  /** 0..1, set by game logic (curveballs). */
+  power: number;
+}
+
+export interface Kickback {
+  id: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  angle: number;
+  armed: boolean;
+}
+
+export interface Plunger {
+  id: string;
+  x0: number;
+  x1: number;
+  tipY: number;
+  /** 0..1 pull-back. */
+  pull: number;
+  pressed: boolean;
 }
 
 interface DropTarget {
@@ -67,29 +157,42 @@ export class World {
   readonly flippers: Flipper[] = [];
   readonly colliders: StaticCollider[] = [];
   readonly saucers: Saucer[] = [];
+  readonly domes: Dome[] = [];
+  readonly sensors: Sensor[] = [];
+  readonly spinners = new Map<string, SpinnerState>();
+  readonly magnets: Magnet[] = [];
+  readonly kickbacks: Kickback[] = [];
   readonly drops = new Map<string, DropTarget>();
+  plunger: Plunger | null = null;
   readonly events: PhysicsEvent[] = [];
+  /** Tilt bob displacement (m) and velocity; nudges swing it. */
+  readonly bob = { x: 0, y: 0, vx: 0, vy: 0 };
 
   /** Simulation time (s). */
   time = 0;
   stepCount = 0;
   /** Substeps taken during the last fixed step. */
   lastSubsteps = 0;
-  /** If false, slings and pops do not kick (used by energy tests). */
+  /** If false, slings, pops and kickers do not kick (used by energy tests). */
   actuatorsEnabled = true;
+  /** If false, flipper buttons do nothing (tilt). */
+  flippersEnabled = true;
 
   private readonly cooldowns = new Map<string, number>();
-  private readonly swingCooldowns = new Map<string, number>();
+  private readonly rng: Rng;
   private grid: Grid;
   private gx = 0;
   private gy = 0;
   private gz = 0;
   private readonly drainY: number;
   private readonly tmp = { d: 0, nx: 0, ny: 0 };
+  private readonly q = { x: 0, y: 0, z: 0 };
+  private onSurface = false;
 
-  constructor(table: TableDef, params: PhysicsParams) {
+  constructor(table: TableDef, params: PhysicsParams, seed = 1) {
     this.table = table;
     this.params = params;
+    this.rng = new Rng(seed);
     this.drainY = table.drainY * MM;
     this.build();
     this.grid = new Grid(
@@ -116,19 +219,78 @@ export class World {
     return 1 / this.params.rate;
   }
 
-  addBall(x: number, y: number): Ball {
+  // ---------------------------------------------------------------- commands
+
+  addBall(x: number, y: number, z = this.params.ballRadius): Ball {
     const b = new Ball(this.params.ballRadius, this.params.ballMass);
-    b.place(x, y);
+    b.place(x, y, z);
     this.balls.push(b);
     return b;
   }
 
+  /** The single ball in play, created on demand (MVP has one ball). */
+  ball(): Ball {
+    return this.balls[0] ?? this.addBall(0, 0);
+  }
+
   setFlipper(id: string, pressed: boolean): void {
-    for (const f of this.flippers) if (f.id === id) f.pressed = pressed;
+    for (const f of this.flippers) if (f.id === id) f.pressed = pressed && this.flippersEnabled;
   }
 
   resetDropTargets(): void {
     for (const d of this.drops.values()) d.down = false;
+  }
+
+  setKickbackArmed(id: string, armed: boolean): void {
+    for (const k of this.kickbacks) if (k.id === id) k.armed = armed;
+  }
+
+  setMagnet(id: string, power: number): void {
+    for (const m of this.magnets) if (m.id === id) m.power = power;
+  }
+
+  /** Put the ball on the plunger tip in the shooter lane. */
+  serveBall(): Ball | null {
+    const pl = this.plunger;
+    if (!pl) return null;
+    const b = this.ball();
+    b.place((pl.x0 + pl.x1) / 2, pl.tipY + b.radius + 0.001);
+    return b;
+  }
+
+  setPlunger(pressed: boolean): void {
+    const pl = this.plunger;
+    if (!pl) return;
+    if (pl.pressed && !pressed) this.releasePlunger(pl);
+    pl.pressed = pressed;
+  }
+
+  /** Pitch from the mound: the ball appears at the pitch spot and is kicked toward (tx, ty) (m). */
+  pitchBall(tx: number, ty: number, speed: number): Ball | null {
+    const spot = this.table.pitchSpot;
+    if (!spot) return null;
+    const b = this.ball();
+    const x = spot.x * MM;
+    const y = spot.y * MM;
+    b.place(x, y, this.floorHeightAt(x, y) + b.radius);
+    const dx = tx - x;
+    const dy = ty - y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    b.vx = (dx / len) * speed;
+    b.vy = (dy / len) * speed;
+    return b;
+  }
+
+  /** Bump the cabinet: the ball gets a velocity change in direction (dx, dy), the bob swings. */
+  nudge(dx: number, dy: number): void {
+    const p = this.params;
+    for (const b of this.balls) {
+      if (!b.active) continue;
+      b.vx += dx * p.nudgeSpeed;
+      b.vy += dy * p.nudgeSpeed;
+    }
+    this.bob.vx -= dx * p.tilt.kick;
+    this.bob.vy -= dy * p.tilt.kick;
   }
 
   /** Releases a captured ball from a saucer with the given kick. */
@@ -143,6 +305,24 @@ export class World {
     ball.vy = speed * dsin(a);
     ball.vz = 0.4;
   }
+
+  /** Clears saucer holds (the ball was routed elsewhere). */
+  releaseSaucers(): void {
+    for (const s of this.saucers) {
+      s.holding = false;
+      s.settle = 0;
+    }
+  }
+
+  isSaucerHolding(id: string): boolean {
+    return this.saucers.find((s) => s.id === id)?.holding ?? false;
+  }
+
+  isDropDown(id: string): boolean {
+    return this.drops.get(id)?.down ?? false;
+  }
+
+  // ---------------------------------------------------------------- energy
 
   /** Total mechanical energy of the active balls (J). */
   energy(): number {
@@ -170,6 +350,8 @@ export class World {
     return e;
   }
 
+  // ---------------------------------------------------------------- stepping
+
   step(): void {
     const dt = this.dt;
     for (const b of this.balls) b.savePrevious();
@@ -193,6 +375,7 @@ export class World {
       this.substep(h);
       this.time += h;
     }
+    this.updateDevices(dt);
     this.stepCount++;
   }
 
@@ -209,12 +392,14 @@ export class World {
       b.vx += this.gx * h;
       b.vy += this.gy * h;
       b.vz += this.gz * h;
+      for (const m of this.magnets) this.applyMagnet(b, m, h);
       b.px += b.vx * h;
       b.py += b.vy * h;
       b.pz += b.vz * h;
       b.integrateOrientation(h);
 
       b.onFloor = false;
+      this.onSurface = false;
       // Two passes let stacked contacts (e.g. ball wedged between flipper and guide) settle.
       for (let pass = 0; pass < 2; pass++) {
         this.collideFloor(b);
@@ -222,7 +407,7 @@ export class World {
         this.collideStatic(b, pass === 0);
         this.collideFlippers(b);
       }
-      if (b.onFloor) this.applyRollingResistance(b, h);
+      if (b.onFloor || this.onSurface) this.applyRollingResistance(b, h);
 
       const s = b.speed();
       if (s > p.maxBallSpeed) {
@@ -232,15 +417,83 @@ export class World {
         b.vz *= k;
       }
 
+      this.updateSensors(b);
+      this.updateKickbacks(b);
       this.updateSaucers(b, h);
-      if (b.active && b.py < this.drainY) {
+      if (b.active && b.py < this.drainY && b.pz < 0.05) {
         b.active = false;
         this.emit('drain', 'drain');
       }
     }
   }
 
+  /** Per-step device updates that do not need substep resolution. */
+  private updateDevices(dt: number): void {
+    const p = this.params;
+    for (const s of this.spinners.values()) {
+      if (s.omega === 0) continue;
+      s.angle += s.omega * dt;
+      s.omega *= 1 - p.spinnerDecay * dt;
+      if (Math.abs(s.omega) < 0.3) s.omega = 0;
+      const revs = Math.floor(Math.abs(s.angle) / (2 * Math.PI));
+      if (revs > s.revs) {
+        s.revs = revs;
+        this.emit('spinner', s.id);
+      }
+    }
+    const pl = this.plunger;
+    if (pl) {
+      if (pl.pressed) pl.pull = Math.min(1, pl.pull + dt / p.plungerPullTime);
+      else pl.pull = Math.max(0, pl.pull - dt * 40);
+    }
+    // Tilt bob: a damped pendulum.
+    const w0 = 2 * Math.PI * p.tilt.frequency;
+    const bob = this.bob;
+    bob.vx += (-w0 * w0 * bob.x - 2 * p.tilt.damping * w0 * bob.vx) * dt;
+    bob.vy += (-w0 * w0 * bob.y - 2 * p.tilt.damping * w0 * bob.vy) * dt;
+    bob.x += bob.vx * dt;
+    bob.y += bob.vy * dt;
+    if (bob.x * bob.x + bob.y * bob.y > p.tilt.warnRadius * p.tilt.warnRadius) {
+      const ready = this.cooldowns.get('tiltBob') ?? -1;
+      if (this.time >= ready) {
+        this.cooldowns.set('tiltBob', this.time + 0.5);
+        this.emit('tiltBob', 'tilt');
+      }
+    }
+  }
+
+  private releasePlunger(pl: Plunger): void {
+    const p = this.params;
+    let fired = false;
+    for (const b of this.balls) {
+      if (!b.active) continue;
+      const inLane = b.px > pl.x0 && b.px < pl.x1;
+      const onTip = b.py < pl.tipY + b.radius + 0.008 && b.pz < 0.03;
+      if (inLane && onTip) {
+        // A touch of seeded randomness, as real plunger springs vary.
+        const speed = pl.pull * p.plungerMaxSpeed * (1 + this.rng.range(-0.01, 0.01));
+        b.vy = Math.max(b.vy, speed);
+        fired = true;
+      }
+    }
+    if (fired) this.emit('plunger', pl.id);
+  }
+
   // ---------------------------------------------------------------- contacts
+
+  /** Height of the playfield surface (m) at (x, y), including the mound. */
+  floorHeightAt(x: number, y: number): number {
+    for (const d of this.domes) {
+      const dx = x - d.cx;
+      const dy = y - d.cy;
+      const h2 = dx * dx + dy * dy;
+      if (h2 < d.a * d.a) {
+        const u = 1 - h2 / (d.a * d.a);
+        return d.height * u * u;
+      }
+    }
+    return 0;
+  }
 
   private collideFloor(b: Ball): void {
     const r = b.radius;
@@ -249,22 +502,21 @@ export class World {
       const dy = b.py - s.cy;
       const hd2 = dx * dx + dy * dy;
       if (hd2 > s.a * s.a) continue;
+      // A fast ball skims across (the hole stays "closed") unless it has already dipped in.
+      const hSpeed = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      if (hSpeed > this.params.saucerSkimSpeed && b.pz > r - 0.0005) break;
       // Over the hole: the ball rests on the rim edge and/or the spherical bowl.
       const hd = Math.sqrt(hd2);
-      // Rim edge (a circle at z = 0).
       const ux = hd > 1e-9 ? dx / hd : 1;
       const uy = hd > 1e-9 ? dy / hd : 0;
-      const qx = s.cx + ux * s.a;
-      const qy = s.cy + uy * s.a;
-      const ex = b.px - qx;
-      const ey = b.py - qy;
+      const ex = b.px - (s.cx + ux * s.a);
+      const ey = b.py - (s.cy + uy * s.a);
       const ez = b.pz;
       const ed = Math.sqrt(ex * ex + ey * ey + ez * ez);
       if (ed < r && ed > 1e-9) {
         this.resolve(b, ex / ed, ey / ed, ez / ed, r - ed, 'playfield', 0, 0, 0, null, 0, 0);
         b.onFloor = true;
       }
-      // Bowl: ball inside a sphere of radius bowlR centred at (cx, cy, bowlZ).
       const bx = b.px - s.cx;
       const by = b.py - s.cy;
       const bz = b.pz - s.bowlZ;
@@ -277,6 +529,27 @@ export class World {
           this.resolve(b, -bx / bd, -by / bd, -bz / bd, bd - lim, 'playfield', 0, 0, 0, null, 0, 0);
           b.onFloor = true;
         }
+      }
+      return;
+    }
+    for (const d of this.domes) {
+      const dx = b.px - d.cx;
+      const dy = b.py - d.cy;
+      const h2 = dx * dx + dy * dy;
+      if (h2 >= d.a * d.a) continue;
+      // Gentle slopes (< 12°): use the surface normal under the ball centre.
+      const h = Math.sqrt(h2);
+      const u = 1 - h2 / (d.a * d.a);
+      const surf = d.height * u * u;
+      const slope = (-4 * d.height * u * h) / (d.a * d.a); // dz/dh
+      const inv = 1 / Math.sqrt(1 + slope * slope);
+      const nx = h > 1e-9 ? ((-slope * dx) / h) * inv : 0;
+      const ny = h > 1e-9 ? ((-slope * dy) / h) * inv : 0;
+      const nz = inv;
+      const depth = r - (b.pz - surf) * nz;
+      if (depth > 0) {
+        this.resolve(b, nx, ny, nz, depth, 'playfield', 0, 0, 0, null, 0, 0);
+        b.onFloor = true;
       }
       return;
     }
@@ -296,38 +569,70 @@ export class World {
     const list = this.grid.query(b.px, b.py);
     if (!list) return;
     const r = b.radius;
+    const q = this.q;
     for (const c of list) {
-      if (b.pz - r > c.height) continue;
-      if (c.device === 'drop' && this.drops.get(c.deviceId)?.down) continue;
       let nx: number;
       let ny: number;
+      let nz = 0;
       let dist: number;
-      if (c.kind === 'circle') {
-        nx = b.px - c.ax;
-        ny = b.py - c.ay;
-        dist = Math.sqrt(nx * nx + ny * ny);
-      } else {
-        const sx = c.bx - c.ax;
-        const sy = c.by - c.ay;
-        const len2 = sx * sx + sy * sy;
-        let t = ((b.px - c.ax) * sx + (b.py - c.ay) * sy) / len2;
-        t = t < 0 ? 0 : t > 1 ? 1 : t;
-        nx = b.px - (c.ax + sx * t);
-        ny = b.py - (c.ay + sy * t);
-        dist = Math.sqrt(nx * nx + ny * ny);
+      switch (c.kind) {
+        case 'circle': {
+          if (b.pz - r > c.height) continue;
+          nx = b.px - c.ax;
+          ny = b.py - c.ay;
+          dist = Math.sqrt(nx * nx + ny * ny);
+          break;
+        }
+        case 'segment': {
+          if (b.pz - r > c.height) continue;
+          if (c.device === 'drop' && this.drops.get(c.deviceId)?.down) continue;
+          const sx = c.bx - c.ax;
+          const sy = c.by - c.ay;
+          if (c.device === 'gate' && (b.px - c.ax) * c.gnx + (b.py - c.ay) * c.gny < 0) continue;
+          const len2 = sx * sx + sy * sy;
+          let t = ((b.px - c.ax) * sx + (b.py - c.ay) * sy) / len2;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          nx = b.px - (c.ax + sx * t);
+          ny = b.py - (c.ay + sy * t);
+          dist = Math.sqrt(nx * nx + ny * ny);
+          break;
+        }
+        case 'triangle': {
+          closestOnTriangle(b.px, b.py, b.pz, c, q);
+          nx = b.px - q.x;
+          ny = b.py - q.y;
+          nz = b.pz - q.z;
+          dist = Math.sqrt(nx * nx + ny * ny + nz * nz);
+          break;
+        }
+        case 'capsule': {
+          const sx = c.bx - c.ax;
+          const sy = c.by - c.ay;
+          const sz = c.bz - c.az;
+          const len2 = sx * sx + sy * sy + sz * sz;
+          let t = ((b.px - c.ax) * sx + (b.py - c.ay) * sy + (b.pz - c.az) * sz) / len2;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          nx = b.px - (c.ax + sx * t);
+          ny = b.py - (c.ay + sy * t);
+          nz = b.pz - (c.az + sz * t);
+          dist = Math.sqrt(nx * nx + ny * ny + nz * nz);
+          break;
+        }
       }
       const depth = r + c.radius - dist;
       if (depth <= 0 || dist < 1e-12) continue;
       nx /= dist;
       ny /= dist;
-      const vnBefore = b.vx * nx + b.vy * ny;
-      this.resolve(b, nx, ny, 0, depth, c.material, 0, 0, 0, null, 0, 0);
+      nz /= dist;
+      if (nz > 0.5) this.onSurface = true;
+      const vnBefore = b.vx * nx + b.vy * ny + b.vz * nz;
+      this.resolve(b, nx, ny, nz, depth, c.material, 0, 0, 0, null, 0, 0);
       if (primary) this.deviceHit(b, c, nx, ny, -vnBefore);
     }
   }
 
   private deviceHit(b: Ball, c: StaticCollider, nx: number, ny: number, approach: number): void {
-    if (c.device === 'none') return;
+    if (c.device === 'none' || c.device === 'gate') return;
     const p = this.params;
     if (c.device === 'drop') {
       if (approach > p.dropThreshold) {
@@ -339,19 +644,50 @@ export class World {
       }
       return;
     }
+    if (c.device === 'standup') {
+      if (approach > p.standupThreshold && this.ready(c.deviceId, 0.08))
+        this.emit('standup', c.deviceId);
+      return;
+    }
     if (!this.actuatorsEnabled) return;
+    if (c.device === 'kicker') {
+      // The switch closes on any real contact; the coil only boosts a firm hit, so a ball
+      // gently hugging the arch (a soft plunge) is not flung round the loop.
+      if (approach < 0.05 || !this.ready(c.deviceId, 0.06)) return;
+      this.emit('kicker', c.deviceId);
+      if (approach < p.kickerThreshold) return;
+      // Speed the ball along the face in the direction it is already travelling.
+      const sx = c.bx - c.ax;
+      const sy = c.by - c.ay;
+      const len = Math.sqrt(sx * sx + sy * sy);
+      const tx = sx / len;
+      const ty = sy / len;
+      const vt = b.vx * tx + b.vy * ty;
+      const target = vt >= 0 ? p.kickerSpeed : -p.kickerSpeed;
+      if (Math.abs(vt) < p.kickerSpeed) {
+        b.vx += tx * (target - vt);
+        b.vy += ty * (target - vt);
+      }
+      return;
+    }
     const threshold = c.device === 'sling' ? p.slingThreshold : p.popThreshold;
     const kick = c.device === 'sling' ? p.slingKickSpeed : p.popKickSpeed;
-    if (approach < threshold) return;
-    const ready = this.cooldowns.get(c.deviceId) ?? -1;
-    if (this.time < ready) return;
-    this.cooldowns.set(c.deviceId, this.time + 0.06);
+    // A pop's skirt switch also closes under a ball resting against it (wedged by a wall).
+    const pressed = approach >= threshold || (c.device === 'pop' && b.speed() < 0.05);
+    if (!pressed || !this.ready(c.deviceId, 0.06)) return;
     const vn = b.vx * nx + b.vy * ny;
     if (vn < kick) {
       b.vx += nx * (kick - vn);
       b.vy += ny * (kick - vn);
     }
     this.emit(c.device, c.deviceId);
+  }
+
+  private ready(id: string, cooldown: number): boolean {
+    const at = this.cooldowns.get(id) ?? -1;
+    if (this.time < at) return false;
+    this.cooldowns.set(id, this.time + cooldown);
+    return true;
   }
 
   private collideFlippers(b: Ball): void {
@@ -377,13 +713,7 @@ export class World {
       const ux = -f.omega * ry;
       const uy = f.omega * rx;
       this.resolve(b, nx, ny, 0, depth, 'rubberFlipper', ux, uy, 0, f, rx, ry);
-      if (f.pressed) {
-        const ready = this.swingCooldowns.get(f.id) ?? -1;
-        if (this.time >= ready) {
-          this.swingCooldowns.set(f.id, this.time + 0.05);
-          this.emit('swing', f.id);
-        }
-      }
+      if (f.pressed && this.ready(`swing:${f.id}`, 0.05)) this.emit('swing', f.id);
     }
   }
 
@@ -469,7 +799,6 @@ export class World {
     b.vx -= tx * jt * b.invMass;
     b.vy -= ty * jt * b.invMass;
     b.vz -= tz * jt * b.invMass;
-    // w += I^-1 (a x (-t jt))
     const k = -jt * b.invInertia;
     b.wx += k * (ay * tz - az * ty);
     b.wy += k * (az * tx - ax * tz);
@@ -488,6 +817,58 @@ export class World {
     b.wx *= k;
     b.wy *= k;
     b.wz *= 1 - 0.5 * h;
+  }
+
+  private applyMagnet(b: Ball, m: Magnet, h: number): void {
+    if (m.power <= 0 || b.pz > 0.03) return;
+    const dx = m.cx - b.px;
+    const dy = m.cy - b.py;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d >= m.radius || d < 1e-6) return;
+    const a = this.params.magnetStrength * m.power * (1 - d / m.radius);
+    b.vx += (dx / d) * a * h;
+    b.vy += (dy / d) * a * h;
+  }
+
+  // ---------------------------------------------------------------- sensors & devices
+
+  private updateSensors(b: Ball): void {
+    for (const s of this.sensors) {
+      const sx = s.bx - s.ax;
+      const sy = s.by - s.ay;
+      const side = sx * (b.py - s.ay) - sy * (b.px - s.ax);
+      const prev = s.side;
+      s.side = side;
+      if (Number.isNaN(prev) || prev < 0 === side < 0) continue;
+      if (b.pz < s.zMin || b.pz > s.zMax) continue;
+      const len2 = sx * sx + sy * sy;
+      const t = ((b.px - s.ax) * sx + (b.py - s.ay) * sy) / len2;
+      if (t < 0 || t > 1) continue;
+      if (s.spinner) {
+        const st = this.spinners.get(s.id);
+        if (st) {
+          st.omega = (side > 0 ? 1 : -1) * this.params.spinnerGain * b.speed();
+          st.angle = 0;
+          st.revs = 0;
+        }
+        // The plate takes a little energy from the ball.
+        b.vx *= 0.97;
+        b.vy *= 0.97;
+      }
+      this.emit(s.spinner ? 'spinner' : 'sensor', s.id);
+    }
+  }
+
+  private updateKickbacks(b: Ball): void {
+    for (const k of this.kickbacks) {
+      if (!k.armed) continue;
+      if (b.px < k.x0 || b.px > k.x1 || b.py < k.y0 || b.py > k.y1) continue;
+      const a = k.angle * DEG;
+      b.vx = this.params.kickbackSpeed * dcos(a);
+      b.vy = this.params.kickbackSpeed * dsin(a);
+      k.armed = false;
+      this.emit('kickback', k.id);
+    }
   }
 
   private updateSaucers(b: Ball, h: number): void {
@@ -521,6 +902,25 @@ export class World {
   private build(): void {
     const t = this.table;
     const p = this.params;
+    const base = (): StaticCollider => ({
+      kind: 'segment',
+      ax: 0,
+      ay: 0,
+      az: 0,
+      bx: 0,
+      by: 0,
+      bz: 0,
+      cx: 0,
+      cy: 0,
+      cz: 0,
+      radius: 0,
+      height: 0,
+      material: 'metal',
+      device: 'none',
+      deviceId: '',
+      gnx: 0,
+      gny: 0,
+    });
     const seg = (
       a: readonly [number, number],
       b: readonly [number, number],
@@ -529,19 +929,19 @@ export class World {
       height = 25,
       device: DeviceKind = 'none',
       deviceId = '',
-    ): void => {
-      this.colliders.push({
-        kind: 'segment',
-        ax: a[0] * MM,
-        ay: a[1] * MM,
-        bx: b[0] * MM,
-        by: b[1] * MM,
-        radius: radius * MM,
-        height: height * MM,
-        material,
-        device,
-        deviceId,
-      });
+    ): StaticCollider => {
+      const c = base();
+      c.ax = a[0] * MM;
+      c.ay = a[1] * MM;
+      c.bx = b[0] * MM;
+      c.by = b[1] * MM;
+      c.radius = radius * MM;
+      c.height = height * MM;
+      c.material = material;
+      c.device = device;
+      c.deviceId = deviceId;
+      this.colliders.push(c);
+      return c;
     };
     const circle = (
       x: number,
@@ -552,32 +952,67 @@ export class World {
       device: DeviceKind = 'none',
       deviceId = '',
     ): void => {
-      this.colliders.push({
-        kind: 'circle',
-        ax: x * MM,
-        ay: y * MM,
-        bx: x * MM,
-        by: y * MM,
-        radius: radius * MM,
-        height: height * MM,
-        material,
-        device,
-        deviceId,
+      const c = base();
+      c.kind = 'circle';
+      c.ax = c.bx = x * MM;
+      c.ay = c.by = y * MM;
+      c.radius = radius * MM;
+      c.height = height * MM;
+      c.material = material;
+      c.device = device;
+      c.deviceId = deviceId;
+      this.colliders.push(c);
+    };
+    const tri = (a: Vec3, b: Vec3, cc: Vec3, material: MaterialName): void => {
+      const c = base();
+      c.kind = 'triangle';
+      [c.ax, c.ay, c.az] = [a[0] * MM, a[1] * MM, a[2] * MM];
+      [c.bx, c.by, c.bz] = [b[0] * MM, b[1] * MM, b[2] * MM];
+      [c.cx, c.cy, c.cz] = [cc[0] * MM, cc[1] * MM, cc[2] * MM];
+      c.material = material;
+      this.colliders.push(c);
+    };
+    const capsule = (a: Vec3, b: Vec3, radius: number, material: MaterialName): void => {
+      const c = base();
+      c.kind = 'capsule';
+      [c.ax, c.ay, c.az] = [a[0] * MM, a[1] * MM, a[2] * MM];
+      [c.bx, c.by, c.bz] = [b[0] * MM, b[1] * MM, b[2] * MM];
+      c.radius = radius * MM;
+      c.material = material;
+      this.colliders.push(c);
+    };
+    const sensor = (
+      id: string,
+      a: readonly [number, number],
+      b: readonly [number, number],
+      zMin: number,
+      zMax: number,
+      spinner = false,
+    ): void => {
+      this.sensors.push({
+        id,
+        ax: a[0] * MM,
+        ay: a[1] * MM,
+        bx: b[0] * MM,
+        by: b[1] * MM,
+        zMin: zMin * MM,
+        zMax: zMax * MM,
+        spinner,
+        side: NaN,
       });
     };
 
     for (const el of t.elements) {
       switch (el.type) {
-        case 'wall': {
+        case 'wall':
           for (let i = 0; i + 1 < el.points.length; i++) {
             seg(el.points[i]!, el.points[i + 1]!, el.radius ?? 1.5, el.material, el.height ?? 25);
           }
           break;
-        }
         case 'post':
-          circle(el.x, el.y, el.radius, el.material);
+          circle(el.x, el.y, el.radius, el.material, el.height ?? 25);
           break;
-        case 'sling': {
+        case 'sling':
           // Kicking rubber face plus passive sides; rubber-ringed posts at the corners.
           seg(el.top, el.bottom, 3, 'rubberSling', 25, 'sling', el.id);
           seg(el.corner, el.top, 2, 'wood');
@@ -585,13 +1020,104 @@ export class World {
           circle(el.top[0], el.top[1], 5, 'rubberPost');
           circle(el.bottom[0], el.bottom[1], 5, 'rubberPost');
           break;
-        }
         case 'pop':
           circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
           break;
         case 'drop':
           seg(el.a, el.b, 2.5, 'dropTarget', 30, 'drop', el.id);
           this.drops.set(el.id, { id: el.id, down: false });
+          break;
+        case 'standup':
+          seg(el.a, el.b, 3, 'rubberPost', 30, 'standup', el.id);
+          break;
+        case 'kicker':
+          seg(el.a, el.b, 3, 'kicker', 25, 'kicker', el.id);
+          break;
+        case 'gate': {
+          const c = seg(el.a, el.b, 1.5, 'metal', 30, 'gate', el.id);
+          c.gnx = dcos(el.allow * DEG);
+          c.gny = dsin(el.allow * DEG);
+          break;
+        }
+        case 'spinner':
+          sensor(el.id, el.a, el.b, 0, 40, true);
+          this.spinners.set(el.id, {
+            id: el.id,
+            angle: 0,
+            omega: 0,
+            revs: 0,
+            ax: el.a[0] * MM,
+            ay: el.a[1] * MM,
+            bx: el.b[0] * MM,
+            by: el.b[1] * MM,
+          });
+          break;
+        case 'sensor':
+          sensor(el.id, el.a, el.b, el.zMin ?? 0, el.zMax ?? 40);
+          break;
+        case 'ramp': {
+          const { left, right } = rampEdges(el.path, el.width, el.endWidth ?? el.width);
+          for (let i = 0; i + 1 < el.path.length; i++) {
+            const l0 = left[i]!;
+            const l1 = left[i + 1]!;
+            const r0 = right[i]!;
+            const r1 = right[i + 1]!;
+            tri(l0, r0, r1, 'plastic');
+            tri(l0, r1, l1, 'plastic');
+            const up = (v: Vec3): Vec3 => [v[0], v[1], v[2] + el.wallHeight];
+            tri(l0, l1, up(l1), 'plastic');
+            tri(l0, up(l1), up(l0), 'plastic');
+            tri(r0, r1, up(r1), 'plastic');
+            tri(r0, up(r1), up(r0), 'plastic');
+          }
+          break;
+        }
+        case 'wireform': {
+          for (const rail of wireformRails(el.path, p.ballRadius / MM)) {
+            for (let i = 0; i + 1 < rail.length; i++) capsule(rail[i]!, rail[i + 1]!, 2, 'wire');
+          }
+          break;
+        }
+        case 'dome':
+          if (el.solid === false) break;
+          this.domes.push({
+            id: el.id,
+            cx: el.x * MM,
+            cy: el.y * MM,
+            a: el.radius * MM,
+            height: el.height * MM,
+          });
+          break;
+        case 'magnet':
+          this.magnets.push({
+            id: el.id,
+            cx: el.x * MM,
+            cy: el.y * MM,
+            radius: el.radius * MM,
+            power: 0,
+          });
+          break;
+        case 'kickback':
+          this.kickbacks.push({
+            id: el.id,
+            x0: el.x0 * MM,
+            y0: el.y0 * MM,
+            x1: el.x1 * MM,
+            y1: el.y1 * MM,
+            angle: el.angle,
+            armed: true,
+          });
+          break;
+        case 'plunger':
+          this.plunger = {
+            id: el.id,
+            x0: el.x0 * MM,
+            x1: el.x1 * MM,
+            tipY: el.tipY * MM,
+            pull: 0,
+            pressed: false,
+          };
+          seg([el.x0, el.tipY], [el.x1, el.tipY], 1, 'rubberPost', 25);
           break;
         case 'saucer': {
           const a = el.radius * MM;
@@ -609,6 +1135,17 @@ export class World {
           });
           // Rubber-faced back lip (the fielder standee base).
           const la = el.lipAngle * DEG;
+          if (el.lip === 'none') break;
+          if (el.lip === 'post') {
+            circle(
+              el.x + (el.radius + 8) * dcos(la),
+              el.y + (el.radius + 8) * dsin(la),
+              8,
+              'rubberPost',
+              12,
+            );
+            break;
+          }
           const lx = el.x + (el.radius + 6) * dcos(la);
           const ly = el.y + (el.radius + 6) * dsin(la);
           const half = el.radius * 0.9;
@@ -623,20 +1160,156 @@ export class World {
           this.flippers.push(f);
           break;
         }
+        case 'lamp':
+          break; // visual only
       }
     }
   }
-
-  isSaucerHolding(id: string): boolean {
-    return this.saucers.find((s) => s.id === id)?.holding ?? false;
-  }
-
-  isDropDown(id: string): boolean {
-    return this.drops.get(id)?.down ?? false;
-  }
 }
 
-/** Uniform grid over the static colliders, each inflated so a centre query finds all contacts. */
+// ---------------------------------------------------------------- geometry helpers
+
+/** Left/right floor edges of a ramp (mm), offset horizontally from the centre line. */
+export function rampEdges(
+  path: readonly Vec3[],
+  width: number,
+  endWidth = width,
+): { left: Vec3[]; right: Vec3[] } {
+  const left: Vec3[] = [];
+  const right: Vec3[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const w = width + ((endWidth - width) * i) / Math.max(1, path.length - 1);
+    const prev = path[Math.max(0, i - 1)]!;
+    const next = path[Math.min(path.length - 1, i + 1)]!;
+    const dx = next[0] - prev[0];
+    const dy = next[1] - prev[1];
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const lx = (-dy / len) * (w / 2);
+    const ly = (dx / len) * (w / 2);
+    const p = path[i]!;
+    left.push([p[0] + lx, p[1] + ly, p[2]]);
+    right.push([p[0] - lx, p[1] - ly, p[2]]);
+  }
+  return { left, right };
+}
+
+/**
+ * Six rails around a wireform's ball-centre path (mm): two below the ball, cradling it, one on
+ * each side at the ball's equator, and two above, so a fast ball cannot jump the track.
+ */
+export function wireformRails(path: readonly Vec3[], ballRadius: number): Vec3[][] {
+  const railR = 2;
+  const reach = ballRadius + railR; // rail axis distance from the ball centre
+  const lateralLow = 9;
+  const drop = Math.sqrt(reach * reach - lateralLow * lateralLow);
+  const lateralHigh = 10;
+  const rise = Math.sqrt((reach + 1) * (reach + 1) - lateralHigh * lateralHigh);
+  const offsets: [number, number][] = [
+    [lateralLow, -drop],
+    [-lateralLow, -drop],
+    [reach + 1, 0],
+    [-(reach + 1), 0],
+    [lateralHigh, rise],
+    [-lateralHigh, rise],
+  ];
+  // The entry is flared: side and top rails start further out and close in by the second point,
+  // so a ball arriving slightly off-centre from a ramp is gathered in rather than hitting rail ends.
+  const flare = (i: number, k: number): number => (i === 0 ? k : i === 1 ? 1 + (k - 1) / 3 : 1);
+  return offsets.map(([lat, dz], railIndex) =>
+    path.map((p, i) => {
+      const prev = path[Math.max(0, i - 1)]!;
+      const next = path[Math.min(path.length - 1, i + 1)]!;
+      const dx = next[0] - prev[0];
+      const dy = next[1] - prev[1];
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      const isBottom = railIndex < 2;
+      const l = isBottom ? lat : lat * flare(i, 1.6);
+      const z = isBottom ? dz : dz * flare(i, 2.2);
+      return [p[0] + (-dy / len) * l, p[1] + (dx / len) * l, p[2] + z] as Vec3;
+    }),
+  );
+}
+
+/** Closest point on triangle (a, b, c) of collider `t` to point p (Ericson, RTCD § 5.1.5). */
+function closestOnTriangle(
+  px: number,
+  py: number,
+  pz: number,
+  t: StaticCollider,
+  out: { x: number; y: number; z: number },
+): void {
+  const abx = t.bx - t.ax;
+  const aby = t.by - t.ay;
+  const abz = t.bz - t.az;
+  const acx = t.cx - t.ax;
+  const acy = t.cy - t.ay;
+  const acz = t.cz - t.az;
+  const apx = px - t.ax;
+  const apy = py - t.ay;
+  const apz = pz - t.az;
+  const d1 = abx * apx + aby * apy + abz * apz;
+  const d2 = acx * apx + acy * apy + acz * apz;
+  if (d1 <= 0 && d2 <= 0) {
+    out.x = t.ax;
+    out.y = t.ay;
+    out.z = t.az;
+    return;
+  }
+  const bpx = px - t.bx;
+  const bpy = py - t.by;
+  const bpz = pz - t.bz;
+  const d3 = abx * bpx + aby * bpy + abz * bpz;
+  const d4 = acx * bpx + acy * bpy + acz * bpz;
+  if (d3 >= 0 && d4 <= d3) {
+    out.x = t.bx;
+    out.y = t.by;
+    out.z = t.bz;
+    return;
+  }
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+    const v = d1 / (d1 - d3);
+    out.x = t.ax + v * abx;
+    out.y = t.ay + v * aby;
+    out.z = t.az + v * abz;
+    return;
+  }
+  const cpx = px - t.cx;
+  const cpy = py - t.cy;
+  const cpz = pz - t.cz;
+  const d5 = abx * cpx + aby * cpy + abz * cpz;
+  const d6 = acx * cpx + acy * cpy + acz * cpz;
+  if (d6 >= 0 && d5 <= d6) {
+    out.x = t.cx;
+    out.y = t.cy;
+    out.z = t.cz;
+    return;
+  }
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+    const w = d2 / (d2 - d6);
+    out.x = t.ax + w * acx;
+    out.y = t.ay + w * acy;
+    out.z = t.az + w * acz;
+    return;
+  }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+    const w = (d4 - d3) / (d4 - d3 + (d5 - d6));
+    out.x = t.bx + w * (t.cx - t.bx);
+    out.y = t.by + w * (t.cy - t.by);
+    out.z = t.bz + w * (t.cz - t.bz);
+    return;
+  }
+  const denom = 1 / (va + vb + vc);
+  const v = vb * denom;
+  const w = vc * denom;
+  out.x = t.ax + abx * v + acx * w;
+  out.y = t.ay + aby * v + acy * w;
+  out.z = t.az + abz * v + acz * w;
+}
+
+/** Uniform grid over the static colliders, each padded so a centre query finds all contacts. */
 class Grid {
   private readonly cells: StaticCollider[][];
   private readonly nx: number;
@@ -656,16 +1329,14 @@ class Grid {
     this.cells = Array.from({ length: this.nx * this.ny }, () => []);
     const pad = ballRadius + 0.004;
     for (const c of colliders) {
-      const minX = Math.min(c.ax, c.bx) - c.radius - pad;
-      const maxX = Math.max(c.ax, c.bx) + c.radius + pad;
-      const minY = Math.min(c.ay, c.by) - c.radius - pad;
-      const maxY = Math.max(c.ay, c.by) + c.radius + pad;
-      const i0 = this.ix(minX);
-      const i1 = this.ix(maxX);
-      const j0 = this.iy(minY);
-      const j1 = this.iy(maxY);
-      for (let j = j0; j <= j1; j++) {
-        for (let i = i0; i <= i1; i++) this.cells[j * this.nx + i]!.push(c);
+      const xs = c.kind === 'triangle' ? [c.ax, c.bx, c.cx] : [c.ax, c.bx];
+      const ys = c.kind === 'triangle' ? [c.ay, c.by, c.cy] : [c.ay, c.by];
+      const minX = Math.min(...xs) - c.radius - pad;
+      const maxX = Math.max(...xs) + c.radius + pad;
+      const minY = Math.min(...ys) - c.radius - pad;
+      const maxY = Math.max(...ys) + c.radius + pad;
+      for (let j = this.iy(minY); j <= this.iy(maxY); j++) {
+        for (let i = this.ix(minX); i <= this.ix(maxX); i++) this.cells[j * this.nx + i]!.push(c);
       }
     }
   }

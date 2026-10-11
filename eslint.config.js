@@ -16,11 +16,11 @@ export default tseslint.config(
   },
   {
     // The physics step must stay deterministic across JS engines (docs/MVP/03-physics.md § 8).
-    files: ['src/physics/**/*.ts'],
+    files: ['src/physics/**/*.ts', 'src/table/**/*.ts'],
     rules: {
       'no-restricted-properties': [
         'error',
-        ...['sin', 'cos', 'tan', 'atan2', 'exp', 'pow', 'random'].map((property) => ({
+        ...['sin', 'cos', 'tan', 'atan2', 'exp', 'pow', 'hypot', 'random'].map((property) => ({
           object: 'Math',
           property,
           message:
