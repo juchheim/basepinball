@@ -14,6 +14,7 @@ import {
   callout,
   finalStats,
   highScores,
+  howToOpen,
   lastRank,
   lifetime,
   pitchCue,
@@ -65,13 +66,14 @@ export function App({ actions }: { actions: UiActions }) {
           {resumeCount.value}
         </div>
       )}
-      {s === 'title' && !settingsOpen.value && <Title actions={actions} />}
-      {s === 'paused' && !settingsOpen.value && resumeCount.value === null && (
+      {s === 'title' && !settingsOpen.value && !howToOpen.value && <Title actions={actions} />}
+      {s === 'paused' && !settingsOpen.value && !howToOpen.value && resumeCount.value === null && (
         <Pause actions={actions} />
       )}
       {s === 'gameover' && <GameOver actions={actions} />}
       {s === 'scores' && <Scores actions={actions} />}
       {settingsOpen.value && <SettingsPanel actions={actions} />}
+      {howToOpen.value && <HowToPlay />}
     </div>
   );
 }
@@ -184,6 +186,116 @@ function Lifetime() {
       {l.games} game{l.games === 1 ? '' : 's'} · best {l.bestRuns} R · {l.homeRuns} HR · AVG{' '}
       {battingAverage(l)} · longest rally {l.longestRally}
     </p>
+  );
+}
+
+/** One illustrated screen: the idea, the shots, the outs, the features, the controls. */
+function HowToPlay() {
+  const close = () => {
+    howToOpen.value = false;
+    if (location.hash === '#how-to-play')
+      history.replaceState(null, '', location.pathname + location.search);
+  };
+  return (
+    <div class="panel howto" onPointerDown={(e) => e.stopPropagation()}>
+      <h2>How to play</h2>
+      <p class="lead">
+        Real pinball, scored like baseball. You bat for nine innings; three outs end each one. Score
+        as many runs as you can.
+      </p>
+      <h3>Hits</h3>
+      <table class="shots">
+        <tbody>
+          <tr>
+            <td>
+              <span class="cap c1">1B</span>
+              <span class="cap c2">2B</span>
+            </td>
+            <td>
+              Up the middle into <b>the Gap</b>: the pop bumpers are singles (front) and doubles
+              (back).
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <span class="cap c3">3B</span>
+            </td>
+            <td>
+              A clean <b>orbit</b> shot off the bat, round into the corner kicker.
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <span class="cap c4">HR</span>
+            </td>
+            <td>
+              The left ramp, <b>Over the Wall</b>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        Runners advance by the hit: a double moves everyone up two bases. After a hit the ball stays
+        live: flip it again for a <b>rally</b>.
+      </p>
+      <h3>Outs</h3>
+      <p>
+        A ball that settles in a <b>fielder's glove</b> (the seven saucers) is caught.{' '}
+        <b>Every drain is an out</b>: down the middle is a strikeout, off an outlane a foul out.
+      </p>
+      <h3>Pitching</h3>
+      <p>
+        Each at-bat starts with a pitch from the mound. The panel shows the pitch and the flipper
+        it's coming to, and counts down to the release: flip to hit it back up the field.
+      </p>
+      <h3>Features</h3>
+      <ul>
+        <li>
+          <b>B-A-T</b> drop targets: <b>Hot Bat</b>, your next hit goes one base further.
+        </li>
+        <li>
+          <b>R-U-N</b> targets (or right-ramp shots): light <b>STEAL</b>, then the right ramp moves
+          your lead runner up.
+        </li>
+        <li>
+          <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.
+        </li>
+        <li>
+          Each inning's first ball is plunged: roll through the lit top lane for a <b>skill shot</b>
+          .
+        </li>
+      </ul>
+      <h3>Controls</h3>
+      <table class="controls-table">
+        <tbody>
+          <tr>
+            <td>Keyboard</td>
+            <td>
+              Flippers Shift or ← →; plunger ↓ or Enter (hold, let go); nudge Z, /, Space; pause
+              Esc; sound M
+            </td>
+          </tr>
+          <tr>
+            <td>Touch</td>
+            <td>
+              Left / right half of the screen flips; drag the plunger knob (lower right) down and
+              let go; flick near the top to nudge
+            </td>
+          </tr>
+          <tr>
+            <td>Gamepad</td>
+            <td>
+              Bumpers or triggers flip; A or the right stick plunges; flick the left stick to nudge;
+              Start pauses
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="tip">
+        Nudge too hard and you'll get a warning; a third is a <b>tilt</b> and an out.
+      </p>
+      <button onClick={close}>Got it</button>
+    </div>
   );
 }
 
@@ -366,16 +478,29 @@ function Title({ actions }: { actions: UiActions }) {
         Touch: left / right half flips · drag the plunger knob (lower right) down and let go · flick
         near the top to nudge · Gamepad: bumpers flip, A plunges
       </p>
-      <button
-        class="secondary small"
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
-          e.stopPropagation();
-          actions.openSettings();
-        }}
-      >
-        Settings
-      </button>
+      <div class="title-buttons">
+        <button
+          class="secondary small"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            howToOpen.value = true;
+          }}
+        >
+          How to play
+        </button>
+        <button
+          class="secondary small"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            actions.openSettings();
+          }}
+        >
+          Settings
+        </button>
+      </div>
+      <p class="version">v{__APP_VERSION__}</p>
     </div>
   );
 }
@@ -385,6 +510,9 @@ function Pause({ actions }: { actions: UiActions }) {
     <div class="panel pause">
       <h2>Paused</h2>
       <button onClick={actions.resume}>Resume</button>
+      <button class="secondary" onClick={() => (howToOpen.value = true)}>
+        How to play
+      </button>
       <button class="secondary" onClick={actions.openSettings}>
         Settings
       </button>

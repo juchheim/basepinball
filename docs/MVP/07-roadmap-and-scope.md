@@ -97,6 +97,9 @@ Milestones are ordered by dependency. The schedule is set after M0, once physics
 
 ### M6: Release
 
+> **Status:** release candidate built (1.0.0-rc.1); device QA, the name clearance and the production
+> deploy wait on the product owner. See the [M6 report](m6-report.md).
+
 - Browser and device QA matrix, error handling (context loss, storage failures), production deploy
   on Vercel, short "how to play" page.
 

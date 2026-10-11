@@ -40,9 +40,42 @@ canvas {
   -webkit-touch-callout: none;
 }
 
-.fatal {
-  padding: 24px;
-  font-size: 16px;
+/* Fatal messages (lost graphics, start-up failure): plain DOM over everything. */
+.fatal-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 100;
+  transform: translate(-50%, -50%);
+  width: min(440px, calc(100vw - 32px));
+  padding: 22px;
+  text-align: center;
+  background: rgba(11, 16, 32, 0.96);
+  border: 1px solid rgba(244, 241, 232, 0.2);
+  border-radius: 14px;
+  font-family: Inter, system-ui, sans-serif;
+  /* Dim everything behind it. */
+  box-shadow: 0 0 0 100vmax rgba(5, 7, 13, 0.85);
+}
+.fatal-panel h2 {
+  margin: 0 0 10px;
+  font-family: Oswald, 'Arial Narrow', sans-serif;
+  font-size: 26px;
+}
+.fatal-panel p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.fatal-panel button {
+  padding: 11px 22px;
+  font: inherit;
+  font-weight: 600;
+  color: #0b1020;
+  background: #f2b33d;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 /* ---------------------------------------------------------------- game UI (M2, whitebox styling) */
@@ -606,4 +639,93 @@ canvas {
     right: auto;
     left: max(16px, env(safe-area-inset-left));
   }
+}
+
+/* ---------------------------------------------------------------- M6: how to play, version */
+
+.title-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.version {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: rgba(154, 166, 196, 0.6);
+  font-family: Inter, system-ui, sans-serif;
+}
+.howto {
+  text-align: left;
+  width: min(560px, calc(100vw - 24px));
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.howto h2 {
+  font-family: Oswald, 'Arial Narrow', sans-serif;
+}
+.howto h3 {
+  margin: 14px 0 4px;
+  font-family: Oswald, 'Arial Narrow', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #f2b33d;
+}
+.howto p,
+.howto ul {
+  margin: 4px 0;
+}
+.howto ul {
+  padding-left: 18px;
+}
+.howto .lead {
+  font-size: 15px;
+  color: var(--fg);
+}
+.howto table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.howto td {
+  padding: 4px 6px 4px 0;
+  vertical-align: top;
+}
+.howto .shots td:first-child {
+  white-space: nowrap;
+  width: 1%;
+}
+.howto .controls-table td:first-child {
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Hit types: color + shape + label, never color alone (docs/MVP/01 § 9). */
+.howto .cap {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  border-radius: 50%;
+  font-family: Oswald, 'Arial Narrow', sans-serif;
+  font-size: 12px;
+  color: #0b1020;
+}
+.howto .cap.c1 {
+  background: #f4efe1;
+}
+.howto .cap.c2 {
+  background: #3d8bfd;
+}
+.howto .cap.c3 {
+  background: #ff9f1c;
+  border-radius: 4px;
+}
+.howto .cap.c4 {
+  background: #ff3b3b;
+  border-radius: 4px;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.howto .tip {
+  color: var(--muted);
 }

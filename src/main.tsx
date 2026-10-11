@@ -2,6 +2,7 @@ import { render } from 'preact';
 import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
 import { FixedLoop } from './app/loop';
+import { FrameGuard, showFatal, startupFailure, watchContextLoss } from './app/resilience';
 import { Crowd } from './audio/crowd';
 import { AudioEngine } from './audio/engine';
 import { playStinger } from './audio/organ';
@@ -42,6 +43,7 @@ import {
   pitchCueFor,
   finalStats,
   highScores,
+  howToOpen,
   lastRank,
   lifetime,
   qualified,
@@ -65,11 +67,13 @@ async function main(): Promise<void> {
   const container = document.getElementById('app')!;
   const query = new URLSearchParams(location.search);
   const debug = query.has('debug');
-  const stage = new Stage(container, query.has('webgl'));
+  let stage: Stage;
   try {
+    stage = new Stage(container, query.has('webgl'));
     await stage.init();
   } catch (err) {
-    container.innerHTML = `<div class="fatal">Could not start the renderer: ${String(err)}</div>`;
+    console.error(err);
+    showFatal(startupFailure(err, query.has('webgl')));
     return;
   }
 
@@ -334,6 +338,12 @@ async function main(): Promise<void> {
   };
   highScores.value = loadHighScores();
   lifetime.value = loadLifetime();
+  // The how-to-play screen has its own address, for linking: /#how-to-play.
+  const fromHash = (): void => {
+    if (location.hash === '#how-to-play') howToOpen.value = true;
+  };
+  fromHash();
+  window.addEventListener('hashchange', fromHash);
   if (freePlay) screen.value = 'playing';
 
   function pauseGame(): void {
@@ -412,7 +422,7 @@ async function main(): Promise<void> {
         return;
       }
       case 'plunger':
-        if (settingsOpen.value) return;
+        if (settingsOpen.value || howToOpen.value) return;
         // Starting a game: a fresh press, not a drag in progress.
         if (e.pressed && e.value === undefined && (s === 'title' || s === 'scores') && !freePlay)
           return start();
@@ -435,6 +445,10 @@ async function main(): Promise<void> {
       case 'pause':
         if (!e.pressed) return;
         if (settingsOpen.value) return actions.closeSettings();
+        if (howToOpen.value) {
+          howToOpen.value = false;
+          return;
+        }
         if (s === 'playing') pauseGame();
         else if (s === 'paused') actions.resume();
         return;
@@ -454,6 +468,29 @@ async function main(): Promise<void> {
     if (e.action === 'faster') loop.timeScale = Math.min(1, loop.timeScale * 2);
   };
   input = new Input(stage.renderer.domElement, onInput, debug);
+
+  let stopped = false;
+  // A lost graphics context (GPU reset, the OS reclaiming memory) can't be recovered in place:
+  // pause, and offer a reload. Scores and settings are already saved.
+  watchContextLoss(
+    stage.renderer.domElement,
+    (
+      stage.renderer as unknown as {
+        backend: { device?: { lost?: Promise<{ reason?: string; message?: string }> } };
+      }
+    ).backend.device,
+    (why) => {
+      console.warn(why);
+      stopped = true;
+      pauseGame();
+      audio.setPaused(true);
+      showFatal({
+        title: 'The graphics were reset',
+        body: 'Your device reset its graphics (this can happen when memory runs low or the graphics driver restarts). Reload to play on. High scores and settings are safe; the game in progress is lost.',
+        action: 'reload',
+      });
+    },
+  );
   applySettings();
   // Motion nudge (if it was on last time) starts with the first gesture (iOS permission rules).
   if (cfg.motionNudge) {
@@ -561,7 +598,27 @@ async function main(): Promise<void> {
   let physicsMsAvg = 0;
   let last = performance.now();
   let lastHud = 0;
+  const guard = new FrameGuard();
   const tick = (now: number): void => {
+    if (stopped) return;
+    try {
+      frame(now);
+      guard.ok();
+    } catch (err) {
+      // One bad frame is logged and skipped; a long run of them stops with a message rather than
+      // a frozen screen.
+      if (guard.failed(err)) {
+        showFatal({
+          title: 'Something went wrong',
+          body: 'Rally Ball hit an error it could not recover from. Reload to start again; high scores and settings are safe.',
+          action: 'reload',
+        });
+        return;
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  const frame = (now: number): void => {
     input?.pollGamepads();
     loop.frame(now);
     const dt = Math.min(0.1, (now - last) / 1000);
@@ -607,7 +664,6 @@ async function main(): Promise<void> {
       fpsAt = now;
       perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}`;
     }
-    requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 }

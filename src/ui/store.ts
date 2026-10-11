@@ -32,6 +32,8 @@ export const remapping = signal<RemappableAction | null>(null);
 /** Resume countdown after a pause (3-2-1), or null. */
 export const resumeCount = signal<number | null>(null);
 export const lifetime = signal<Lifetime>(EMPTY_LIFETIME);
+/** The how-to-play screen is open. */
+export const howToOpen = signal(false);
 /** A note from the settings (e.g. motion permission denied). */
 export const settingsNote = signal('');
 

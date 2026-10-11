@@ -5,6 +5,10 @@ node_modules/
 dist/
 public/tex/
 public/fonts/
+public/icon.svg
+public/icon-512.png
+public/apple-touch-icon.png
+public/og.png
 .vercel/
 
 # logs & caches
