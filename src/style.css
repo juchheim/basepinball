@@ -33,43 +33,289 @@ canvas {
   -webkit-touch-callout: none;
 }
 
-.hud {
-  position: fixed;
-  left: 12px;
-  top: 10px;
-  font:
-    12px/1.4 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  color: var(--fg);
-  white-space: pre;
-  pointer-events: none;
-  text-shadow: 0 1px 2px #000;
-}
-
-.help {
-  position: fixed;
-  left: 12px;
-  bottom: 10px;
-  font-size: 12px;
-  color: var(--muted);
-  pointer-events: none;
-  text-shadow: 0 1px 2px #000;
-}
-
 .fatal {
   padding: 24px;
   font-size: 16px;
 }
 
-@media (max-width: 700px) {
-  .help {
-    display: none;
+/* ---------------------------------------------------------------- game UI (M2, whitebox styling) */
+
+.ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  font-family: Oswald, 'Arial Narrow', Inter, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.perf {
+  position: fixed;
+  left: 12px;
+  bottom: 10px;
+  font:
+    11px ui-monospace,
+    Menlo,
+    monospace;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.hud-bar {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 14px;
+  background: rgba(11, 16, 32, 0.78);
+  border: 1px solid rgba(244, 241, 232, 0.15);
+  border-radius: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100vw - 24px);
+}
+.hud-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 26px;
+}
+.hud-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+.hud-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.outs {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.outs i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid #ff3b3b;
+}
+.outs i.on {
+  background: #ff3b3b;
+}
+.diamond {
+  width: 38px;
+  height: 38px;
+}
+.diamond rect {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 1.5;
+}
+.diamond rect.on {
+  fill: #f2b33d;
+  stroke: #f2b33d;
+}
+.diamond rect.home {
+  fill: var(--fg);
+}
+.hud-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.chip {
+  font-size: 11px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(244, 241, 232, 0.12);
+}
+.chip.hot {
+  background: #ff3b3b;
+}
+.chip.steal {
+  background: #2ec4b6;
+  color: #0b1020;
+}
+.chip.rally {
+  background: #f2b33d;
+  color: #0b1020;
+}
+.chip.warn {
+  background: #ff9f1c;
+  color: #0b1020;
+}
+
+.callout {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  animation: callout-in 180ms ease-out;
+  text-shadow: 0 3px 12px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+.callout-text {
+  font-size: clamp(30px, 8vw, 64px);
+  font-weight: 700;
+}
+.callout-sub {
+  font-size: clamp(14px, 3.4vw, 20px);
+  color: var(--fg);
+  opacity: 0.9;
+}
+.callout.hit .callout-text {
+  color: #f2b33d;
+}
+.callout.out .callout-text {
+  color: #ff6b6b;
+}
+.callout.info .callout-text {
+  color: #7fd1ff;
+  font-size: clamp(22px, 5vw, 40px);
+}
+@keyframes callout-in {
+  from {
+    transform: translateX(-50%) scale(0.7);
+    opacity: 0;
   }
-  /* The debug panel takes the top of the screen on phones; keep the HUD below it. */
-  .hud {
-    top: 52px;
-    font-size: 11px;
+  to {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
   }
+}
+
+.panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 22px 22px 18px;
+  background: rgba(11, 16, 32, 0.9);
+  border: 1px solid rgba(244, 241, 232, 0.18);
+  border-radius: 14px;
+  text-align: center;
+  pointer-events: auto;
+}
+.panel h1 {
+  margin: 0;
+  font-size: clamp(36px, 9vw, 54px);
+}
+.panel h2 {
+  margin: 0 0 12px;
+  font-size: 28px;
+}
+.tagline {
+  margin: 4px 0 16px;
+  color: var(--muted);
+}
+.cta {
+  font-size: 20px;
+  color: #f2b33d;
+  animation: pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes pulse {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.controls {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: Inter, system-ui, sans-serif;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+.panel button {
+  display: block;
+  width: 100%;
+  margin: 10px 0 0;
+  padding: 11px;
+  font: inherit;
+  font-size: 18px;
+  color: #0b1020;
+  background: #f2b33d;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.panel button.secondary {
+  background: rgba(244, 241, 232, 0.15);
+  color: var(--fg);
+}
+.boxscore table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.boxscore th,
+.boxscore td {
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(244, 241, 232, 0.12);
+}
+.boxscore .team {
+  text-align: left;
+  font-size: 11px;
+}
+.boxscore .total {
+  color: #f2b33d;
+  font-weight: 700;
+}
+.statline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  justify-content: center;
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.initials {
+  margin-top: 14px;
+}
+.initials label {
+  display: block;
+  color: #f2b33d;
+  margin-bottom: 6px;
+}
+.initials input {
+  width: 120px;
+  font: inherit;
+  font-size: 30px;
+  text-align: center;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  background: rgba(244, 241, 232, 0.08);
+  color: var(--fg);
+  border: 1px solid rgba(244, 241, 232, 0.3);
+  border-radius: 8px;
+  padding: 6px;
+}
+.scoretable {
+  margin: 8px auto 0;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+.scoretable td {
+  padding: 3px 10px;
+}
+.scoretable tr.mine {
+  color: #f2b33d;
+}
+.initials-cell {
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+.empty {
+  color: var(--muted);
 }

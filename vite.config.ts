@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Preact's automatic JSX runtime for the UI (src/ui).
+  oxc: { jsx: { runtime: 'automatic', importSource: 'preact' } },
   build: {
     target: 'es2022',
     sourcemap: true,

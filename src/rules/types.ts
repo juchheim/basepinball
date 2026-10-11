@@ -1,0 +1,154 @@
+import type { Bases } from './bases';
+import type { PitchSpec, PitchType } from './pitching';
+
+/** Ball states of the at-bat state machine (docs/MVP/01 § 4.2). */
+export type BallState =
+  'LEADOFF_LAUNCH' | 'PITCH' | 'IN_PLAY' | 'LIVE_AFTER_HIT' | 'DEAD' | 'INNING_BREAK' | 'GAME_OVER';
+
+export type HitType = '1B' | '2B' | '3B' | 'HR';
+export type OutHow = 'K' | 'foul' | 'fielder' | 'tilt';
+
+/** Fielding positions and their scorebook numbers. */
+export const POSITIONS = {
+  P: 1,
+  C: 2,
+  '1B': 3,
+  '2B': 4,
+  '3B': 5,
+  SS: 6,
+  LF: 7,
+  CF: 8,
+  RF: 9,
+} as const;
+export type Position = keyof typeof POSITIONS;
+
+/** What the game tells presentation (HUD, lamps, sound, animation). */
+export type RulesEvent =
+  | { type: 'gameStart' }
+  | { type: 'inningStart'; inning: number }
+  | { type: 'pitchTell'; pitch: PitchType }
+  | { type: 'pitch'; pitch: PitchType }
+  | { type: 'batterUp'; rally: number }
+  | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
+  | { type: 'out'; how: OutHow; position?: Position; outs: number }
+  | { type: 'runs'; runs: number }
+  | { type: 'steal'; from: number; runs: number }
+  | { type: 'hotBat'; source: 'BAT' | 'skillShot' | 'rallyCap' }
+  | { type: 'stealLit' }
+  | { type: 'kickbackLit' }
+  | { type: 'skillShot' }
+  | { type: 'rally'; count: number }
+  | { type: 'tiltWarning'; warnings: number }
+  | { type: 'tilt' }
+  | { type: 'ballSearch' }
+  | { type: 'ballRescued' }
+  | { type: 'inningEnd'; inning: number; runs: number; lob: number }
+  | { type: 'gameOver' };
+
+export interface GameStats {
+  runsByInning: number[];
+  runs: number;
+  hits: number;
+  singles: number;
+  doubles: number;
+  triples: number;
+  homeRuns: number;
+  strikeouts: number;
+  foulOuts: number;
+  fielderOuts: number;
+  tiltOuts: number;
+  plateAppearances: number;
+  leftOnBase: number;
+  longestRally: number;
+  skillShots: number;
+  steals: number;
+  /** Simulation seconds from first pitch to final out. */
+  duration: number;
+}
+
+export function emptyStats(): GameStats {
+  return {
+    runsByInning: [],
+    runs: 0,
+    hits: 0,
+    singles: 0,
+    doubles: 0,
+    triples: 0,
+    homeRuns: 0,
+    strikeouts: 0,
+    foulOuts: 0,
+    fielderOuts: 0,
+    tiltOuts: 0,
+    plateAppearances: 0,
+    leftOnBase: 0,
+    longestRally: 0,
+    skillShots: 0,
+    steals: 0,
+    duration: 0,
+  };
+}
+
+/** Everything the HUD needs, as plain data. */
+export interface GameSnapshot {
+  state: BallState;
+  inning: number;
+  innings: number;
+  outs: number;
+  bases: Bases;
+  stats: GameStats;
+  rally: number;
+  hotBat: boolean;
+  stealLit: boolean;
+  kickbackLit: boolean;
+  tiltWarnings: number;
+  tilted: boolean;
+  skillLane: 'R' | 'B' | 'I' | null;
+  /** Pitch being telegraphed or in flight. */
+  pitch: PitchType | null;
+}
+
+/** Commands the rules issue to the machine (physics), like coil drivers on a real table. */
+export interface Machine {
+  /** Put the ball on the plunger (start of an inning). */
+  serveToPlunger(): void;
+  /** Ball comes up the mound VUK and is pitched (the ball may currently be held or in play). */
+  pitch(spec: PitchSpec): void;
+  /** Take the ball off the playfield (it is in the subway or trough). */
+  holdBall(): void;
+  setMagnet(power: number): void;
+  setKickback(armed: boolean): void;
+  resetDropTargets(): void;
+  setFlippersEnabled(enabled: boolean): void;
+  /** Free a stuck ball (pulse coils / small kick). */
+  ballSearch(): void;
+  /** Is the ball on the playfield (not drained, captured, or held)? */
+  ballInPlay(): boolean;
+  /** Ball speed (m/s), for stuck-ball detection. */
+  ballSpeed(): number;
+}
+
+/** Timing (seconds of simulation time). */
+export interface RulesTiming {
+  /** Ball travels the subway from a saucer / the trough to the mound. */
+  routeFromSaucer: number;
+  routeFromDrain: number;
+  /** Pitch-type lamp lights this long before release. */
+  tell: number;
+  inningBreak: number;
+  /** No switch activity and a still ball for this long → ball search; then rescue. */
+  ballSearchAfter: number;
+  rescueAfter: number;
+  /** A drain this soon after an outlane switch is a foul out. */
+  outlaneWindow: number;
+}
+
+/** Includes presentation time: the fielder's catch-and-throw, the pitcher's windup, the side retired. */
+export const DEFAULT_TIMING: RulesTiming = {
+  routeFromSaucer: 2.0,
+  routeFromDrain: 1.6,
+  tell: 0.8,
+  inningBreak: 5,
+  ballSearchAfter: 6,
+  rescueAfter: 15,
+  outlaneWindow: 2,
+};

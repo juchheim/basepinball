@@ -57,10 +57,17 @@ function touchAction(x: number, y: number): Action {
   return x < w / 2 ? 'flipperL' : 'flipperR';
 }
 
+/** Typing into a form (e.g. high-score initials) must not flip or pause. */
+function typing(e: KeyboardEvent): boolean {
+  const t = e.target as HTMLElement | null;
+  return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+}
+
 export function bindInput(canvas: HTMLElement, emit: (e: InputEvent) => void): void {
   const held = new Set<Action>();
 
   window.addEventListener('keydown', (e) => {
+    if (typing(e)) return;
     const action = KEYS[e.code];
     if (!action) return;
     e.preventDefault();
@@ -69,6 +76,7 @@ export function bindInput(canvas: HTMLElement, emit: (e: InputEvent) => void): v
     emit({ action, pressed: true, time: e.timeStamp });
   });
   window.addEventListener('keyup', (e) => {
+    if (typing(e) && !held.size) return;
     const action = KEYS[e.code];
     if (!action) return;
     e.preventDefault();

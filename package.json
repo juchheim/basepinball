@@ -17,9 +17,12 @@
     "test:watch": "vitest",
     "bench:physics": "vitest run tests/physics/perf.test.ts",
     "bench:rapier": "RAPIER_BENCH=1 vitest run tests/bench --reporter=verbose --silent=false",
-    "layout:svg": "tsx tools/export-layout.ts"
+    "layout:svg": "tsx tools/export-layout.ts",
+    "simbot": "tsx tools/simbot.ts"
   },
   "dependencies": {
+    "@preact/signals": "^2.11.3",
+    "preact": "^11.0.1",
     "three": "^0.186.1",
     "tweakpane": "^4.0.5"
   },

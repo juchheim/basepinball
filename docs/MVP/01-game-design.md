@@ -96,7 +96,7 @@ stateDiagram-v2
 |---|---|---|---|
 | Swing | → `IN_PLAY` | — | → `IN_PLAY` (rally +1 if after a hit) |
 | Fielder saucer | Ignored, ball returned, re-pitch (rare) | **OUT** | No out. The fielder "throws it back to the pitcher" and the batter gets a pitch. |
-| Hit device | Ignored (rare) | **HIT** → runners advance → `LIVE_AFTER_HIT` | Cosmetic only (lights and sound) |
+| Hit device | Ignored (rare) | **HIT** → runners advance → `LIVE_AFTER_HIT`. A **triple** counts only for a ball that went up that orbit within 1 s of leaving the bat (a clean shot down the line, not a slingshot ricochet). | Cosmetic only (lights and sound) |
 | Feature shot (drops, standups, Steal ramp, lanes, spinners) | Counts | Counts. **The PA continues.** | Counts |
 | Center drain | **STRIKEOUT** (looking) | **STRIKEOUT** (swinging) | **STRIKEOUT** |
 | Outlane drain | **FOUL OUT** (kickback saves if lit) | **FOUL OUT** (kickback saves if lit) | **FOUL OUT** (kickback saves if lit) |
@@ -164,7 +164,19 @@ Resolution details:
   essential.
 - **Difficulty curve:** innings 1–3 are mostly FB/CH at moderate speed. Innings 4–6 add CB. Innings
   7–9 bring faster fastballs and more curves. All of this is data-driven.
-- **Pace:** the next pitch is released 1.2–2.0 s after the ball arrives at the mound (tunable).
+- **Pace:** after an out, the ball takes 2.0 s (fielder catch and throw) or 1.6 s (from the drain)
+  to reach the mound. Then the pitch-type lamp shows for 0.8 s (the windup) before release. The
+  side-retired break is 5 s.
+- **Calibrated templates (M2):**
+
+  | Type | Speed | Aim |
+  |------|-------|-----|
+  | FB | 1.15–1.45 m/s | Middle of the bat |
+  | CH | 0.70–0.85 m/s | 6 mm toward the pivot |
+  | CB | 0.95–1.10 m/s | 28 mm outside the bat, bent back onto it by a 0.2 s full-power magnet pulse (about 20 mm of break) |
+
+  Speeds rise within each range as the innings go on. Every template is verified in
+  `tests/rules/pitching.test.ts`.
 
 ### 4.7 Leadoff skill shot (P1)
 
@@ -263,15 +275,20 @@ A paused game shows a resume countdown (3-2-1) before physics restarts.
 
 Targets for an **average player** (validated by playtests plus the headless simulator bot):
 
-| Metric | Target |
-|--------|--------|
-| Game length | 8–12 min (≈ 40 PAs × ~15 s, including presentation) |
-| Runs per game | 3–5 (median 4) |
-| Hit rate (hits / PA) | ~30 % |
-| Hit mix | ~55 % 1B, 25 % 2B, 8 % 3B, 12 % HR |
-| Drain outs (K + foul out) | ≤ 25 % of PAs. Saucer outs should be the most common out. |
-| Rally PAs | 15–25 % of PAs |
-| Ball stuck events | < 1 per 20 games |
+| Metric | Target | M2 sim bot ("average", 30 games) |
+|--------|--------|------|
+| Game length | 8–12 min (≈ 40 PAs × ~15 s, including presentation) | 5.1 sim minutes. The bot never hesitates, cradles briefly and plunges instantly; human play is longer. Confirm in playtests. |
+| Runs per game | 3–5 (median 4) | 4.7 (median 4) ✅ |
+| Hit rate (hits / PA) | ~30 % | 30.5 % ✅ |
+| Hit mix | ~55 % 1B, 25 % 2B, 8 % 3B, 12 % HR | 54.5 / 23.9 / 8.1 / 13.5 ✅ |
+| Drain outs (K + foul out) | ≤ 25 % of PAs. Saucer outs should be the most common out. | **55 % drains, 14 % fielder outs** ❌ (see below) |
+| Rally PAs | 15–25 % of PAs | 25.6 % ✅ |
+| Ball stuck events | < 1 per 20 games | 0 rescues in 30 games ✅ |
+
+**Drain outs vs fielder outs.** With every drain an out (your rule), drains are the most common
+out: post-hit balls draining, pitches the batter misses, and outlane drains all count. Fielder outs
+can be pushed up with bigger or deader gloves, but that also cuts hits. This is an open question
+in the [M2 report](m2-report.md).
 
 For a **skilled player**, the target is 8–15 runs, with the ceiling set by the ramp's difficulty and
 the pitch mix. **Main tuning levers:** fielder saucer size and lip, post spacing between shots, pop

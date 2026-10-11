@@ -1,0 +1,105 @@
+import { signal } from '@preact/signals';
+import type { GameSnapshot, GameStats, RulesEvent } from '../rules/types';
+import type { HighScore } from '../storage/highscores';
+
+/** UI state shared between the game controller and the Preact overlay. */
+
+export type Screen = 'title' | 'playing' | 'paused' | 'gameover' | 'scores';
+
+export interface Callout {
+  id: number;
+  text: string;
+  sub?: string;
+  tone: 'hit' | 'out' | 'info' | 'big';
+}
+
+export const screen = signal<Screen>('title');
+export const snapshot = signal<GameSnapshot | null>(null);
+export const callout = signal<Callout | null>(null);
+export const finalStats = signal<GameStats | null>(null);
+export const highScores = signal<HighScore[]>([]);
+/** Rank of the score just entered (to highlight it), or -1. */
+export const lastRank = signal(-1);
+/** Whether the finished game makes the high-score table. */
+export const qualified = signal(false);
+
+let calloutId = 0;
+let clearTimer: ReturnType<typeof setTimeout> | undefined;
+
+export function showCallout(
+  text: string,
+  sub: string | undefined,
+  tone: Callout['tone'],
+  ms = 1400,
+): void {
+  callout.value = { id: ++calloutId, text, ...(sub ? { sub } : {}), tone };
+  clearTimeout(clearTimer);
+  clearTimer = setTimeout(() => (callout.value = null), ms);
+}
+
+const HIT_NAMES = { '1B': 'SINGLE', '2B': 'DOUBLE', '3B': 'TRIPLE', HR: 'HOME RUN' } as const;
+const BASE_NAMES = ['SINGLE', 'DOUBLE', 'TRIPLE', 'INSIDE-THE-PARK HOME RUN'];
+const POS_NUM: Record<string, number> = { '1B': 3, '2B': 4, '3B': 5, SS: 6, LF: 7, CF: 8, RF: 9 };
+
+/** Turn rules events into short, readable callouts (docs/MVP/05 § 8). */
+export function calloutFor(e: RulesEvent): void {
+  switch (e.type) {
+    case 'inningStart':
+      return showCallout(`INNING ${e.inning}`, 'Leadoff: plunge for the skill shot', 'big', 2000);
+    case 'hit': {
+      const name = e.hotBat ? BASE_NAMES[e.bases - 1]! : HIT_NAMES[e.hit];
+      const runs =
+        e.runs === 0 ? undefined : e.runs === 1 ? '1 run scores' : `${e.runs} runs score`;
+      return showCallout(
+        `${e.hotBat ? 'HOT BAT · ' : ''}${name}!`,
+        runs,
+        'hit',
+        e.hit === 'HR' ? 2200 : 1400,
+      );
+    }
+    case 'out': {
+      const outs = `${e.outs} out${e.outs === 1 ? '' : 's'}`;
+      if (e.how === 'fielder' && e.position)
+        return showCallout(
+          'OUT!',
+          `Caught by ${e.position} (${POS_NUM[e.position]}) · ${outs}`,
+          'out',
+        );
+      if (e.how === 'K') return showCallout('STRIKEOUT', outs, 'out');
+      if (e.how === 'foul') return showCallout('FOUL OUT', outs, 'out');
+      return showCallout('TILT', outs, 'out', 2000);
+    }
+    case 'steal':
+      return showCallout(
+        e.runs > 0 ? 'STEALS HOME!' : 'STOLEN BASE!',
+        e.runs > 0 ? '1 run scores' : undefined,
+        'hit',
+      );
+    case 'rally':
+      return e.count >= 2 ? showCallout(`RALLY ×${e.count}`, undefined, 'info', 900) : undefined;
+    case 'hotBat':
+      return showCallout(
+        'HOT BAT LIT',
+        { BAT: 'B-A-T complete', skillShot: 'Skill shot!', rallyCap: 'Rally Cap!' }[e.source] +
+          ' · next hit +1 base',
+        'info',
+      );
+    case 'stealLit':
+      return showCallout('STEAL LIT', 'Shoot the right ramp', 'info');
+    case 'kickbackLit':
+      return showCallout('KICKBACK LIT', undefined, 'info', 1000);
+    case 'tiltWarning':
+      return showCallout('WARNING', `${e.warnings} of 2`, 'out', 900);
+    case 'inningEnd':
+      return showCallout(
+        'SIDE RETIRED',
+        `${e.runs} run${e.runs === 1 ? '' : 's'} · ${e.lob} left on base`,
+        'big',
+        2600,
+      );
+    case 'gameOver':
+      return showCallout('FINAL', undefined, 'big', 2000);
+    default:
+      return;
+  }
+}

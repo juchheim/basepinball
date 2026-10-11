@@ -110,7 +110,16 @@ const elements: ElementDef[] = [
 
   // Devices under test.
   { type: 'pop', id: 'pop.1B.L', x: 330, y: 600, radius: 22 },
-  { type: 'saucer', id: 'saucer.SS', x: 180, y: 480, radius: 20, depth: 7, lipAngle: 90 },
+  {
+    type: 'saucer',
+    id: 'saucer.SS',
+    x: 180,
+    y: 480,
+    radius: 20,
+    depth: 7,
+    lipAngle: 90,
+    lip: 'post',
+  },
   { type: 'drop', id: 'drop.B', a: [408.3, 479.4], b: [431.7, 460.6] },
   { type: 'post', x: 120, y: 600, radius: 8, material: 'rubberPost' },
   { type: 'post', x: 450, y: 640, radius: 8, material: 'rubberPost' },
