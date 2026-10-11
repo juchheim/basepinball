@@ -1,9 +1,10 @@
 /**
- * Names shown in the game. The game name was chosen in M3 (docs/MVP/naming.md); to change it,
- * edit it here and in index.html's <title>.
+ * Names shown in the game (docs/MVP/naming.md: Rally Ball in M3, renamed Steel Diamond in M6).
+ * To change the name, edit it here, in index.html's title and share tags, and on the share card
+ * (tools/art/brand.ts).
  */
 export const BRAND = {
-  game: 'Rally Ball',
+  game: 'Steel Diamond',
   team: 'Tilt City Silverballs',
   teamShort: 'Silverballs',
   park: 'Plunger Park',

@@ -21,7 +21,7 @@ license. Update this file whenever something new ships.
 | Playfield art, standees, backboard | Generated from the table data by `tools/art/*.ts` (`npm run art`) |
 | Every sound: mechanical SFX, crowd, organ, UI | Synthesised at run time with Web Audio (`src/audio/`). No audio files ship. |
 | Organ stingers | Original note data in `src/audio/organ.ts`. No ballpark standards are quoted. |
-| Name, team and park ("Rally Ball", "Tilt City Silverballs", "Plunger Park") | Original. A trademark check is still due before launch (M6). |
+| Name, team and park ("Steel Diamond", "Tilt City Silverballs", "Plunger Park") | Original. A quick search (M6) found no conflicting game, app or trademark; a professional clearance is still recommended before marketing. |
 
 ## Build-time only (not shipped)
 

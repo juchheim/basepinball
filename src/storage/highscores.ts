@@ -67,7 +67,7 @@ function entry(initials: string, stats: GameStats, date: string): HighScore {
     hr: stats.homeRuns,
     date,
     durationSec: Math.round(stats.duration),
-    build: import.meta.env?.MODE ?? 'test',
+    build: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev',
   };
 }
 

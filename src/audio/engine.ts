@@ -83,7 +83,14 @@ export class AudioEngine {
   unlock(): void {
     if (typeof AudioContext === 'undefined') return;
     if (!this.ctx) {
-      const ctx = new AudioContext({ latencyHint: 'interactive' });
+      let ctx: AudioContext;
+      try {
+        ctx = new AudioContext({ latencyHint: 'interactive' });
+      } catch (err) {
+        // No audio (blocked, or the device has none): the game plays silently.
+        console.warn('audio unavailable', err);
+        return;
+      }
       this.ctx = ctx;
       const master = ctx.createGain();
       // A gentle limiter so stacked impacts never clip.
@@ -106,7 +113,7 @@ export class AudioEngine {
       this.applyVolumes();
       for (const hook of this.startHooks) hook(this);
     }
-    if (this.ctx.state === 'suspended' && !this.paused) void this.ctx.resume();
+    if (this.ctx.state === 'suspended' && !this.paused) this.ctx.resume().catch(() => undefined);
   }
 
   bus(name: BusName): AudioNode | null {

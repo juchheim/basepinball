@@ -1,4 +1,4 @@
-# Rally Ball — MVP Planning
+# Steel Diamond — MVP Planning
 
 *Game name chosen in M3 ([naming](naming.md)). "BasePinball" was the working title and is still
 the repository name.*
@@ -33,6 +33,7 @@ runs as you can.
 | M3 | [M3 Report](m3-report.md) | Art pass: asset pipeline, playfield art, standees, stadium, lighting, quality tiers |
 | M4 | [M4 Report](m4-report.md) | Presentation: synthesised audio (SFX, crowd, organ), lamp shows, figure animation, particles, stadium reactions |
 | M5 | [M5 Report](m5-report.md) | Settings, touch and gamepad controls, landscape, lifetime stats, P1 polish, acceptance-criteria status |
+| M6 | [M6 Report](m6-report.md) | Release candidate: error handling, how to play, page and share polish, QA status, name check, release steps |
 | QA | [QA checklist](qa-checklist.md) | The manual pass for acceptance criteria 1-3 on each browser and device |
 | — | [Naming](naming.md) | Final game name candidates |
 | M2 | [M2 Report](m2-report.md) | Rules engine, pitching, game flow, sim bot and balance report |
@@ -58,7 +59,7 @@ runs as you can.
 | Art | Night-game realism, vector-first assets with a raster-replacement contract |
 | Audio | Full SFX and crowd, original organ stingers. No announcer. |
 | Scores | Runs are the score. Local high scores only. No backend in the MVP. |
-| Session | 8–12 min per game, 3–5 runs for an average player |
+| Session | 6–9 min per game (revised from 8–12 in M6), 3–5 runs for an average player |
 | Naming | The final game name and identity are decided during the art milestone (M3) |
 | Placeholder team | *The Tilt City Silverballs* of *Plunger Park* |
 | Hosting | Vercel (static). Any future backend goes on Cloudflare Workers. Repo: `git@github.com:juchheim/basepinball.git` |

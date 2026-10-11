@@ -4,11 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1020" />
-    <title>Rally Ball</title>
+    <title>Steel Diamond: pinball scored like baseball</title>
+    <meta
+      name="description"
+      content="Real pinball, scored like baseball. Nine innings in your browser: hit the Gap for singles and doubles, loop the orbits for triples, and ride the ramp over the wall for a home run."
+    />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Steel Diamond" />
+    <meta
+      property="og:description"
+      content="Real pinball, scored like baseball. Play free in your browser."
+    />
+    <meta property="og:url" content="__SITE_URL__/" />
+    <meta property="og:image" content="__SITE_URL__/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="preload" href="/fonts/Oswald-Bold.ttf" as="font" type="font/ttf" crossorigin />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <p style="padding: 24px; color: #f4f1e8; font-family: system-ui">
+        Steel Diamond needs JavaScript and a WebGL2- or WebGPU-capable browser.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

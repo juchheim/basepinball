@@ -20,8 +20,9 @@ import {
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
-import sharp from 'sharp';
+import sharp, { type OverlayOptions } from 'sharp';
 import { v1Table } from '../src/table/v1Table';
+import { iconSvg, shareCardSvg } from './art/brand';
 import { playfieldSvg } from './art/playfield';
 import { standeeSvg } from './art/standees';
 
@@ -58,6 +59,7 @@ async function build(): Promise<void> {
   mkdirSync(outDir, { recursive: true });
   for (const f of readdirSync(outDir)) rmSync(join(outDir, f));
   const manifest: Record<string, { files: Record<number, string>; aspect: number }> = {};
+  let playfieldPng: Buffer | null = null;
   for (const [name, slot] of Object.entries(SLOTS)) {
     const override = join(rasterDir, `${name}.png`);
     const svgPath = join(svgDir, `${name}.svg`);
@@ -76,6 +78,7 @@ async function build(): Promise<void> {
         });
         png = Buffer.from(resvg.render().asPng());
       }
+      if (name === 'playfield.base' && !playfieldPng) playfieldPng = png;
       const img = sharp(png);
       const meta = await img.metadata();
       aspect = (meta.height ?? 1) / (meta.width ?? 1);
@@ -94,11 +97,40 @@ async function build(): Promise<void> {
   // The display font (Oswald, OFL) for the UI and the scoreboard canvas.
   mkdirSync(join(root, 'public/fonts'), { recursive: true });
   copyFileSync(fontFile, join(root, 'public/fonts/Oswald-Bold.ttf'));
+  await brandImages(playfieldPng);
   // The OFL requires the license to travel with the font.
   copyFileSync(
     join(root, 'node_modules/@expo-google-fonts/oswald/LICENSE_FONT'),
     join(root, 'public/fonts/OFL.txt'),
   );
+}
+
+/** The favicon, home-screen icons and the social share card (public/). */
+async function brandImages(playfield: Buffer | null): Promise<void> {
+  const pub = join(root, 'public');
+  const icon = iconSvg();
+  writeFileSync(join(pub, 'icon.svg'), icon);
+  for (const [file, size] of [
+    ['apple-touch-icon.png', 180],
+    ['icon-512.png', 512],
+  ] as const) {
+    const png = new Resvg(icon, { fitTo: { mode: 'width', value: size } }).render().asPng();
+    writeFileSync(join(pub, file), png);
+  }
+  const card = new Resvg(shareCardSvg(), {
+    font: { fontFiles: [fontFile], loadSystemFonts: false, defaultFontFamily: 'Oswald' },
+  })
+    .render()
+    .asPng();
+  const layers: OverlayOptions[] = [];
+  if (playfield) {
+    // The playfield art, upright on the right of the card.
+    const art = await sharp(playfield).resize({ height: 590 }).png().toBuffer();
+    const meta = await sharp(art).metadata();
+    layers.push({ input: art, left: 1200 - (meta.width ?? 300) - 40, top: 20 });
+  }
+  await sharp(Buffer.from(card)).composite(layers).png().toFile(join(pub, 'og.png'));
+  console.log('assets: icon.svg, apple-touch-icon.png, icon-512.png, og.png');
 }
 
 if (process.argv.includes('--generate')) generateSources();
