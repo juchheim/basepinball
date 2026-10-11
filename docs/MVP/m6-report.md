@@ -71,6 +71,20 @@ renderer stopped presenting frames rather than drawing a dark one. Changes made:
 - **Pixel budget:** the canvas is capped at 1.5 / 3 / 6 / 12 million pixels on Low / Medium / High /
   Ultra, so a huge Retina window cannot exhaust GPU memory (a 2000 × 1160 window now renders at
   about 1.6× instead of 2×). This is a precaution; the root cause is not confirmed.
+- **Cause found (from a tester's debug screenshots):** the canvas blanked while Safari ran the
+  **WebGL2** renderer at **High** (`WebGL2 · high · 16 fps`), and came back when the adaptive controller
+  dropped to Medium (`WebGL2 · medium · 45 fps`). Chrome does not blank even at 23 fps on a
+  4535 × 2645 canvas, so it is Safari's WebGL2 path under load (GPU memory, or a dropped frame
+  budget). The old controller needed 120 slow frames (7.5 s at 16 fps), stepped down one tier at a
+  time and ignored frames over 100 ms, which is why it showed "a little after starting up".
+  Fixes:
+  - **Starting tier:** Safari, the WebGL2 renderer and phones start at **Medium**; desktop WebGPU starts
+    at High (`?quality=` still overrides).
+  - **Faster controller:** judges the median of 45 frames after a 1.5 s warm-up (under a second at
+    60 fps), steps down **two tiers** when under about 22 fps, and no longer discards slow frames
+    as stalls (only frames over 250 ms).
+  - **Playfield texture:** High now uses the 2048 px texture, about 2× the playfield's on-screen
+    width. The 4096 px one costs about 180 MB of GPU memory, so only Ultra uses it.
 - **Tests:** `tests/app/resilience.test.ts` covers the watchdog's decisions; in the browser the probe
   was checked against drawn and emptied canvases, and the whole path (dialog, saved setting, restart
   on WebGL2) was run with `__bp.breakCanvas()` in `?debug`.

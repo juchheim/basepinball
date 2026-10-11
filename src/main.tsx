@@ -161,7 +161,7 @@ async function main(): Promise<void> {
       );
     }
   };
-  const quality = new AdaptiveQuality(initialTier(query), applyQuality);
+  const quality = new AdaptiveQuality(initialTier(query, stage.backend), applyQuality);
   quality.enabled = !query.has('quality');
   if (!query.has('quality') && cfg.quality !== 'auto') {
     quality.tier = TIERS[cfg.quality];
