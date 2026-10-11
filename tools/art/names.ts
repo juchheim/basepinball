@@ -11,9 +11,21 @@ export const NAME_CANDIDATES: { name: string; line: string }[] = [
   { name: 'BasePinball', line: 'The working title: clear, descriptive' },
 ];
 
-export function namesSvg(): string {
+/** Round 2 (more options requested). */
+export const NAME_CANDIDATES_2: { name: string; line: string }[] = [
+  { name: 'Pop Fly', line: 'Pop bumpers + a pop fly: the pinball and baseball meanings in two words' },
+  { name: 'Rally Ball', line: 'Named for the rally mechanic: keep the ball live, keep the inning alive' },
+  { name: 'Swing & Flip', line: 'Says both games outright; friendly and clear' },
+  { name: 'Moonshot', line: 'Slang for a towering home run; works as a logo and a ramp name' },
+  { name: 'Flipper Field', line: 'Plain-spoken: a ballfield made of flippers' },
+  { name: 'Fair or Foul', line: 'Every shot is a call; pairs with the foul-out outlanes' },
+  { name: 'Can of Corn', line: 'Baseball slang for an easy fly ball; quirky and memorable' },
+  { name: 'Seventh-Inning Tilt', line: 'Seventh-inning stretch with a pinball twist; playful but long' },
+];
+
+export function namesSvg(candidates = NAME_CANDIDATES): string {
   const rowH = 150;
-  const rows = NAME_CANDIDATES.map(({ name, line }, i) => {
+  const rows = candidates.map(({ name, line }, i) => {
     const y = 40 + i * rowH;
     return `<g transform="translate(40 ${y})">
   <rect width="920" height="${rowH - 20}" rx="14" fill="#141b33" stroke="#2a3557"/>
@@ -23,7 +35,7 @@ export function namesSvg(): string {
   <text x="890" y="88" text-anchor="end" font-family="Oswald" font-weight="700" font-size="20" fill="#f4f1e8" opacity="0.5">${i + 1}</text>
 </g>`;
   });
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 ${40 + NAME_CANDIDATES.length * rowH}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 ${40 + candidates.length * rowH}">
 <rect width="100%" height="100%" fill="#0b1020"/>
 ${rows.join('\n')}
 </svg>
