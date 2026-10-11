@@ -59,6 +59,7 @@ export type FigureAction =
   | { kind: 'celebrate' }
   | { kind: 'hit'; bases: number }
   | { kind: 'steal'; from: number }
+  | { kind: 'walk'; moved: number[] }
   | { kind: 'clearBases' };
 
 const MM = 0.001;
@@ -257,17 +258,20 @@ export class Director {
         o.excite(0.5 + e.runs * 0.1);
         return;
       case 'steal':
-        for (const from of e.moved) o.figure({ kind: 'steal', from });
+        o.figure({ kind: 'steal', from: e.from });
         o.figure({ kind: 'safe' });
         o.sound('slide');
         o.show('steal');
-        o.crowd('cheer', e.double ? 0.8 : 0.6);
-        o.scoreboard(
-          e.double ? 'DOUBLE STEAL!' : e.runs > 0 ? 'STEALS HOME!' : 'SAFE!',
-          '',
-          '#3fe0cf',
-          1.8,
-        );
+        o.crowd('cheer', 0.6);
+        o.scoreboard(e.runs > 0 ? 'STEALS HOME!' : 'SAFE!', '', '#3fe0cf', 1.8);
+        return;
+      case 'walk':
+        o.figure({ kind: 'walk', moved: e.moved });
+        o.sound('award');
+        o.show('hit');
+        o.flash('base.1B');
+        o.crowd('cheer', e.runs > 0 ? 0.6 : 0.35);
+        o.scoreboard('WALK', e.runs > 0 ? 'RUN SCORES' : '', '#9b5de5', 1.6);
         return;
       case 'stealRamp':
         // A made right ramp with nobody on base to steal.
@@ -278,10 +282,6 @@ export class Director {
         o.sound('award');
         o.show('hotBat');
         o.crowd('cheer', 0.4);
-        return;
-      case 'doubleStealLit':
-        o.sound('award');
-        o.show('steal');
         return;
       case 'kickbackLit':
         o.sound('award');

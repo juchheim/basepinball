@@ -85,6 +85,8 @@ export function createOutput(d: {
           return f.hit(a.bases);
         case 'steal':
           return f.steal(a.from);
+        case 'walk':
+          return f.walk(a.moved);
         case 'clearBases':
           return f.clearBases();
       }

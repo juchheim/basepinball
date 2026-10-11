@@ -196,7 +196,7 @@ const leftFlipperPivot: Vec2 = [175, 175];
 const rightFlipperPivot: Vec2 = [mx(175), 175];
 
 const bat = ['B', 'A', 'T'];
-const run = ['R', 'U', 'N'];
+const walk = ['W', 'A', 'L', 'K'];
 
 /**
  * Side-wall 3-target banks below the orbit funnels, facing the far flipper. Shots to them clear
@@ -207,7 +207,12 @@ const run = ['R', 'U', 'N'];
  * orbit exit trapped returning balls; staggered plates left notches.)
  */
 const PLATE = 26;
-function sideBank(start: Vec2, toward: Vec2): { centers: Vec2[]; backstop: [Vec2, Vec2] } {
+function sideBank(
+  start: Vec2,
+  toward: Vec2,
+  count = 3,
+  plate = PLATE,
+): { centers: Vec2[]; backstop: [Vec2, Vec2] } {
   const dx = toward[0] - start[0];
   const dy = toward[1] - start[1];
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -220,12 +225,14 @@ function sideBank(start: Vec2, toward: Vec2): { centers: Vec2[]; backstop: [Vec2
   const at = (k: number): Vec2 => [round(start[0] + tx * k), round(start[1] + ty * k)];
   const back = (p: Vec2): Vec2 => [round(p[0] - fx * 7), round(p[1] - fy * 7)];
   return {
-    centers: [at(PLATE / 2), at(PLATE * 1.5), at(PLATE * 2.5)],
-    backstop: [back(at(0)), back(at(PLATE * 3))],
+    centers: Array.from({ length: count }, (_, i) => at(plate * (i + 0.5))),
+    backstop: [back(at(0)), back(at(plate * count))],
   };
 }
 const BAT_BANK = sideBank([5.5, 520], rightFlipperPivot);
-const RUN_BANK = sideBank([mx(5.5), 520], leftFlipperPivot);
+/** W-A-L-K: four standups in the same 78 mm of wall the three R-U-N plates used (19.5 mm each). */
+const WALK_PLATE = 19.5;
+const WALK_BANK = sideBank([mx(5.5), 520], leftFlipperPivot, walk.length, WALK_PLATE);
 
 const LAMP = {
   amber: 0xff9f1c,
@@ -376,17 +383,17 @@ const elements: ElementDef[] = [
   { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
-  // ---- target banks: B-A-T drops (left wall), R-U-N standups (right wall)
+  // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (right wall)
   ...BAT_BANK.centers.map(([x, y], i): ElementDef => {
     const [a, b] = plate(x, y, rightFlipperPivot);
     return { type: 'drop', id: `drop.${bat[i]}`, a, b, label: bat[i]! };
   }),
   { type: 'wall', points: BAT_BANK.backstop, material: 'rubberPost', radius: 2 },
-  ...RUN_BANK.centers.map(([x, y], i): ElementDef => {
-    const [a, b] = plate(x, y, leftFlipperPivot);
-    return { type: 'standup', id: `standup.${run[i]}`, a, b, label: run[i]! };
+  ...WALK_BANK.centers.map(([x, y], i): ElementDef => {
+    const [a, b] = plate(x, y, leftFlipperPivot, WALK_PLATE / 2);
+    return { type: 'standup', id: `standup.${walk[i]}`, a, b, label: walk[i]! };
   }),
-  { type: 'wall', points: RUN_BANK.backstop, material: 'rubberPost', radius: 2 },
+  { type: 'wall', points: WALK_BANK.backstop, material: 'rubberPost', radius: 2 },
 
   // ---- mound
   // The mound and pitcher are visual only: in M1 testing both knocked centre shots off line.
@@ -499,16 +506,15 @@ const elements: ElementDef[] = [
     radius: 6,
     color: LAMP.gold,
   })),
-  ...RUN_BANK.centers.map(([x, y], i): ElementDef => ({
+  ...WALK_BANK.centers.map(([x, y], i): ElementDef => ({
     type: 'lamp',
-    id: `lamp.standup.${run[i]}`,
+    id: `lamp.standup.${walk[i]}`,
     x: x - 26,
     y: y - 22,
     radius: 6,
     color: LAMP.violet,
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
-  { type: 'lamp', id: 'lamp.steal', x: mx(95), y: 520, radius: 8, color: LAMP.teal },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
 

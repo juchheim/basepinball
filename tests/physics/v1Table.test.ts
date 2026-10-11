@@ -53,6 +53,26 @@ describe('v1 table: shot map', () => {
   });
 });
 
+describe('v1 table: W-A-L-K bank', () => {
+  it('has four standups spelling WALK, end to end in the old three-plate span', () => {
+    const standups = v1Table.elements.flatMap((e) => (e.type === 'standup' ? [e] : []));
+    expect(standups.map((e) => e.id)).toEqual(['standup.W', 'standup.A', 'standup.L', 'standup.K']);
+    for (const e of standups) {
+      const len = Math.hypot(e.b[0] - e.a[0], e.b[1] - e.a[1]);
+      expect(len).toBeCloseTo(19.5, 0);
+    }
+    const lamps = v1Table.elements.flatMap((e) =>
+      e.type === 'lamp' && e.id.startsWith('lamp.standup.') ? [e] : [],
+    );
+    expect(lamps.map((l) => l.id)).toEqual([
+      'lamp.standup.W',
+      'lamp.standup.A',
+      'lamp.standup.L',
+      'lamp.standup.K',
+    ]);
+  });
+});
+
 describe('v1 table: ramps', () => {
   const fireAtHr = (speed: number): World => {
     const w = world();

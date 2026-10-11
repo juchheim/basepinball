@@ -106,8 +106,7 @@ function Hud() {
       </div>
       <div class="hud-chips">
         {g.hotBat && <span class="chip hot">HOT BAT</span>}
-        {g.doubleStealLit && <span class="chip steal">DOUBLE STEAL</span>}
-        {g.stealReady && !g.doubleStealLit && <span class="chip steal">STEAL: RIGHT RAMP</span>}
+        {g.stealReady && <span class="chip steal">STEAL: RIGHT RAMP</span>}
         {g.rally >= 2 && <span class="chip rally">RALLY ×{g.rally}</span>}
         {g.tiltWarnings > 0 && !g.tilted && <span class="chip warn">WARNING {g.tiltWarnings}</span>}
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (
@@ -256,8 +255,8 @@ function HowToPlay() {
         </li>
         <li>
           <b>The right ramp</b> steals: with a runner on, the lead runner takes the next base (a
-          runner on third steals home). Complete <b>R-U-N</b> first for a <b>double steal</b>: every
-          runner moves up at once.
+          runner on third steals home). Spell <b>W-A-L-K</b> on the four right-wall targets and the
+          batter takes a <b>walk</b>: first base, forcing any runners ahead of him.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.
@@ -608,6 +607,7 @@ function BoxScore({ stats }: { stats: GameStats }) {
         <span>K {stats.strikeouts}</span>
         <span>LOB {stats.leftOnBase}</span>
         <span>Longest rally {stats.longestRally}</span>
+        <span>BB {stats.walks}</span>
         <span>SB {stats.steals}</span>
       </div>
     </div>

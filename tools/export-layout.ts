@@ -166,7 +166,7 @@ function render(table: TableDef): string {
     ['#ff3b3b', 'HR ramp'],
     ['#2ec4b6', 'Steal ramp'],
     ['#f2b33d', 'B-A-T drop targets'],
-    ['#9b5de5', 'R-U-N standups'],
+    ['#9b5de5', 'W-A-L-K standups'],
     ['#9aa6c4', 'Switch / sensor (dashed)'],
   ];
   const lx = PAD * 2 + W;

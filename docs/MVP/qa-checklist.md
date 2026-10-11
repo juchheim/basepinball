@@ -33,7 +33,8 @@ person at each browser and device. Run this list once per row of the matrix and 
   - [ ] Runners move by the hit value and cross home.
   - [ ] Runs show on the scoreboard and HUD.
 - [ ] **Steal:**
-  - [ ] Hit all three R-U-N targets, then the right ramp with a runner on: SAFE!
+  - [ ] Get a runner on, then shoot the right ramp: SAFE!
+  - [ ] Spell W-A-L-K on the right-wall targets: the batter walks to first, forced runners advance. The letters stay lit across innings.
   - [ ] An unlit right ramp spots a letter.
 - [ ] **Hot Bat:** B-A-T all down, then the next hit gains a base.
 - [ ] **Rally:** a re-flip after a hit continues, and the rally count climbs.

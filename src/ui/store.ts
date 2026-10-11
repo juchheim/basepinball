@@ -115,7 +115,7 @@ export function calloutFor(e: RulesEvent): void {
     }
     case 'steal':
       return showCallout(
-        e.double ? 'DOUBLE STEAL!' : e.runs > 0 ? 'STEALS HOME!' : 'STOLEN BASE!',
+        e.runs > 0 ? 'STEALS HOME!' : 'STOLEN BASE!',
         e.runs > 0 ? '1 run scores' : undefined,
         'hit',
       );
@@ -130,8 +130,12 @@ export function calloutFor(e: RulesEvent): void {
       );
     case 'stealRamp':
       return showCallout('STEAL RAMP', 'Nobody on base to steal', 'info', 1100);
-    case 'doubleStealLit':
-      return showCallout('DOUBLE STEAL LIT', 'Next right-ramp steal moves every runner', 'info');
+    case 'walk':
+      return showCallout(
+        'WALK!',
+        e.runs > 0 ? 'Bases loaded: 1 run scores' : 'Take your base',
+        'hit',
+      );
     case 'kickbackLit':
       return showCallout('KICKBACK LIT', undefined, 'info', 1000);
     case 'tiltWarning':

@@ -32,11 +32,10 @@ export type RulesEvent =
   | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
   | { type: 'out'; how: OutHow; position?: Position; outs: number }
   | { type: 'runs'; runs: number }
-  /** A steal: `moved` lists the bases (0 = first) runners left; `double` if every runner went. */
-  | { type: 'steal'; from: number; runs: number; moved: number[]; double: boolean }
+  | { type: 'steal'; from: number; runs: number }
   | { type: 'hotBat'; source: 'BAT' | 'skillShot' | 'rallyCap' }
-  /** R-U-N is complete: the next steal moves every runner. */
-  | { type: 'doubleStealLit' }
+  /** W-A-L-K is complete: the batter walks. `moved` lists the bases (0 = first) whose runners advanced. */
+  | { type: 'walk'; runs: number; moved: number[] }
   /** A right-ramp shot with nobody on base to steal. */
   | { type: 'stealRamp'; result: 'noRunner' }
   | { type: 'kickbackLit' }
@@ -66,6 +65,7 @@ export interface GameStats {
   longestRally: number;
   skillShots: number;
   steals: number;
+  walks: number;
   /** Simulation seconds from first pitch to final out. */
   duration: number;
 }
@@ -88,6 +88,7 @@ export function emptyStats(): GameStats {
     longestRally: 0,
     skillShots: 0,
     steals: 0,
+    walks: 0,
     duration: 0,
   };
 }
@@ -104,8 +105,6 @@ export interface GameSnapshot {
   hotBat: boolean;
   /** A runner is on, so the right ramp steals. */
   stealReady: boolean;
-  /** R-U-N lit a double steal. */
-  doubleStealLit: boolean;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;

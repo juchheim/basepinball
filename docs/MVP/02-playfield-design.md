@@ -62,7 +62,7 @@ regular pinball.
 4. **Infield art and mound** (y ≈ 220–480): a printed diamond with **basepath windows** (runners
    under glass), and the mound pitch saucer at its center. This is the one baseball-literal area,
    and it reads as playfield art, not obstacles.
-5. **Side walls** (y ≈ 420–620): **B-A-T** drop-target bank (left wall), **R-U-N** standup bank
+5. **Side walls** (y ≈ 420–620): **B-A-T** drop-target bank (left wall), **W-A-L-K** standup bank
    (right wall), 3B and 1B side saucers at the orbit approaches.
 6. **Open mid-field** (y ≈ 480–700): travel space with insert arrows aimed at every shot.
 7. **Shot fan** (y ≈ 680–810): left orbit, LF, left ramp, SS, **the Gap** mouth, 2B, right ramp,
@@ -79,10 +79,10 @@ regular pinball.
 | 1 | **Left orbit** (spinner) | Right | **TRIPLE.** The ball strikes the top-left corner kicker, loops the arch, and drops through the R-B-I lanes into the Gap. | 3B side saucer on the approach (catches weak shots), LF on the inside |
 | 2 | **Left ramp: "Over the Wall"** | Right | **HOME RUN** at the crest gate. The wireform returns the ball to the **left inlane**, setting up a rally. | LF and SS flank the entrance. A missed ramp rolls back toward them. |
 | 3 | **The Gap** (center pop nest) | Either | **SINGLE** (front pops) or **DOUBLE** (back pops). A slow, straight-up-the-middle ball can drop into the **CF** saucer in the throat. | SS and 2B flank the mouth. CF is inside. |
-| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); a lit double steal moves every runner. Its mouth is **70 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
+| 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); Its mouth is **70 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
-| 7 | **R-U-N standups** (right wall) | Left | Feature: completing the bank lights **STEAL** on the right ramp | — |
+| 7 | **W-A-L-K standups** (right wall) | Left | Feature: four letters; spelling WALK walks the batter (the letters persist through innings) | — |
 | — | **R-B-I top lanes** | Plunge / orbit | Skill shot (Hot Bat). Completing all three lights the kickback. | — |
 
 **Difficulty ladder:** singles come from the widest shot (the Gap mouth). Doubles need a hard,
@@ -114,7 +114,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `magnet.curve` | Curveball magnet | (275, 270), under the playfield | |
 | `art.diamond` | Diamond with basepath windows | home (275,230) · 1B (400,355) · 2B (275,480) · 3B (150,355) | Flat and visual only. Runners move under the glass. |
 | `drops.BAT` | 3-bank drop targets | left wall, y = 440 / 475 / 510 | Stay down while Hot Bat is lit and reset when it is used. A partly completed bank resets at the inning change. |
-| `standups.RUN` | 3 standup targets | right wall, y = 440 / 475 / 510 | Lights DOUBLE STEAL |
+| `standups.WALK` | 4 standup targets, 19.5 mm each, end to end in the 78 mm of wall the three R-U-N plates used | right wall, from y = 520 up the wall | Spelling WALK walks the batter |
 | `saucer.3B` | Fielder saucer, half recessed into the left wall | (40, 600) | Sits in the left orbit approach. A strong orbit shot skims it. |
 | `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B |
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
@@ -140,7 +140,7 @@ battery.
 
 - **Upper-right flipper** (P2) at about (470, 620), aimed up-left at the left ramp and LF. It is a
   classic "second chance at the big shot" element (*Twilight Zone*, *Funhouse*). Space is reserved
-  in the right wall region above the R-U-N standups.
+  in the right wall region above the W-A-L-K standups.
 - **Captive ball** (P2), for example a "bullpen" captive ball on the right side.
 - **Combo shots** and **multiball** (P2).
 
@@ -178,8 +178,8 @@ Fast shots that only graze a saucer skim across it.
 | Device | Behaviour |
 |--------|-----------|
 | B-A-T drop bank | Each drop scores a crowd cheer. All three down → **HOT BAT** lit (see [01 § 4.8.1](01-game-design.md#481-hot-bat-in-detail)). The bank stays down while Hot Bat is lit and resets when it is used. A partly completed bank resets at the inning change. |
-| R-U-N standups | Each lights a letter. All three → **DOUBLE STEAL** lit (the lamp by the bank). Letters reset at the inning change. |
-| Right ramp ("Steal") | The arrow blinks while a runner is on. A shot steals: the lead runner who can advance moves up one base, and stealing home scores a run. With a double steal lit, every runner moves. With the bases empty, it is a flow shot only (crowd, lights, combo potential). |
+| W-A-L-K standups | Each lights a letter. All four → a **walk** for the batter. Letters persist through innings until the word is spelled. |
+| Right ramp ("Steal") | The arrow blinks while a runner is on. A shot steals: the lead runner who can advance moves up one base, and stealing home scores a run. With the bases empty, it is a flow shot only (crowd, lights, combo potential). |
 | Spinners (both orbits) | Cosmetic plus crowd excitement. Spin count feeds the presentation. |
 | R-B-I top lanes | Skill shot (the lit lane during the leadoff launch = Hot Bat). Completing R, B and I relights the kickback. |
 | Kickback | Kicks an outlane ball back into play before it drains (one use per lighting) |
@@ -204,7 +204,7 @@ into the top lanes).
 | Shot arrows (mid-field) | One per shot, colored by result: orbit = amber (3B), left ramp = red (HR), Gap = ivory/blue, right ramp = teal (STEAL), plus lit-state chasers |
 | Bases (diamond art) | 1B, 2B, 3B, home plate (run flash) |
 | Apron | Inning ladder 1–9, OUTS ×3, Kickback |
-| Feature | B-A-T letters, R-U-N letters, HOT BAT, STEAL, R-B-I lanes |
+| Feature | B-A-T letters, W-A-L-K letters, HOT BAT, STEAL (arrow), R-B-I lanes |
 | Mound | FB / CH / CB pitch telegraph |
 | Rally | 5-step rally meter in the mid-field |
 | Hit devices | Pop caps, corner kicker housings, ramp LEDs |
@@ -240,7 +240,7 @@ the [M1 report](m1-report.md).
 | Area | v1 (planned) | v1.1 (as built) |
 |---|---|---|
 | Orbit mouths | Open at y = 680 | Open at y = 700, with a **funnel** below each one that steers returning balls back into play |
-| B-A-T / R-U-N banks | Spread along the side walls at y 440–510 | **Continuous banks with a backstop**, on the side walls below the funnels (y ≈ 520–600), each facing the far flipper |
+| B-A-T / W-A-L-K banks | Spread along the side walls at y 440–510 | **Continuous banks with a backstop**, on the side walls below the funnels (y ≈ 520–600), each facing the far flipper |
 | 3B / 1B saucers | (40, 600) / (510, 600), in the orbit approach | (25, 478) / (525, 478), low on the side walls, lip into the wall |
 | The Gap | Singles (230/320, 875), doubles (225/325, 985), CF at (275, 910) with a back lip | **Singles (233/317, 868)** flank a 40 mm centre channel. **Doubles (247/303, 992)** at the back. **CF (275, 918)** in the channel with no lip. |
 | Mound + pitcher | Raised hump with a collidable pitcher post | **Visual only.** Pitches still come from the mound spot (275, 345). |
@@ -282,9 +282,8 @@ game, because a make needed a lit STEAL (three R-U-N hits) and a runner on base.
 
 | Area | Change | Result |
 |---|---|---|
-| Rules | The right ramp steals directly whenever a runner is on; no lighting. R-U-N now lights a **double steal** (every runner moves up one). Unlit right-ramp shots no longer spot R-U-N letters. | 0.6-0.8 steals a game from the rule change alone |
+| Rules | The right ramp steals directly whenever a runner is on; no lighting. (A **double steal** from R-U-N was tried and then retired when R-U-N became W-A-L-K, below.) Unlit right-ramp shots no longer spot letters. | 0.6-0.8 steals a game from the rule change alone |
 | Steal ramp mouth | 52 → **70 mm**, guard posts moved out. The 2B and RF saucers moved 20 mm down the table (and their glove posts 2 mm out) so every guard post keeps a ball-wide (≥ 27.5 mm) gap and no notch can hold a ball. A first try at 56 mm was not visibly wider and gained only 40 %. | The make window is about 2.2× the HR ramp's (grid test: 45 → 99 makes); from real flipper shots the steal ramp is made about 70 % more often than the HR ramp. The HR ramp is unchanged. |
-| Playfield art | The label by the R-U-N bank reads DOUBLE STEAL | |
 
 **Result (sim bot, 60 games each):** steals 1.55 a game (average profile) and 1.9 (rookie), against
 1.7-2.2 home runs. Runs per game rose from about 4.6 to 5.4 (average) and 6.0 (rookie), above the
@@ -293,5 +292,22 @@ about 13.6 % of PAs. If the extra runs are too many, the levers are the pitch sp
 steal-home award, or tightening the Gap. The bot does not aim, so a person aiming at the ramp
 with a runner on should steal more.
 
-**Not done (the next step in the plan):** the W-A-L-K bank (a fourth target and a walk), more
-bumpers, and the bumper-driven meters. 
+### W-A-L-K (replaces R-U-N)
+
+The R-U-N bank had no job once steals needed no lighting, so it became **W-A-L-K**: four standups,
+and spelling the word walks the batter (first base, forced runners advance, the bases loaded forces
+in a run). Not a hit, so no H and no change to the hit rate. The letters **persist through
+innings** until the word is spelled.
+
+| Area | Change | Result |
+|---|---|---|
+| Bank | Three 26 mm plates → four **19.5 mm** plates, end to end in the same 78 mm of wall (a fourth full plate would hit the right funnel post). Lamps `lamp.standup.W/A/L/K`; the `lamp.steal` insert is gone, replaced by a printed WALK sign. | The bank is reached by 7.1 % of flipper timings, easier than the steal ramp (5.5 %) or HR ramp (3.2 %). Stuck-ball scans and the "every shot is makeable" check pass. |
+| Rules | `walk()` in `src/rules/bases.ts`; `stats.walks` (BB in the box score); event `walk`. A walk works in any live state and does not end or restart the plate appearance. | |
+| Letters | Persist across innings (a decision by the product owner). | 0.5 walks a game for the bot (0.04 when letters reset each inning). |
+
+**Result (sim bot, 80 games each):** steals 1.8 and walks 0.5 a game (average profile). Runs per
+game are now about **5.9** (average) and 5.0 (rookie), above the 3-5 target: steals and walks both
+put runners on and move them. If that is too many runs, the levers are the pitch speed, the
+steal-home award, or tightening the Gap.
+
+**Not done (the next steps in the plan):** more bumpers and the bumper-driven meters.

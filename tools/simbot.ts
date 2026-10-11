@@ -66,6 +66,7 @@ const rows: [string, string, string][] = [
     `${(sum((r) => r.stats.steals) / games).toFixed(2)}, ${(sum((r) => r.stats.skillShots) / games).toFixed(2)}`,
     '—',
   ],
+  ['Walks per game', (sum((r) => r.stats.walks) / games).toFixed(2), '—'],
   ['Ball rescues per game', (sum((r) => r.rescues) / games).toFixed(2), '< 0.05'],
 ];
 console.log(
