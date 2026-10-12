@@ -122,7 +122,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `ramp.HR` | Left ramp, "Over the Wall" | entrance (142, 790), 52 mm wide | HR gate at the crest (75, 1010). Wireform to the left inlane. |
 | `saucer.SS` | Fielder saucer | (200, 765) | Between the left ramp and the Gap |
 | `gap.mouth` | The Gap entrance | x 240–310 at y = 805 | Funnel walls into the nest |
-| `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (130, 610) / (430, 640), 17 mm | Score no hit; feed HUSTLE. Soft kick (1.5 m/s, the Gap pops' is 3.4). |
+| `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (105, 660) / (445, 660), 17 mm, a mirror pair | Score no hit; feed HUSTLE. Soft kick (1.5 m/s, the Gap pops' is 3.4). |
 | `hustle.1`-`.5` | HUSTLE meter lamps | (243 + 16 i, 612) | One lamp per three bumper hits after a hit |
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `saucer.CF` | Fielder saucer in the Gap throat | (275, 910) | Between and just behind the singles |
@@ -326,14 +326,16 @@ banging that actually matters. Until now, once a hit landed the Gap pops did not
 
 | Area | Change | Result |
 |---|---|---|
-| Bumpers | Two **outfield bumpers** in the mid-field, at (130, 610) and (430, 640), 17 mm, mint caps. Placed by sweeping candidate layouts in the simulation (as for the W-A-L-K bank), scored by flipper timings that touch a bumper and by what happens to the ramp, Gap and orbit shots. Candidates near the right orbit's line (for instance (440, 575)) cut orbit shots from 7 to 1-3 and were rejected. | **35 % of flipper shots touch a bumper**; the Gap, HR ramp, steal ramp and orbit shots stay within 1-2 of their old counts. The printed shot arrows near them (orbit L/R, HOME RUN, STEAL) moved clear so no cap sits on an arrow. |
+| Bumpers | Two **outfield bumpers** in the mid-field, a **mirror-symmetric pair** at (105, 660) and (445, 660), 17 mm, mint caps. Playtest feedback: the pair should look balanced and not block anything important. The first pair, at (130, 610) and (430, 640), was lopsided (30 mm apart in height) and cost about 2 home-run-ramp and 2 steal-ramp shots. The symmetric pair was chosen by sweeping 12 symmetric layouts, then 9 more around the best, scoring each by how far the HR, steal, orbit, W-A-L-K and Gap shot counts moved from the no-bumper table. Pairs further in (x = 125 or 145) cut the HR and steal ramps by up to half, and a pair at y = 570-630 cut the orbits to 0-3. | **30 % of flipper shots touch a bumper**, and the shots that matter are unchanged: Gap 29 (28 without bumpers), HR ramp 7 (7), steal ramp 13 (13), orbit 8 (7), W-A-L-K bank 48 (47). They sit on one line flanking the HOME RUN, Gap and STEAL arrows, clear of every ramp mouth, saucer and lane. The two orbit arrows moved into their lanes so no printed arrow is near a cap. |
 | Meter | **HUSTLE**: while the ball is live after a hit, every bumper hit counts (the Gap pops too, which used to be decoration). 15 hits fill it; five lamps, and a chip in the HUD. Full: every runner takes an extra base. | 1.4 payouts a game for the bot. |
 | Counting | At most one hit per 0.4 s, and only after a hit. | Counting every contact paid out about 14 times a game: a ball ricocheting through the nest's four pops makes dozens of contacts in a second or two. Counting hits before the result (46 a game for the bot) would have paid out about 7 times a game, so those just deflect the ball. |
 | Strength | Outfield bumpers kick at **1.5 m/s** (new per-bumper `kick` override; Gap pops stay 3.4). | At full strength the bumpers kept balls alive and fed the Gap: hit rate 30 → 37 %, **runs per game 5.5 → 9.5**. Soft bumpers keep runs at 5.6 with the hit rate at 31 %. 2.2 m/s gave 7.2 runs. |
 
-**Result (sim bot, 100 games each):** average profile 5.6 runs, hit rate 31 %, 1.4 HUSTLE payouts, 1.5
-steals and 1.9 walks a game; rookie 5.6 runs, 1.5 HUSTLE, 1.3 steals, 1.6 walks. If the bumpers feel
-too gentle, raise their `kick` (each +0.5 m/s adds roughly 1.5 runs a game), or tighten the Gap.
+**Result (sim bot, 100 games each, symmetric pair):** average profile 6.4 runs, hit rate 32 %, 1.5
+HUSTLE payouts, 1.8 steals and 2.3 walks a game; rookie 6.8 runs, 1.4 HUSTLE, 1.7 steals, 2.1 walks.
+Runs rose from 5.6 (the first, lopsided pair) because the new positions no longer clip any shot, so
+steals and walks come back to full strength. If that is too many runs, the levers are the
+bumpers' `kick` (each -0.5 m/s takes roughly 1.5 runs off a game), the pitch speed, or the Gap.
 
 **Not done:** a lead-off meter that builds steals from bumper hits, the infield base bumper, and
 bumper-fed Hot Bat. All three were options in the plan.
