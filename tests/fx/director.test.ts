@@ -55,6 +55,10 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'walk', runs: 1, moved: [0, 1, 2] },
   ],
   stealRamp: [{ type: 'stealRamp', result: 'noRunner' }],
+  spinBonus: [
+    { type: 'spinBonus', gained: 3 },
+    { type: 'spinBonus', gained: 0 },
+  ],
   stretch: [{ type: 'stretch' }],
   hotBat: [{ type: 'hotBat', source: 'BAT' }],
   kickbackLit: [{ type: 'kickbackLit' }],

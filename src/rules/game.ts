@@ -34,6 +34,16 @@ export const HUSTLE_TARGET = 15;
 /** At most one bumper hit counts per this many seconds, so a ball ricocheting through the Gap's
  * four pops earns by how long it keeps bouncing, not by how many contacts physics produces. */
 export const HUSTLE_COOLDOWN = 0.4;
+
+/**
+ * The spin bonus: a hard plunge runs the whole arch and down the left orbit, setting its five
+ * spinners going. (A gentle plunge that falls back into the right orbit spins the right ones, and
+ * the soft plunge for the skill shot at most three of the left: neither counts.) Spinning this many
+ * different left-orbit plates before the first swing of an inning starts the HUSTLE meter with a lamp.
+ */
+export const SPIN_BONUS_PLATES = 4;
+/** Bumper hits the bonus adds to the meter (the five lamps are three hits each). */
+export const SPIN_BONUS_HUSTLE = 2;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
 export interface GameOptions {
@@ -84,6 +94,9 @@ export class GameRules {
   private readonly rbi = new Set<Lane>();
   private readonly bat = new Set<string>();
   private lastBumper = -Infinity;
+  /** Distinct spinner plates spun since this inning's plunge, and whether it has paid out. */
+  private readonly plungeSpins = new Set<string>();
+  private spinBonusPaid = false;
   /** Whether the Stretch (the mound's ramp-and-bumper) was last commanded up. */
   private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
@@ -192,6 +205,9 @@ export class GameRules {
         // just before reaching the corner kicker (a ball coming round the top does not count).
         if (this.now - (this.orbitUp.get(e.id.endsWith('.L') ? 'L' : 'R') ?? -Infinity) < 1.2)
           this.hit('3B');
+        return;
+      case 'spinner':
+        this.plungeSpin(e.id);
         return;
       case 'saucer':
         this.saucer(e.id);
@@ -389,6 +405,8 @@ export class GameRules {
     this.stats.runsByInning[n - 1] = 0;
     this.tiltWarnings = 0;
     this.launched = false;
+    this.plungeSpins.clear();
+    this.spinBonusPaid = false;
     this.skillLane = LANES[Math.floor(this.rng.next() * 3)]!;
     this.state = 'LEADOFF_LAUNCH';
     this.lastActivity = this.now;
@@ -436,6 +454,21 @@ export class GameRules {
     if (this.hotBat) return;
     this.hotBat = true;
     this.emit({ type: 'hotBat', source });
+  }
+
+  /**
+   * The spin bonus. Only the leadoff plunge counts: spinners spun before the first swing of the
+   * inning, by a ball that was plunged. Spinners are otherwise decoration.
+   */
+  private plungeSpin(id: string): void {
+    if (this.state !== 'LEADOFF_LAUNCH' || !this.launched || this.spinBonusPaid) return;
+    if (!id.startsWith('spinner.L')) return;
+    this.plungeSpins.add(id);
+    if (this.plungeSpins.size < SPIN_BONUS_PLATES) return;
+    this.spinBonusPaid = true;
+    const before = this.hustle;
+    this.hustle = Math.min(HUSTLE_TARGET, this.hustle + SPIN_BONUS_HUSTLE);
+    this.emit({ type: 'spinBonus', gained: this.hustle - before });
   }
 
   private laneRollover(lane: Lane): void {

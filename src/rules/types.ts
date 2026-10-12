@@ -40,6 +40,11 @@ export type RulesEvent =
   | { type: 'walk'; runs: number; moved: number[] }
   /** A right-ramp shot with nobody on base to steal. */
   | { type: 'stealRamp'; result: 'noRunner' }
+  /**
+   * A hard plunge looped an orbit and spun its spinners: a head start on the HUSTLE meter.
+   * `gained` is the bumper hits added (0 if the meter was already full).
+   */
+  | { type: 'spinBonus'; gained: number }
   /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
   | { type: 'stretch' }
   | { type: 'kickbackLit' }

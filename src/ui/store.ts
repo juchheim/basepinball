@@ -142,6 +142,13 @@ export function calloutFor(e: RulesEvent): void {
         e.runs > 0 ? 'Bases loaded: 1 run scores' : 'Take your base',
         'hit',
       );
+    case 'spinBonus':
+      return showCallout(
+        'SPIN BONUS!',
+        e.gained > 0 ? `HUSTLE +${e.gained}` : 'HUSTLE is already full',
+        'info',
+        1800,
+      );
     case 'stretch':
       return showCallout(
         'FROM THE STRETCH',

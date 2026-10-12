@@ -5,6 +5,7 @@ import {
   GameRules,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
+  SPIN_BONUS_HUSTLE,
   STRETCH_ALERT_DELAY,
 } from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
@@ -168,6 +169,58 @@ describe('base running', () => {
     expect(steal([true, false, false])?.bases).toEqual([false, true, false]);
     expect(steal([true, true, false])?.bases).toEqual([true, false, true]);
     expect(steal([true, false, true])).toMatchObject({ bases: [true, false, false], runs: 1 });
+  });
+});
+
+describe('spin bonus (a hard plunge)', () => {
+  const plates = ['spinner.L.890', 'spinner.L.860', 'spinner.L.830', 'spinner.L', 'spinner.L.760'];
+  const spin = (h: Harness, ids: string[]) => ids.forEach((id) => h.ev('spinner', id));
+
+  it('spinning four plates after the plunge starts the HUSTLE meter, once', () => {
+    const h = new Harness().ev('plunger');
+    spin(h, plates);
+    expect(h.count('spinBonus')).toBe(1);
+    expect(h.last('spinBonus')).toMatchObject({ gained: SPIN_BONUS_HUSTLE });
+    expect(h.g.snapshot().hustle).toBe(SPIN_BONUS_HUSTLE);
+    spin(h, plates);
+    expect(h.count('spinBonus')).toBe(1);
+  });
+
+  it('does not pay for fewer plates, or for one plate spinning again and again', () => {
+    const h = new Harness().ev('plunger');
+    spin(h, plates.slice(0, 3));
+    for (let i = 0; i < 10; i++) h.ev('spinner', 'spinner.L.890');
+    expect(h.count('spinBonus')).toBe(0);
+    expect(h.g.snapshot().hustle).toBe(0);
+  });
+
+  it('only counts a plunged ball before the first swing', () => {
+    const early = new Harness();
+    spin(early, plates);
+    expect(early.count('spinBonus')).toBe(0);
+    const late = new Harness().ev('plunger').ev('swing', 'flipper.L');
+    spin(late, plates);
+    expect(late.count('spinBonus')).toBe(0);
+  });
+
+  it('pays once per inning, and again the next inning', () => {
+    const h = new Harness().ev('plunger');
+    spin(h, plates);
+    h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain');
+    expect(h.state).toBe('INNING_BREAK');
+    h.wait(6);
+    h.ev('plunger');
+    spin(h, plates);
+    expect(h.count('spinBonus')).toBe(2);
+    expect(h.g.snapshot().hustle).toBe(2 * SPIN_BONUS_HUSTLE);
+  });
+
+  it('pays nothing but still alerts when the meter is already full', () => {
+    const h = new Harness().ev('plunger');
+    h.g.hustle = HUSTLE_TARGET;
+    spin(h, plates);
+    expect(h.last('spinBonus')).toMatchObject({ gained: 0 });
+    expect(h.g.snapshot().hustle).toBe(HUSTLE_TARGET);
   });
 });
 

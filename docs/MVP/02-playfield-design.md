@@ -384,3 +384,22 @@ costs the ball 3 % of its speed per plate.
 | Orbit shots (248 flipper shots) | 9 and 6, as before |
 | Sim bot, 100 games | 5.7 runs, 14.6 % of hits are triples (14.7 % before), 0 ball rescues |
 | Stuck-ball scan, 1,200 random balls | 0 (one spacing, 765 / 835 / 865 / 895, left a ball balanced on the left fielder's lip post once; every other spacing tried gave 0) |
+
+### Spin bonus: a reward for plunging hard
+
+Playtest feedback: a reward for a hard plunge, the other plunge choice at the top of each inning
+(the soft one, into the lit top lane, is the skill shot).
+
+Before this, the rewards in play before a first swing or with nobody on were the skill shot (HOT
+BAT), the R-B-I lanes (relight the kickback), the B-A-T drops (HOT BAT) and W-A-L-K (a completed
+word walks the batter). HUSTLE, rallies, steals and the Stretch all need a hit or a runner first.
+
+| Area | Change | Result |
+|---|---|---|
+| Trigger | At least **four different left-orbit spinner plates** spun after the leadoff plunge and before the first swing, once an inning (`SPIN_BONUS_PLATES`, `src/rules/game.ts`). | From the physics: a pull of about 0.55 and up runs the whole arch and the five left plates; 0.44-0.50 is the skill-shot window (at most three plates, though a bounce can reach four); about 0.40 falls back and rolls down the right orbit, spinning only the right plates, which does not count. |
+| Reward | **+2 HUSTLE hits** (`SPIN_BONUS_HUSTLE`), with a SPIN BONUS callout, scoreboard message and a blink of the HUSTLE lamps. | The sim bot plunges hard, so it earns the bonus in 94 % of innings. Runs by size (100 games): none 5.7, **+2 6.1**, +3 6.4. HUSTLE payouts 1.3, **2.3**, 2.8 a game. +2 keeps scoring near the middle of the 5-7 target. |
+| Risk | None added. A hard plunge with no flipper input drains and is a strikeout, as before. | Plunges of 0.65 and up drain unless the flippers act. |
+
+The right-orbit route is excluded on purpose: a gentle plunge that happens to roll down the right orbit
+is not a hard plunge. If the bonus feels too automatic (the bot never plunges softly), tighten the
+trigger (all five plates, or a faster ball) or lower the reward to +1 (6.1 runs, 1.8 payouts).

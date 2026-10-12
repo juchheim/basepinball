@@ -296,6 +296,13 @@ export class Director {
         o.show('hotBat');
         o.crowd('cheer', 0.4);
         return;
+      case 'spinBonus':
+        // The hard plunge looped the orbit: the HUSTLE lamps blink to show the head start.
+        o.sound('award');
+        for (let i = 1; i <= 5; i++) o.flash(`hustle.${i}`);
+        o.crowd('cheer', 0.3);
+        o.scoreboard('SPIN BONUS', e.gained > 0 ? `HUSTLE +${e.gained}` : '', '#7bd88f', 1.6);
+        return;
       case 'stretch':
         // The pitcher goes to the stretch: the mound's bumper is up, so shots over it are live.
         o.sound('award');
