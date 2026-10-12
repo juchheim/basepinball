@@ -513,7 +513,9 @@ export class TableView {
 
   /**
    * The streak: overlapping soft spheres laid back along the velocity, shrinking toward the tail.
-   * It fades in above ~3 m/s, so a rolling ball has none and a hard shot leaves a short comet tail.
+   * Tuned to this table's speeds (a live ball spends ~5 % of its time above 3 m/s and almost none
+   * above 4): it fades in from 1.2 m/s and is full by 3.2 m/s, so a ball rolling off a flipper has
+   * none and a shot, pop or sling kick leaves a short comet tail.
    */
   private updateTrail(): void {
     const N = 24;
@@ -536,11 +538,11 @@ export class TableView {
     const b = this.world.balls[0];
     const mesh = this.ballMeshes[0];
     const speed = b && b.active ? b.speed() : 0;
-    const k = Math.min(1, Math.max(0, (speed - 3) / 3));
+    const k = Math.min(1, Math.max(0, (speed - 1.2) / 2));
     this.trail.visible = k > 0 && !!mesh;
     if (!this.trail.visible || !b || !mesh) return;
-    // About 22 ms of travel back along the velocity: ~13 cm at 6 m/s.
-    const back = 0.022;
+    // 40 ms of travel back along the velocity (~12 cm at 3 m/s), never more than 14 cm.
+    const back = Math.min(0.04, 0.14 / speed);
     const m = new THREE.Matrix4();
     for (let i = 0; i < N; i++) {
       const t = ((i + 1) / N) * back;
