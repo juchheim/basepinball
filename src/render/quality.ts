@@ -126,8 +126,11 @@ export function initialTier(
 /**
  * Watches frame times and steps the tier down when the game cannot hold its frame rate. It judges
  * the median of 45 frames (under a second at 60 fps), skips the first moments after start and after
- * a change (shader compiles), and steps down two tiers at once when the median is under about
- * 22 fps, since a struggling GPU gets worse, not better, the longer it is left at the same setting.
+ * a change (shader compiles). One tier down when the median is under about 30 fps, two at once
+ * under about 22 fps (a struggling GPU gets worse, not better, the longer it is left alone). A
+ * step down changes only the resolution and crowd (see `Stage.applyQuality`), because anything that
+ * changes shaders stalls Safari for seconds. The bar is low (not 45 fps) so a busy moment or a
+ * busy machine does not trigger a step.
  */
 export class AdaptiveQuality {
   private samples: number[] = [];
@@ -151,7 +154,7 @@ export class AdaptiveQuality {
     const sorted = [...this.samples].sort((a, b) => a - b);
     const median = sorted[sorted.length >> 1]!;
     this.samples = [];
-    const steps = median > 45 ? 2 : median > 21 ? 1 : 0;
+    const steps = median > 45 ? 2 : median > 33 ? 1 : 0;
     if (steps === 0) return;
     const i = ORDER.indexOf(this.tier.name);
     if (i <= 0) return;

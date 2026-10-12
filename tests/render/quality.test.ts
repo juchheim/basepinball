@@ -50,9 +50,15 @@ describe('adaptive controller', () => {
     expect(seen).toEqual([]);
   });
 
-  it('steps down one tier at about 40 fps', () => {
+  it('does not step down at 45 fps (a busy moment, or a busy machine)', () => {
     const { c, seen } = make(TIERS.high);
-    run(c, 200, 25);
+    run(c, 400, 22);
+    expect(seen).toEqual([]);
+  });
+
+  it('steps down one tier at about 28 fps', () => {
+    const { c, seen } = make(TIERS.high);
+    run(c, 200, 36);
     expect(seen[0]).toBe('medium');
   });
 

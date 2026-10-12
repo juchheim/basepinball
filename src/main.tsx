@@ -164,10 +164,12 @@ async function main(): Promise<void> {
     if (--pendingLoads !== 0) return;
     warmPending = true;
   };
-  const applyQuality = (q: Quality): void => {
-    diag.log(`quality -> ${q.name}`);
-    stage.applyQuality(q);
-    view.setReflections(q.reflectionSize, q.reflectionEvery);
+  // `live`: the adaptive controller stepping down mid-game. That changes only the resolution and
+  // the crowd; effects that change shaders (bloom, shadows, reflections) stay as they were.
+  const applyQuality = (q: Quality, live = false): void => {
+    diag.log(`quality -> ${q.name}${live ? ' (resolution only)' : ''}`);
+    stage.applyQuality(q, live);
+    if (!live) view.setReflections(q.reflectionSize, q.reflectionEvery);
     stadium.setCrowd(q.crowd);
     if (q.playfieldTexture !== textureWidth && !freePlay) {
       textureWidth = q.playfieldTexture;
@@ -180,7 +182,9 @@ async function main(): Promise<void> {
       });
     }
   };
-  const quality = new AdaptiveQuality(initialTier(query, stage.backend), applyQuality);
+  const quality = new AdaptiveQuality(initialTier(query, stage.backend), (q) =>
+    applyQuality(q, true),
+  );
   quality.enabled = !query.has('quality');
   if (!query.has('quality') && cfg.quality !== 'auto') {
     quality.tier = TIERS[cfg.quality];
@@ -717,6 +721,7 @@ async function main(): Promise<void> {
   };
   let lastFrameAt = performance.now();
   let slowLogged = 0;
+  let framesSeen = 0;
   const frame = (now: number): void => {
     input?.pollGamepads();
     loop.frame(now);
@@ -774,7 +779,7 @@ async function main(): Promise<void> {
     }
     // Stalls go in the `?debug` timeline: a slow frame, and a slow draw (a shader compiling, say).
     const drawMs = performance.now() - drawStart;
-    if (!document.hidden && frames > 5 && slowLogged < 12) {
+    if (!document.hidden && ++framesSeen > 5 && slowLogged < 12) {
       const gap = now - lastFrameAt;
       if (drawMs > 60 || gap > 150) {
         slowLogged++;

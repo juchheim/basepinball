@@ -154,20 +154,29 @@ export class Stage {
     });
   }
 
-  applyQuality(q: Quality): void {
+  /**
+   * Apply a quality tier. `live` is for the adaptive controller stepping down in mid-game: it only
+   * changes the render resolution. Switching bloom, FXAA, shadows or MSAA changes the shaders of
+   * every material, and recompiling them all takes seconds on Safari (the canvas goes blank), so
+   * those are set only at start-up and from the Settings menu.
+   */
+  applyQuality(q: Quality, live = false): void {
     this.dprCap = q.dpr;
     this.maxPixels = q.maxPixels;
-    this.keyLights.forEach((light, i) => {
-      const on = i < q.shadowLights;
-      if (light.shadow.mapSize.x !== q.shadowMapSize) {
-        light.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
-        light.shadow.map?.dispose();
-        (light.shadow as unknown as { map: unknown }).map = null;
-      }
-      light.castShadow = on;
-    });
-    this.setMSAA(q.msaa);
-    if (q.bloom !== this.bloomEnabled || q.fxaa !== this.fxaaEnabled) this.setPost(q.bloom, q.fxaa);
+    if (!live) {
+      this.keyLights.forEach((light, i) => {
+        const on = i < q.shadowLights;
+        if (light.shadow.mapSize.x !== q.shadowMapSize) {
+          light.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
+          light.shadow.map?.dispose();
+          (light.shadow as unknown as { map: unknown }).map = null;
+        }
+        light.castShadow = on;
+      });
+      this.setMSAA(q.msaa);
+      if (q.bloom !== this.bloomEnabled || q.fxaa !== this.fxaaEnabled)
+        this.setPost(q.bloom, q.fxaa);
+    }
     this.resize();
   }
 
