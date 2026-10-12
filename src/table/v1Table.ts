@@ -382,7 +382,7 @@ const elements: ElementDef[] = [
     radius: 17,
     label: 'OF',
     color: LAMP.mint,
-    kick: 1.5,
+    kick: 0.8,
   },
   {
     type: 'pop',
@@ -392,7 +392,7 @@ const elements: ElementDef[] = [
     radius: 17,
     label: 'OF',
     color: LAMP.mint,
-    kick: 1.5,
+    kick: 0.8,
   },
 
   // ---- fielders (7 saucers)
