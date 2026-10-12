@@ -80,13 +80,11 @@ describe('v1 table: outfield bumpers and the HUSTLE meter', () => {
   it('has two outfield bumpers (off the Gap) and five hustle lamps', () => {
     const pops = v1Table.elements.flatMap((e) => (e.type === 'pop' ? [e.id] : []));
     expect(pops.filter((id) => id.startsWith('pop.OF.'))).toEqual(['pop.OF.L', 'pop.OF.R']);
-    // Four Gap pops, the outfield pair, and the retractable bumper on the mound.
-    expect(pops).toHaveLength(7);
-    expect(pops).toContain('pop.mound');
-    const retractable = v1Table.elements.flatMap((e) =>
-      e.type === 'pop' && e.retractable ? [e.id] : [],
-    );
-    expect(retractable).toEqual(['pop.mound']);
+    // Four Gap pops and the outfield pair; the mound's wedge is a separate element.
+    expect(pops).toHaveLength(6);
+    expect(v1Table.elements.flatMap((e) => (e.type === 'rampBumper' ? [e.id] : []))).toEqual([
+      'pop.mound',
+    ]);
     const lamps = v1Table.elements.flatMap((e) =>
       e.type === 'lamp' && e.id.startsWith('hustle.') ? [e.id] : [],
     );

@@ -1,5 +1,6 @@
 import { dcos, dsin, DEG } from '../core/dmath';
 import { Rng } from '../core/rng';
+import { FACE_RADIUS, rampBumperMesh } from '../table/rampBumper';
 import type { SaucerDef, TableDef, Vec3 } from '../table/schema';
 import { Ball } from './ball';
 import { Flipper } from './flipper';
@@ -165,22 +166,24 @@ interface DropTarget {
 
 const MM = 0.001;
 
-/** How far a retractable bumper rises (m), and how fast it rises and sinks (m/s). */
-const POP_TRAVEL = 0.04;
-const POP_RISE = 0.3;
-const POP_SINK = 0.5;
-/** Below this height (m) the bumper is flush enough that the ball rolls over it. */
-const POP_SOLID = 0.01;
+/** Seconds a retractable device takes to rise and to sink. */
+const POP_RISE_TIME = 0.15;
+const POP_SINK_TIME = 0.1;
+/** Lift (0-1) from which the device is solid; below it the ball rolls over where it will stand. */
+const POP_SOLID = 0.9;
+/** A ball whose lowest point is below this height (m) is low enough to be caught by a rising device. */
+const POP_CATCH_Z = 0.012;
 
 interface RetractablePop {
   id: string;
   x: number;
   y: number;
   radius: number;
-  collider: StaticCollider;
-  /** Current height (m) above the playfield: 0 = lowered, POP_TRAVEL = fully raised. */
+  /** Colliders that switch on together, each with the height it has when solid. */
+  parts: { c: StaticCollider; h: number }[];
+  /** 0 = lowered flush with the playfield, 1 = fully raised. */
   lift: number;
-  /** Commanded state. A raise waits while a ball sits over the bumper. */
+  /** Commanded state. A raise waits while a ball sits over the device. */
   raised: boolean;
 }
 
@@ -285,16 +288,16 @@ export class World {
     for (const r of this.retractables) if (r.id === id) r.raised = raised;
   }
 
-  /** How far up a retractable bumper is, 0 (flush) to 1 (fully raised). */
+  /** How far up a retractable device is, 0 (flush) to 1 (fully raised). */
   popLift(id: string): number {
-    const r = this.retractables.find((x) => x.id === id);
-    return r ? r.lift / POP_TRAVEL : 0;
+    return this.retractables.find((x) => x.id === id)?.lift ?? 0;
   }
 
   private setLift(r: RetractablePop, lift: number): void {
     r.lift = lift;
     // A collider whose top is below the playfield is never touched.
-    r.collider.height = lift >= POP_SOLID ? lift : -1;
+    const on = lift >= POP_SOLID;
+    for (const p of r.parts) p.c.height = on ? p.h : -1;
   }
 
   setKickbackArmed(id: string, armed: boolean): void {
@@ -531,13 +534,13 @@ export class World {
       }
     }
     for (const r of this.retractables) {
-      if (r.raised && r.lift < POP_TRAVEL) {
+      if (r.raised && r.lift < 1) {
         // Never rise under a ball: it waits until the ball has rolled off (or been pitched away).
         if (r.lift >= POP_SOLID || !this.ballOver(r)) {
-          this.setLift(r, Math.min(POP_TRAVEL, r.lift + POP_RISE * dt));
+          this.setLift(r, Math.min(1, r.lift + dt / POP_RISE_TIME));
         }
       } else if (!r.raised && r.lift > 0) {
-        this.setLift(r, Math.max(0, r.lift - POP_SINK * dt));
+        this.setLift(r, Math.max(0, r.lift - dt / POP_SINK_TIME));
       }
     }
     const pl = this.plunger;
@@ -566,10 +569,10 @@ export class World {
     }
   }
 
-  /** Is a ball on the playfield close enough to a retractable bumper's footprint to be caught by it? */
+  /** Is a ball on the playfield close enough to a retractable device's footprint to be caught by it? */
   private ballOver(r: RetractablePop): boolean {
     for (const b of this.balls) {
-      if (!b.active || b.pz - b.radius > POP_SOLID) continue;
+      if (!b.active || b.pz - b.radius > POP_CATCH_Z) continue;
       const reach = r.radius + b.radius + 0.002;
       const dx = b.px - r.x;
       const dy = b.py - r.y;
@@ -714,6 +717,7 @@ export class World {
           break;
         }
         case 'triangle': {
+          if (c.height < 0) continue;
           closestOnTriangle(b.px, b.py, b.pz, c, q);
           nx = b.px - q.x;
           ny = b.py - q.y;
@@ -1143,24 +1147,32 @@ export class World {
           circle(el.bottom[0], el.bottom[1], 5, 'rubberPost');
           break;
         case 'pop':
-          {
-            const c = circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
-            if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
-            if (el.retractable) {
-              const r = {
-                id: el.id,
-                x: el.x * MM,
-                y: el.y * MM,
-                radius: el.radius * MM,
-                collider: c,
-                lift: 0,
-                raised: false,
-              };
-              this.retractables.push(r);
-              this.setLift(r, 0);
-            }
-          }
+          circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
+          if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
           break;
+        case 'rampBumper': {
+          // The ramp (triangles) and the bumper face (a pop wall just under the top, so a ball
+          // riding over the top passes above it). All of it switches on and off together.
+          const first = this.colliders.length;
+          const m = rampBumperMesh(el);
+          for (const t of [...m.top, ...m.flank]) tri(t[0], t[1], t[2], 'plastic');
+          for (let i = 0; i + 1 < m.arc.length; i++) {
+            seg(m.arc[i]!, m.arc[i + 1]!, FACE_RADIUS, 'popBumper', el.height - 0.5, 'pop', el.id);
+          }
+          if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
+          const r: RetractablePop = {
+            id: el.id,
+            x: el.x * MM,
+            y: el.y * MM,
+            radius: el.radius * MM,
+            parts: this.colliders.slice(first).map((c) => ({ c, h: c.height })),
+            lift: 0,
+            raised: false,
+          };
+          this.retractables.push(r);
+          this.setLift(r, 0);
+          break;
+        }
         case 'drop':
           seg(el.a, el.b, 2.5, 'dropTarget', 30, 'drop', el.id);
           this.drops.set(el.id, { id: el.id, down: false });

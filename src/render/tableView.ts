@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { ElementDef, TableDef, Vec2, Vec3 } from '../table/schema';
 import { rampEdges, saucerLipPost, wireformRails, type World } from '../physics/world';
 import type { Flipper } from '../physics/flipper';
+import { rampBumperMesh, type Tri } from '../table/rampBumper';
 import { Spring } from '../fx/anim';
 import { Particles } from '../fx/particles';
 import { Figures } from './figures';
@@ -15,7 +16,7 @@ import { Figures } from './figures';
 
 const MM = 0.001;
 /** How far (m) a rising bumper sinks below the playfield, enough to hide it entirely. */
-const RISER_DEPTH = 0.05;
+const RISER_DEPTH = 0.025;
 
 function rampMaterial(color: number): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
@@ -56,6 +57,13 @@ const mats = {
   flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc8282a, roughness: 0.6 }),
   saucer: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 }),
   mound: new THREE.MeshStandardMaterial({ color: 0xb4683c, roughness: 0.9 }),
+  /** The ramp of the mound's wedge (the triangles are not wound consistently, so two-sided). */
+  rampBumper: new THREE.MeshStandardMaterial({
+    color: 0xe9e4d6,
+    roughness: 0.45,
+    metalness: 0.1,
+    side: THREE.DoubleSide,
+  }),
   popBody: new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.6 }),
   sensor: new THREE.MeshStandardMaterial({ color: 0x9aa6c4, roughness: 0.4, metalness: 0.8 }),
   ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 1 }),
@@ -78,6 +86,16 @@ interface Light {
   mode: LampMode;
   /** Emissive intensity added while lit (default 1.6). */
   boost?: number;
+}
+
+/** A mesh from triangles given in mm (the wedge on the mound). */
+function triGeometry(tris: readonly Tri[]): THREE.BufferGeometry {
+  const pos: number[] = [];
+  for (const t of tris) for (const v of t) pos.push(v[0] * MM, v[1] * MM, v[2] * MM);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.computeVertexNormals();
+  return g;
 }
 
 function glowMaterial(color: number, base = 0): THREE.MeshStandardMaterial {
@@ -424,27 +442,36 @@ export class TableView {
         break;
       }
       case 'pop': {
-        // A retractable bumper's parts ride in a holder that sinks below the playfield.
-        const holder = el.retractable ? new THREE.Group() : null;
-        if (holder) {
-          holder.visible = false;
-          holder.add(
-            new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody),
-          );
-          this.group.add(holder);
-          this.risers.set(el.id, { holder, shown: 0 });
-        } else {
-          this.addStatic(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody);
-        }
+        this.addStatic(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody);
         const cap = glowMaterial(el.color ?? 0xf4efe1, 0.4);
         cap.transparent = true;
         cap.opacity = 0.95;
         this.addLight(el.id, { material: cap, base: 0.4, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
         m.castShadow = true;
-        (holder ?? this.group).add(m);
+        this.group.add(m);
         // The ring pulls down hard and springs back.
         this.addDevice(el.id, 90, (x) => (m.position.z = -Math.max(0, x) * 0.006));
+        break;
+      }
+      case 'rampBumper': {
+        // The ramp rides in a holder that sinks below the playfield; the bumper face is a glowing
+        // band round the back that dips when it fires, like a pop's ring.
+        const holder = new THREE.Group();
+        holder.visible = false;
+        const mesh = rampBumperMesh(el);
+        const ramp = new THREE.Mesh(triGeometry([...mesh.top, ...mesh.flank]), mats.rampBumper);
+        ramp.castShadow = true;
+        ramp.receiveShadow = true;
+        const face = glowMaterial(el.color ?? 0xf4efe1, 0.4);
+        face.side = THREE.DoubleSide;
+        this.addLight(el.id, { material: face, base: 0.4, level: 0, mode: 'off' });
+        const band = new THREE.Mesh(triGeometry(mesh.back), face);
+        band.castShadow = true;
+        holder.add(ramp, band);
+        this.group.add(holder);
+        this.risers.set(el.id, { holder, shown: 0 });
+        this.addDevice(el.id, 90, (x) => (band.position.z = -Math.max(0, x) * 0.002));
         break;
       }
       case 'drop':
@@ -579,7 +606,7 @@ export class TableView {
         g.rotateX(Math.PI / 2);
         g.translate(el.x * MM, el.y * MM, 0);
         this.addStatic(g, mats.mound);
-        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 45 });
+        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 36 });
         break;
       }
       case 'kickback':

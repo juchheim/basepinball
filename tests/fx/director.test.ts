@@ -98,6 +98,7 @@ describe('presentation director', () => {
       ...v1Table.elements.flatMap((el): PhysicsEvent[] => {
         if (el.type === 'pop' || el.type === 'sling' || el.type === 'kicker')
           return [{ type: el.type, id: el.id, time: 0 }];
+        if (el.type === 'rampBumper') return [{ type: 'pop', id: el.id, time: 0 }];
         if (el.type === 'drop' || el.type === 'standup' || el.type === 'saucer')
           return [{ type: el.type, id: el.id, time: 0 }];
         if (el.type === 'spinner') return [{ type: 'spinner', id: el.id, time: 0 }];

@@ -20,6 +20,8 @@ export function classify(e: PhysicsEvent): ShotResult | null {
   if (e.type === 'kicker') return e.id.endsWith('.L') ? 'orbit.L' : 'orbit.R';
   if (e.type === 'sensor' && e.id === 'gate.HR') return 'ramp.HR';
   if (e.type === 'sensor' && e.id === 'gate.STEAL') return 'ramp.STEAL';
+  // The mound's wedge is not a shot result: the ball bounced off it and play goes on.
+  if (e.type === 'pop' && e.id === 'pop.mound') return null;
   if (e.type === 'pop') return e.id.startsWith('pop.2B') ? 'gap.2B' : 'gap.1B';
   if (e.type === 'drop') return 'drop';
   if (e.type === 'standup') return 'standup';

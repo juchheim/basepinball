@@ -48,11 +48,29 @@ export interface PopDef {
   color?: number;
   /** Kick speed (m/s) this bumper gives the ball; the physics parameter `popKickSpeed` if omitted. */
   kick?: number;
-  /**
-   * A bumper that sinks flush with the playfield and rises on command (`World.setPopRaised`).
-   * It starts lowered, and while lowered the ball rolls straight over it.
-   */
-  retractable?: boolean;
+}
+
+/**
+ * A wedge that rises out of the playfield on command (`World.setPopRaised`) and sinks flush again.
+ * Its lower half (toward y = 0) is a ramp the ball can ride up and over; its upper half is a pop
+ * bumper face that kicks a ball arriving from above. While lowered the ball rolls straight over.
+ * Footprint is a disc: the surface rises from the rim at the bottom to `height` at the centre line
+ * and stays flat from there to the back rim.
+ */
+export interface RampBumperDef {
+  type: 'rampBumper';
+  id: string;
+  x: number;
+  y: number;
+  /** Footprint radius (mm). */
+  radius: number;
+  /** Top height (mm). */
+  height: number;
+  /** Cap label and colour key for the renderer (the bumper face). */
+  label?: string;
+  color?: number;
+  /** Kick speed (m/s) the bumper face gives the ball; the physics parameter `popKickSpeed` if omitted. */
+  kick?: number;
 }
 
 export interface SaucerDef {
@@ -226,6 +244,7 @@ export type ElementDef =
   | PostDef
   | SlingDef
   | PopDef
+  | RampBumperDef
   | SaucerDef
   | DropTargetDef
   | StandupDef

@@ -260,6 +260,13 @@ const LAMP = {
   white: 0xffffff,
 };
 
+/**
+ * The straight side rails and the shooter-lane separator stand nearly as tall as the glass gap
+ * (0.09 m), as on a real table, so a ball that leaves the playfield surface (off the mound's ramp,
+ * or a ramp end) stays in its half of the cabinet instead of jumping a 25 mm wall.
+ */
+const RAIL_HEIGHT = 85;
+
 const elements: ElementDef[] = [
   // ---- cabinet
   {
@@ -270,6 +277,7 @@ const elements: ElementDef[] = [
     ],
     material: 'wood',
     radius: 3,
+    height: RAIL_HEIGHT,
   },
   {
     type: 'wall',
@@ -279,6 +287,7 @@ const elements: ElementDef[] = [
     ],
     material: 'wood',
     radius: 3,
+    height: RAIL_HEIGHT,
   },
   { type: 'wall', points: arch(), material: 'metal', radius: 3 },
   // Shooter lane separator (also the right orbit's outer wall) and its one-way exit gate.
@@ -290,6 +299,7 @@ const elements: ElementDef[] = [
     ],
     material: 'metal',
     radius: 2,
+    height: RAIL_HEIGHT,
   },
   // Sloped one-way exit gate: plunged balls pass up through it; balls coming back down the arch
   // roll off it into the right orbit.
@@ -439,21 +449,25 @@ const elements: ElementDef[] = [
   // ---- mound
   // The mound and pitcher are visual only: in M1 testing both knocked centre shots off line.
   { type: 'dome', id: 'mound', x: 275, y: 355, radius: 30, height: 4, solid: false },
-  // A bumper on the back of the mound that rises while a runner is on base and sinks when the
-  // bases clear. It is lowered for each pitch (the ball is released from the mound) and rises again
-  // once the ball has gone. Small, soft and set back from the middle: at the mound's centre it cut
-  // the cross-table shots (the right flipper's HR ramp, the left flipper's steal ramp) by a third;
-  // here the HR, steal and Gap shot counts stay within one or two of the no-bumper table.
+  // A wedge on the mound that rises while a runner is on base and sinks when the bases clear.
+  // Its front (toward the flippers) is a ramp, so a shot from a flipper rides over it instead of
+  // being knocked off line; its back is a pop bumper face that kicks a ball coming down the table.
+  // It covers the mound (radius 30) and is lowered for each pitch (the ball is released from the
+  // mound) and rises again once the ball has gone.
+  // The ramp must stay low. A ball leaves the top at its approach speed times the ramp's slope, and
+  // the walls are only 25 mm high: at 4 mm a hard flipper shot (4 m/s) is thrown 40-75 mm into the
+  // air, clears a rail and lands wedged against an inlane guide (about one ball in four games needed
+  // a ball search). At 3 mm it is rescued about once in 40 games, and HR and steal shots are intact.
   {
-    type: 'pop',
+    type: 'rampBumper',
     id: 'pop.mound',
     x: 275,
-    y: 385,
-    radius: 10,
+    y: 355,
+    radius: 30,
+    height: 3,
     label: 'P',
     color: LAMP.red,
     kick: 0.8,
-    retractable: true,
   },
   { type: 'magnet', id: 'magnet.curve', x: 275, y: 270, radius: 60 },
 
