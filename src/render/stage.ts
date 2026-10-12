@@ -28,14 +28,6 @@ export class Stage {
   readonly camera = new THREE.PerspectiveCamera(40, 1, 0.01, 30);
   readonly pipeline: THREE.RenderPipeline;
   readonly keyLights: THREE.DirectionalLight[] = [];
-  /** The spotlight that follows the ball. */
-  readonly spot = new THREE.SpotLight(0xfff0d8, 0, 1, 0.15, 0.9, 2);
-  private readonly spotFrom = new THREE.Vector3();
-  private readonly spotAt = new THREE.Vector3();
-  private spotLevel = 0;
-  /** Peak spotlight intensity (candela). Tunable in `?debug`, with `spot.angle` (radians). */
-  spotMax = 1.3;
-  private spotReady = false;
   backend = 'unknown';
   bloomEnabled = true;
   private readonly bloomPass: ReturnType<typeof bloom>;
@@ -69,10 +61,9 @@ export class Stage {
 
     this.scene.background = new THREE.Color(0x070a14);
 
-    this.scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x140f0c, 0.22));
+    this.scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x140f0c, 0.28));
     // Two "stadium tower" key lights (aimed from the towers once the stadium is built).
-    // (About 12 % dimmer than the first pass: a darker field, with the ball's spotlight on top.)
-    for (const intensity of [2.0, 1.5]) {
+    for (const intensity of [2.3, 1.7]) {
       const light = new THREE.DirectionalLight(0xfff1d6, intensity);
       light.position.set(0, 1.4, 0.4);
       light.target.position.set(0.275, 0, -0.35);
@@ -91,14 +82,8 @@ export class Stage {
       this.scene.add(light, light.target);
     }
 
-    // The ball's spotlight: a small, soft pool of warm light just around the ball (a few ball-widths:
-    // 0.3 m up with a 0.15 rad cone is a ~45 mm radius), so the eye keeps the ball even as the
-    // field is a touch darker. No shadows (cheap); it fades out when there is no ball.
-    this.spot.castShadow = false;
-    this.scene.add(this.spot, this.spot.target);
-
     // A soft fill from the player's side, standing in for the cabinet's GI lighting the toys.
-    const fill = new THREE.DirectionalLight(0xffe6c4, 0.48);
+    const fill = new THREE.DirectionalLight(0xffe6c4, 0.55);
     fill.position.set(0.275, 1.2, 1.6);
     fill.target.position.set(0.275, 0, -0.4);
     this.scene.add(fill, fill.target);
@@ -125,7 +110,7 @@ export class Stage {
     this.backend = backend.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(nightEnvironment(), 0.03).texture;
-    this.scene.environmentIntensity = 0.8;
+    this.scene.environmentIntensity = 0.9;
     this.resize();
   }
 
@@ -157,36 +142,6 @@ export class Stage {
   setMSAA(samples: 0 | 4): void {
     (this.scenePass as unknown as { options: { samples: number } }).options.samples = samples;
     this.pipeline.needsUpdate = true;
-  }
-
-  /**
-   * Aim the ball spotlight. `from` is a point above the ball, `at` the ball (both in world space),
-   * or null when no ball is in play. The pool follows with a little lag and fades in and out, so it
-   * never jumps (a new ball, a saucer catch).
-   */
-  trackBall(
-    from: THREE.Vector3 | null,
-    at: THREE.Vector3 | null,
-    dtSeconds: number,
-    scale = 1,
-  ): void {
-    const follow = Math.min(1, dtSeconds * 14);
-    if (from && at) {
-      if (!this.spotReady) {
-        this.spotFrom.copy(from);
-        this.spotAt.copy(at);
-        this.spotReady = true;
-      } else {
-        this.spotFrom.lerp(from, follow);
-        this.spotAt.lerp(at, follow);
-      }
-    }
-    const goal = from && at ? this.spotMax * scale : 0;
-    this.spotLevel += (goal - this.spotLevel) * Math.min(1, dtSeconds * (goal > 0 ? 6 : 4));
-    this.spot.intensity = this.spotLevel;
-    this.spot.position.copy(this.spotFrom);
-    this.spot.target.position.copy(this.spotAt);
-    this.spot.target.updateMatrixWorld();
   }
 
   /** Point the key lights from the given world positions (the light towers). */

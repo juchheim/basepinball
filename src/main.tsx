@@ -738,14 +738,6 @@ async function main(): Promise<void> {
       stadium.update(snap, BRAND.game);
     }
     view.update(loop.alpha, dt);
-    // The ball's spotlight (dimmer on Low, where lighting is kept cheap).
-    const spot = view.ballSpot();
-    stage.trackBall(
-      spot?.from ?? null,
-      spot?.at ?? null,
-      dt,
-      quality.tier.name === 'low' ? 0.5 : 1,
-    );
     view.updateReflections(stage.renderer, stage.scene);
     if (faultInjected) {
       // Debug fault injection: skip drawing and empty the canvas (assigning its width clears it),

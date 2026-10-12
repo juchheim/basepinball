@@ -202,19 +202,6 @@ export class TableView {
     ball.visible = true;
   }
 
-  /**
-   * Where the ball is, in world space, and a point 0.3 m above it along the playfield's normal:
-   * the spotlight shines from there. Null when there is no ball in play.
-   */
-  ballSpot(): { from: THREE.Vector3; at: THREE.Vector3 } | null {
-    const m = this.ballMeshes[0];
-    if (!m || !m.visible) return null;
-    return {
-      at: this.group.localToWorld(m.position.clone()),
-      from: this.group.localToWorld(new THREE.Vector3(m.position.x, m.position.y, 0.3)),
-    };
-  }
-
   /** Brighten a device or lamp briefly. */
   flash(id: string): void {
     for (const l of this.lights.get(id) ?? []) l.level = 1;
