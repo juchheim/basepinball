@@ -59,8 +59,9 @@ const mats = {
   mound: new THREE.MeshStandardMaterial({ color: 0xb4683c, roughness: 0.9 }),
   /** The ramp of the mound's wedge (the triangles are not wound consistently, so two-sided). */
   rampBumper: new THREE.MeshStandardMaterial({
-    color: 0xe9e4d6,
-    roughness: 0.45,
+    color: 0xf6f1e4,
+    emissive: new THREE.Color(0x4a4636),
+    roughness: 0.4,
     metalness: 0.1,
     side: THREE.DoubleSide,
   }),
@@ -460,13 +461,14 @@ export class TableView {
         const holder = new THREE.Group();
         holder.visible = false;
         const mesh = rampBumperMesh(el);
-        const ramp = new THREE.Mesh(triGeometry([...mesh.top, ...mesh.flank]), mats.rampBumper);
+        const ramp = new THREE.Mesh(triGeometry(mesh.top), mats.rampBumper);
         ramp.castShadow = true;
         ramp.receiveShadow = true;
-        const face = glowMaterial(el.color ?? 0xf4efe1, 0.4);
+        // The bumper glows all the time (more when it fires), so it reads from the flippers.
+        const face = glowMaterial(el.color ?? 0xf4efe1, 1.4);
         face.side = THREE.DoubleSide;
-        this.addLight(el.id, { material: face, base: 0.4, level: 0, mode: 'off' });
-        const band = new THREE.Mesh(triGeometry(mesh.back), face);
+        this.addLight(el.id, { material: face, base: 1.4, level: 0, mode: 'off' });
+        const band = new THREE.Mesh(triGeometry(mesh.skirt), face);
         band.castShadow = true;
         holder.add(ramp, band);
         this.group.add(holder);

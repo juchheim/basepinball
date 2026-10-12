@@ -267,6 +267,13 @@ const LAMP = {
  */
 const RAIL_HEIGHT = 85;
 
+/**
+ * The lane guides, slings and bank backstops of the lower playfield are tall too. A ball thrown off
+ * the mound's ramp comes down somewhere in the lower half, and a 25 mm guide let it drop in on top
+ * of the wall, or into the sealed pocket behind a sling, where it sat wedged.
+ */
+const LOW_WALL = 80;
+
 const elements: ElementDef[] = [
   // ---- cabinet
   {
@@ -449,38 +456,35 @@ const elements: ElementDef[] = [
   // ---- mound
   // The mound and pitcher are visual only: in M1 testing both knocked centre shots off line.
   { type: 'dome', id: 'mound', x: 275, y: 355, radius: 30, height: 4, solid: false },
-  // A wedge on the mound that rises while a runner is on base and sinks when the bases clear.
-  // Its front (toward the flippers) is a ramp, so a shot from a flipper rides over it instead of
-  // being knocked off line; its back is a pop bumper face that kicks a ball coming down the table.
-  // It covers the mound (radius 30) and is lowered for each pitch (the ball is released from the
-  // mound) and rises again once the ball has gone.
-  // The ramp must stay low. A ball leaves it with a speed that grows with its slope, and the walls
-  // are only 25 mm high: a ramp 3 mm high threw a 2.7 m/s sling shot 60 mm into the air, over the
-  // sling's cap wall and into the sealed pocket behind it. At 2 mm hardly a shot leaves the floor,
-  // and none gets above 15 mm. The bumper face covers only the back of the mound, and the cone
-  // runs down to the playfield everywhere else, so a shot meets no step to bounce off.
+  // A half disc on the back half of the mound that rises while a runner is on base and sinks when
+  // the bases clear. Its straight edge faces the flippers and is a ramp: a shot from a flipper rides
+  // up it, goes over the top and off the back, airborne. Its rounded back is a pop bumper wall that
+  // kicks a ball coming down the table or in from the side. It is lowered for each pitch (the ball
+  // is released from the mound) and rises again once the ball has gone.
+  // A ball thrown off the ramp comes down in the lower half of the table, so the lane guides and
+  // slings there are tall (LOW_WALL) and cannot be dropped in over.
   {
     type: 'rampBumper',
     id: 'pop.mound',
     x: 275,
     y: 355,
     radius: 30,
-    height: 2,
+    height: 8,
     label: 'P',
     color: LAMP.red,
-    kick: 0.8,
+    kick: 2,
   },
   { type: 'magnet', id: 'magnet.curve', x: 275, y: 270, radius: 60 },
 
   // ---- lower playfield
-  { type: 'wall', points: divider, material: 'metal' },
-  { type: 'wall', points: divider.map(m2), material: 'metal' },
-  { type: 'wall', points: inlaneGuide, material: 'metal' },
-  { type: 'wall', points: inlaneGuide.map(m2), material: 'metal' },
-  { type: 'post', x: 40, y: LANE_TOP, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: 88, y: LANE_TOP, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: mx(40), y: LANE_TOP, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: mx(88), y: LANE_TOP, radius: 5, material: 'rubberPost' },
+  { type: 'wall', points: divider, material: 'metal', height: LOW_WALL },
+  { type: 'wall', points: divider.map(m2), material: 'metal', height: LOW_WALL },
+  { type: 'wall', points: inlaneGuide, material: 'metal', height: LOW_WALL },
+  { type: 'wall', points: inlaneGuide.map(m2), material: 'metal', height: LOW_WALL },
+  { type: 'post', x: 40, y: LANE_TOP, radius: 5, material: 'rubberPost', height: LOW_WALL },
+  { type: 'post', x: 88, y: LANE_TOP, radius: 5, material: 'rubberPost', height: LOW_WALL },
+  { type: 'post', x: mx(40), y: LANE_TOP, radius: 5, material: 'rubberPost', height: LOW_WALL },
+  { type: 'post', x: mx(88), y: LANE_TOP, radius: 5, material: 'rubberPost', height: LOW_WALL },
   // Cap joining the inlane-guide post to the slingshot's top post (no V for a ball to sit in).
   {
     type: 'wall',
@@ -490,20 +494,35 @@ const elements: ElementDef[] = [
     ],
     material: 'rubberPost',
     radius: 5,
+    height: LOW_WALL,
   },
-  { type: 'wall', points: [m2([88, LANE_TOP]), m2([106, 372])], material: 'rubberPost', radius: 5 },
+  {
+    type: 'wall',
+    points: [m2([88, LANE_TOP]), m2([106, 372])],
+    material: 'rubberPost',
+    radius: 5,
+    height: LOW_WALL,
+  },
   { type: 'sensor', id: 'outlane.L', a: [3, 300], b: [37, 300] },
   { type: 'sensor', id: 'inlane.L', a: [43, 300], b: [85, 300] },
   { type: 'sensor', id: 'inlane.R', a: [mx(85), 300], b: [mx(43), 300] },
   { type: 'sensor', id: 'outlane.R', a: [mx(37), 300], b: [mx(3), 300] },
   { type: 'kickback', id: 'kickback.L', x0: 0, y0: 60, x1: 40, y1: 140, angle: 90 },
-  { type: 'sling', id: 'sling.L', corner: [106, 280], top: [106, 372], bottom: [158, 251] },
+  {
+    type: 'sling',
+    id: 'sling.L',
+    corner: [106, 280],
+    top: [106, 372],
+    bottom: [158, 251],
+    height: LOW_WALL,
+  },
   {
     type: 'sling',
     id: 'sling.R',
     corner: m2([106, 280]),
     top: m2([106, 372]),
     bottom: m2([158, 251]),
+    height: LOW_WALL,
   },
   {
     type: 'flipper',

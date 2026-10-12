@@ -35,6 +35,8 @@ export interface SlingDef {
   corner: Vec2;
   top: Vec2;
   bottom: Vec2;
+  /** Height of the sling's walls and corner posts (mm); 25 if omitted. */
+  height?: number;
 }
 
 export interface PopDef {

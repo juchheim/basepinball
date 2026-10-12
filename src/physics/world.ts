@@ -707,7 +707,11 @@ export class World {
           if (c.device === 'drop' && this.drops.get(c.deviceId)?.down) continue;
           const sx = c.bx - c.ax;
           const sy = c.by - c.ay;
-          if (c.device === 'gate' && (b.px - c.ax) * c.gnx + (b.py - c.ay) * c.gny < 0) continue;
+          if (
+            (c.device === 'gate' || c.device === 'pop') &&
+            (b.px - c.ax) * c.gnx + (b.py - c.ay) * c.gny < 0
+          )
+            continue;
           const len2 = sx * sx + sy * sy;
           let t = ((b.px - c.ax) * sx + (b.py - c.ay) * sy) / len2;
           t = t < 0 ? 0 : t > 1 ? 1 : t;
@@ -1140,27 +1144,30 @@ export class World {
           break;
         case 'sling':
           // Kicking rubber face plus passive sides; rubber-ringed posts at the corners.
-          seg(el.top, el.bottom, 3, 'rubberSling', 25, 'sling', el.id);
-          seg(el.corner, el.top, 2, 'wood');
-          seg(el.corner, el.bottom, 2, 'wood');
-          circle(el.top[0], el.top[1], 5, 'rubberPost');
-          circle(el.bottom[0], el.bottom[1], 5, 'rubberPost');
+          seg(el.top, el.bottom, 3, 'rubberSling', el.height ?? 25, 'sling', el.id);
+          seg(el.corner, el.top, 2, 'wood', el.height ?? 25);
+          seg(el.corner, el.bottom, 2, 'wood', el.height ?? 25);
+          circle(el.top[0], el.top[1], 5, 'rubberPost', el.height ?? 25);
+          circle(el.bottom[0], el.bottom[1], 5, 'rubberPost', el.height ?? 25);
           break;
         case 'pop':
           circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
           if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
           break;
         case 'rampBumper': {
-          // The bumper face (a pop wall just under the top, so a ball riding over the top passes
-          // above it) and the ramp (triangles). The face goes first: a ball is resolved against
+          // The bumper wall (a pop wall just under the top, so a ball riding over the top passes
+          // above it) and the ramp (triangles). The wall goes first: a ball is resolved against
           // colliders in this order, and the pop must see the ball's full approach speed before
           // the top's edge has taken any of it. All of it switches on and off together.
           const first = this.colliders.length;
           const m = rampBumperMesh(el);
-          for (let i = 0; i + 1 < m.arc.length; i++) {
-            seg(m.arc[i]!, m.arc[i + 1]!, FACE_RADIUS, 'popBumper', el.height - 0.5, 'pop', el.id);
+          for (const w of m.wall) {
+            const c = seg(w.a, w.b, FACE_RADIUS, 'popBumper', w.height, 'pop', el.id);
+            // One-way: a ball on top of the ramp rolls off the back edge; the wall is the slab's side.
+            c.gnx = w.nx;
+            c.gny = w.ny;
           }
-          for (const t of [...m.top, ...m.flank]) tri(t[0], t[1], t[2], 'plastic');
+          for (const t of m.top) tri(t[0], t[1], t[2], 'plastic');
           if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
           const r: RetractablePop = {
             id: el.id,

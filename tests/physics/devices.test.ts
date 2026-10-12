@@ -20,12 +20,12 @@ describe('devices', () => {
     expect(b.vy).toBeLessThan(-w.params.popKickSpeed * 0.9);
   });
 
-  describe('ramp-and-bumper wedge', () => {
-    // Centre (300, 400), radius 30, 2 mm: a cone down to the playfield all round, and the bumper face
-    // across the back (the +y side).
+  describe('ramp-and-bumper', () => {
+    // A half disc of radius 30 on the line y = 400, 8 mm tall: the ramp rises from that line, the
+    // rounded back (up to y = 430) is the bumper wall.
     const mound = (): ReturnType<typeof makeWorld> =>
       makeWorld({
-        ...emptyTable([{ type: 'rampBumper', id: 'pop.m', x: 300, y: 400, radius: 30, height: 2 }]),
+        ...emptyTable([{ type: 'rampBumper', id: 'pop.m', x: 300, y: 400, radius: 30, height: 8 }]),
         pitchSpot: { x: 300, y: 395 },
       });
     const raise = (w: ReturnType<typeof makeWorld>): void => {
@@ -34,9 +34,9 @@ describe('devices', () => {
       expect(w.popLift('pop.m')).toBe(1);
     };
     const pops = (ev: PhysicsEvent[]): number => ev.filter((e) => e.type === 'pop').length;
-    /** Send a ball up (from below the wedge) or down (from above it) the line x = 300. */
+    /** Send a ball up (from below the ramp) or down (from above the bumper) the line x = 300. */
     const send = (w: ReturnType<typeof makeWorld>, up: boolean, speed: number) => {
-      const b = w.addBall(0.3, up ? 0.34 : 0.46);
+      const b = w.addBall(0.3, up ? 0.34 : 0.48);
       b.vy = up ? speed : -speed;
       const ev: PhysicsEvent[] = [];
       runFor(w, 0.5, collect(w, ev));
@@ -47,57 +47,53 @@ describe('devices', () => {
       const w = mound();
       expect(w.popLift('pop.m')).toBe(0);
       const up = send(w, true, 2);
-      expect(up.b.py).toBeGreaterThan(0.43);
+      expect(up.b.py).toBeGreaterThan(0.45);
       expect(pops(up.ev)).toBe(0);
-      const w2 = mound();
-      const down = send(w2, false, 2);
+      const down = send(mound(), false, 2);
       expect(down.b.py).toBeLessThan(0.37);
       expect(pops(down.ev)).toBe(0);
     });
 
-    it('a ball from below rides up the ramp and over the top without being kicked', () => {
+    it('a ball from the flippers rides up the ramp and off the back without being kicked', () => {
       const w = mound();
       raise(w);
       const { b, ev } = send(w, true, 2);
-      expect(b.py).toBeGreaterThan(0.43);
+      expect(b.py).toBeGreaterThan(0.45);
+      expect(b.vy).toBeGreaterThan(0.5);
       expect(pops(ev)).toBe(0);
     });
 
-    it('a slow ball from below rolls back down the ramp', () => {
+    it('a ball too slow to climb the ramp rolls back down it', () => {
       const w = mound();
       raise(w);
-      const { b } = send(w, true, 0.1);
+      const { b } = send(w, true, 0.3);
       expect(b.py).toBeLessThan(0.38);
     });
 
-    it('a ball cutting across the side of the cone is not bounced off it', () => {
+    it('a ball from above is kicked back up the table by the bumper', () => {
+      const w = mound();
+      raise(w);
+      const { b, ev } = send(w, false, 1.5);
+      expect(pops(ev)).toBe(1);
+      expect(b.py).toBeGreaterThan(0.45);
+    });
+
+    it('a ball crossing the mound at an angle is carried over, not thrown back', () => {
       for (const [x0, y0, vx, vy] of [
-        [0.2, 0.36, 2.2, 0.8],
-        [0.4, 0.36, -2.2, 0.8],
-        [0.2, 0.4, 2.2, 0],
-        [0.4, 0.385, -2.2, 0],
+        [0.22, 0.35, 1.6, 1.2],
+        [0.38, 0.35, -1.6, 1.2],
+        [0.2, 0.37, 2.2, 0.6],
+        [0.4, 0.37, -2.2, 0.6],
       ] as const) {
         const w = mound();
         raise(w);
         const b = w.addBall(x0, y0);
         b.vx = vx;
         b.vy = vy;
-        const ev: PhysicsEvent[] = [];
-        const speed = b.speed();
-        runFor(w, 0.12, collect(w, ev));
-        // Still going the way it was, at nearly the speed it had.
+        runFor(w, 0.25);
         expect(Math.sign(b.vx)).toBe(Math.sign(vx));
-        expect(b.speed()).toBeGreaterThan(speed * 0.8);
-        expect(b.pz).toBeLessThan(0.03);
+        expect(b.vy).toBeGreaterThan(0);
       }
-    });
-
-    it('a ball from above is kicked back up the table by the bumper face', () => {
-      const w = mound();
-      raise(w);
-      const { b, ev } = send(w, false, 1.5);
-      expect(pops(ev)).toBe(1);
-      expect(b.py).toBeGreaterThan(0.45);
     });
 
     it('sinks flush when lowered', () => {
@@ -112,13 +108,13 @@ describe('devices', () => {
 
     it('never rises under a ball; it waits until the ball has gone', () => {
       const w = mound();
-      const b = w.addBall(0.3, 0.4);
+      const b = w.addBall(0.3, 0.41);
       w.setPopRaised('pop.m', true);
       // The ball creeps down the slope but is still over the footprint.
       runFor(w, 0.1);
       expect(w.popLift('pop.m')).toBe(0);
       expect(b.py).toBeGreaterThan(0.39);
-      b.place(0.3, 0.5);
+      b.place(0.3, 0.55);
       runFor(w, 0.3);
       expect(w.popLift('pop.m')).toBe(1);
     });
