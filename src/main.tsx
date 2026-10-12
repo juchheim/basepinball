@@ -159,12 +159,10 @@ async function main(): Promise<void> {
   let textureWidth = 0;
   // Compile all shaders once the textures are in (see `Stage.warmUp`), while the title screen is up.
   let pendingLoads = freePlay ? 1 : 2;
+  let warmPending = false;
   const loaded = (): void => {
     if (--pendingLoads !== 0) return;
-    stage
-      .warmUp()
-      .then((ms) => diag.log(`shaders warmed in ${ms.toFixed(0)} ms`))
-      .catch((err) => console.warn('shader warm-up failed', err));
+    warmPending = true;
   };
   const applyQuality = (q: Quality): void => {
     diag.log(`quality -> ${q.name}`);
@@ -762,7 +760,18 @@ async function main(): Promise<void> {
       const w = c.width;
       c.width = 1;
       c.width = w;
-    } else stage.render();
+    } else {
+      // The warm-up draws every object once; the real frame follows at once and overwrites it.
+      if (warmPending) {
+        warmPending = false;
+        try {
+          diag.log(`shaders warmed in ${stage.warmUp().toFixed(0)} ms`);
+        } catch (err) {
+          console.warn('shader warm-up failed', err);
+        }
+      }
+      stage.render();
+    }
     // Stalls go in the `?debug` timeline: a slow frame, and a slow draw (a shader compiling, say).
     const drawMs = performance.now() - drawStart;
     if (!document.hidden && frames > 5 && slowLogged < 12) {
