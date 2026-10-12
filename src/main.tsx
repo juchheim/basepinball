@@ -157,6 +157,15 @@ async function main(): Promise<void> {
 
   // ---- quality tier, textures, standees, reflections
   let textureWidth = 0;
+  // Compile all shaders once the textures are in (see `Stage.warmUp`), while the title screen is up.
+  let pendingLoads = freePlay ? 1 : 2;
+  const loaded = (): void => {
+    if (--pendingLoads !== 0) return;
+    stage
+      .warmUp()
+      .then((ms) => diag.log(`shaders warmed in ${ms.toFixed(0)} ms`))
+      .catch((err) => console.warn('shader warm-up failed', err));
+  };
   const applyQuality = (q: Quality): void => {
     diag.log(`quality -> ${q.name}`);
     stage.applyQuality(q);
@@ -165,9 +174,11 @@ async function main(): Promise<void> {
     if (q.playfieldTexture !== textureWidth && !freePlay) {
       textureWidth = q.playfieldTexture;
       void loadSlot('playfield.base', q.playfieldTexture).then((tex) => {
-        if (!tex) return;
-        view.setPlayfieldTexture(tex);
-        diag.log(`playfield texture ${q.playfieldTexture} applied`);
+        if (tex) {
+          view.setPlayfieldTexture(tex);
+          diag.log(`playfield texture ${q.playfieldTexture} applied`);
+        }
+        loaded();
       });
     }
   };
@@ -179,9 +190,11 @@ async function main(): Promise<void> {
   }
   applyQuality(quality.tier);
   void loadSlot('standees', 600).then((tex) => {
-    if (!tex) return;
-    view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID);
-    diag.log('standees built');
+    if (tex) {
+      view.addStandees(tex, STANDEE_CELLS, STANDEE_GRID);
+      diag.log('standees built');
+    }
+    loaded();
   });
   // Redraw the scoreboard once the display font is ready.
   void document.fonts?.load('bold 40px Oswald').then(() => stadium.update(null, BRAND.game));
@@ -704,6 +717,8 @@ async function main(): Promise<void> {
     }
     requestAnimationFrame(tick);
   };
+  let lastFrameAt = performance.now();
+  let slowLogged = 0;
   const frame = (now: number): void => {
     input?.pollGamepads();
     loop.frame(now);
@@ -738,6 +753,7 @@ async function main(): Promise<void> {
       stadium.update(snap, BRAND.game);
     }
     view.update(loop.alpha, dt);
+    const drawStart = performance.now();
     view.updateReflections(stage.renderer, stage.scene);
     if (faultInjected) {
       // Debug fault injection: skip drawing and empty the canvas (assigning its width clears it),
@@ -747,6 +763,16 @@ async function main(): Promise<void> {
       c.width = 1;
       c.width = w;
     } else stage.render();
+    // Stalls go in the `?debug` timeline: a slow frame, and a slow draw (a shader compiling, say).
+    const drawMs = performance.now() - drawStart;
+    if (!document.hidden && frames > 5 && slowLogged < 12) {
+      const gap = now - lastFrameAt;
+      if (drawMs > 60 || gap > 150) {
+        slowLogged++;
+        diag.log(`slow frame: ${gap.toFixed(0)} ms apart, draw ${drawMs.toFixed(0)} ms`);
+      }
+    }
+    lastFrameAt = now;
     // Every half second (and never while the tab is hidden): did that frame actually draw?
     if (frames % 30 === 29 && !document.hidden) watchCanvas();
     quality.frame(now, dt * 1000);

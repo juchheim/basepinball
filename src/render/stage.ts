@@ -29,6 +29,8 @@ export class Stage {
   readonly pipeline: THREE.RenderPipeline;
   readonly keyLights: THREE.DirectionalLight[] = [];
   backend = 'unknown';
+  /** True while `warmUp` has hidden objects switched on: the normal frame must not draw. */
+  private warming = false;
   bloomEnabled = true;
   private readonly bloomPass: ReturnType<typeof bloom>;
   private readonly scenePassColor;
@@ -250,7 +252,35 @@ export class Stage {
     this.shakeLength = seconds * 1000;
   }
 
+  /**
+   * Compile every shader once, up front. Objects that only show up in play (runners, the ball,
+   * effects) would otherwise compile the first time they appear, and on Safari that can stall the
+   * GPU for a second right in the middle of a game (the canvas goes blank while the page carries
+   * on). Everything is switched on for the compile and one real frame, then put back; nothing is
+   * presented in between. Returns how long it took (ms).
+   */
+  async warmUp(): Promise<number> {
+    const t0 = performance.now();
+    const hidden: THREE.Object3D[] = [];
+    this.scene.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+    });
+    this.warming = true;
+    try {
+      await this.renderer.compileAsync(this.scene, this.camera);
+      this.pipeline.render();
+    } finally {
+      for (const o of hidden) o.visible = false;
+      this.warming = false;
+    }
+    return performance.now() - t0;
+  }
+
   render(): void {
+    if (this.warming) return;
     if (this.orbit > 0.001) {
       // A slow sway around the table for attract mode; dead-ball only (docs/MVP/05 § 7).
       this.orbitClock += 1 / 60;
