@@ -1,7 +1,8 @@
 # M6 Report: Release
 
-Status as of 2026-10-11, branch `m6-release`, stacked on `m5-polish`. Version **1.0.0-rc.1**
-(release candidate). The production deploy has not been done: it waits for your go-ahead (below).
+Status as of 2026-10-11: built as **1.0.0-rc.1** on `m6-release`, merged into `main`, deployed to
+production, and released as **1.0.0** (the version bump followed the playtest fixes in the PRs
+that came after M6).
 
 ## What's new
 
@@ -118,6 +119,5 @@ A quick web search, not a legal clearance:
    Safari, Firefox and Edge.
 3. **Name:** renamed **Steel Diamond**. Optionally register a domain (e.g. `steeldiamond.gg` or
    `playsteeldiamond.com`) and get a professional trademark clearance before marketing.
-4. **Merge the stack in order:** #1 → #2 → #3 → #4 → #5 → #6 → #7, into `main`.
-5. **Tag `v1.0.0` and deploy to production.** Vercel deploys `main` to production. Bump the version
-   from `1.0.0-rc.1` to `1.0.0` in that last step.
+4. ~~Merge the stack in order~~: done (#1 → #7, then #8 to #11 for the playtest fixes).
+5. ~~Tag `v1.0.0` and deploy to production~~: done. Vercel deploys `main` to production.
