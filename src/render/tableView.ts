@@ -579,7 +579,7 @@ export class TableView {
         g.rotateX(Math.PI / 2);
         g.translate(el.x * MM, el.y * MM, 0);
         this.addStatic(g, mats.mound);
-        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 34 });
+        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 45 });
         break;
       }
       case 'kickback':
