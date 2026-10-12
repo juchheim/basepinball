@@ -370,28 +370,29 @@ const elements: ElementDef[] = [
   { type: 'sensor', id: 'gap.mouth', a: [242, 815], b: [308, 815] },
 
   // ---- outfield bumpers: somewhere for the ball to bang around besides the Gap. They score no hit
-  // of their own; they feed the HUSTLE meter (docs/MVP/02, "Bumpers that matter"). Placed by
-  // sweeping layouts in the simulation: off the ramp, Gap and orbit shot lines, so those shots
-  // are unchanged, while 35 % of flipper shots touch one.
+  // of their own; they feed the HUSTLE meter (docs/MVP/02, "Bumpers that matter"). A mirror-
+  // symmetric pair (so the board looks balanced), placed by sweeping symmetric layouts in the
+  // simulation for the one that leaves every important shot at its original count: the ramps, the
+  // Gap, the orbits and the W-A-L-K bank are unchanged, and 30 % of flipper shots touch one.
   {
     type: 'pop',
     id: 'pop.OF.L',
-    x: 130,
-    y: 610,
+    x: 105,
+    y: 660,
     radius: 17,
     label: 'OF',
     color: LAMP.mint,
-    kick: 1.5,
+    kick: 0.8,
   },
   {
     type: 'pop',
     id: 'pop.OF.R',
-    x: 430,
-    y: 640,
+    x: mx(105),
+    y: 660,
     radius: 17,
     label: 'OF',
     color: LAMP.mint,
-    kick: 1.5,
+    kick: 0.8,
   },
 
   // ---- fielders (7 saucers)
@@ -499,7 +500,7 @@ const elements: ElementDef[] = [
   },
 
   // ---- whitebox lamps (coloured discs standing in for printed inserts)
-  { type: 'lamp', id: 'arrow.orbit.L', x: 78, y: 655, radius: 12, color: LAMP.amber, arrow: 118 },
+  { type: 'lamp', id: 'arrow.orbit.L', x: 24, y: 745, radius: 12, color: LAMP.amber, arrow: 90 },
   { type: 'lamp', id: 'arrow.ramp.HR', x: 176, y: 676, radius: 12, color: LAMP.red, arrow: 100 },
   { type: 'lamp', id: 'arrow.gap', x: 275, y: 665, radius: 12, color: LAMP.ivory, arrow: 90 },
   {
@@ -514,11 +515,11 @@ const elements: ElementDef[] = [
   {
     type: 'lamp',
     id: 'arrow.orbit.R',
-    x: mx(70),
-    y: 690,
+    x: mx(24),
+    y: 745,
     radius: 12,
     color: LAMP.amber,
-    arrow: 62,
+    arrow: 90,
   },
   ...[0, 1, 2, 3, 4].map((i): ElementDef => ({
     type: 'lamp',

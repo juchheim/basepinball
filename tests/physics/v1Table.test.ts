@@ -152,9 +152,19 @@ describe('v1 table: devices', () => {
   it('kickback saves an outlane ball once, then is spent', () => {
     const w = world();
     const b = w.addBall(0.02, 0.3);
-    const saved = run(w, 1500);
+    // The kickback launches the ball up out of the outlane (its top is at y = 0.38 m). Where the
+    // ball is a second and a half later depends on where it bounces, so check how high it got.
+    let highest = 0;
+    const saved: PhysicsEvent[] = [];
+    for (let i = 0; i < 1500; i++) {
+      w.step();
+      saved.push(...w.events);
+      w.events.length = 0;
+      highest = Math.max(highest, b.py);
+    }
     expect(saved.some((e) => e.type === 'kickback')).toBe(true);
-    expect(b.py).toBeGreaterThan(0.2);
+    expect(saved.some((e) => e.type === 'drain')).toBe(false);
+    expect(highest).toBeGreaterThan(0.45);
     const again = world();
     again.setKickbackArmed('kickback.L', false);
     again.addBall(0.02, 0.3);
