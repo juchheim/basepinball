@@ -256,6 +256,7 @@ const LAMP = {
   teal: 0x2ec4b6,
   gold: 0xf2b33d,
   violet: 0x9b5de5,
+  mint: 0x7bd88f,
   white: 0xffffff,
 };
 
@@ -368,6 +369,31 @@ const elements: ElementDef[] = [
   { type: 'pop', id: 'pop.2B.R', x: 303, y: 992, radius: 20, label: '2B', color: LAMP.blue },
   { type: 'sensor', id: 'gap.mouth', a: [242, 815], b: [308, 815] },
 
+  // ---- outfield bumpers: somewhere for the ball to bang around besides the Gap. They score no hit
+  // of their own; they feed the HUSTLE meter (docs/MVP/02, "Bumpers that matter"). Placed by
+  // sweeping layouts in the simulation: off the ramp, Gap and orbit shot lines, so those shots
+  // are unchanged, while 35 % of flipper shots touch one.
+  {
+    type: 'pop',
+    id: 'pop.OF.L',
+    x: 130,
+    y: 610,
+    radius: 17,
+    label: 'OF',
+    color: LAMP.mint,
+    kick: 1.5,
+  },
+  {
+    type: 'pop',
+    id: 'pop.OF.R',
+    x: 430,
+    y: 640,
+    radius: 17,
+    label: 'OF',
+    color: LAMP.mint,
+    kick: 1.5,
+  },
+
   // ---- fielders (7 saucers)
   fieldSaucer('saucer.3B', '3B', 25, 478, 180),
   fieldSaucer('saucer.LF', 'LF', 85, 750, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
@@ -473,14 +499,14 @@ const elements: ElementDef[] = [
   },
 
   // ---- whitebox lamps (coloured discs standing in for printed inserts)
-  { type: 'lamp', id: 'arrow.orbit.L', x: 95, y: 620, radius: 12, color: LAMP.amber, arrow: 118 },
-  { type: 'lamp', id: 'arrow.ramp.HR', x: 152, y: 650, radius: 12, color: LAMP.red, arrow: 100 },
+  { type: 'lamp', id: 'arrow.orbit.L', x: 78, y: 655, radius: 12, color: LAMP.amber, arrow: 118 },
+  { type: 'lamp', id: 'arrow.ramp.HR', x: 176, y: 676, radius: 12, color: LAMP.red, arrow: 100 },
   { type: 'lamp', id: 'arrow.gap', x: 275, y: 665, radius: 12, color: LAMP.ivory, arrow: 90 },
   {
     type: 'lamp',
     id: 'arrow.ramp.STEAL',
-    x: mx(152),
-    y: 650,
+    x: mx(176),
+    y: 676,
     radius: 12,
     color: LAMP.teal,
     arrow: 80,
@@ -488,8 +514,8 @@ const elements: ElementDef[] = [
   {
     type: 'lamp',
     id: 'arrow.orbit.R',
-    x: mx(95),
-    y: 620,
+    x: mx(70),
+    y: 690,
     radius: 12,
     color: LAMP.amber,
     arrow: 62,
@@ -501,6 +527,15 @@ const elements: ElementDef[] = [
     y: 580,
     radius: 5,
     color: LAMP.gold,
+  })),
+  // The HUSTLE meter: five lamps, each worth two bumper hits.
+  ...[0, 1, 2, 3, 4].map((i): ElementDef => ({
+    type: 'lamp',
+    id: `hustle.${i + 1}`,
+    x: 243 + i * 16,
+    y: 612,
+    radius: 5,
+    color: LAMP.mint,
   })),
   { type: 'lamp', id: 'base.1B', x: 400, y: 355, radius: 9, color: LAMP.white },
   { type: 'lamp', id: 'base.2B', x: 275, y: 480, radius: 9, color: LAMP.white },

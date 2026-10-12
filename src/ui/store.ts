@@ -130,6 +130,12 @@ export function calloutFor(e: RulesEvent): void {
       );
     case 'stealRamp':
       return showCallout('STEAL RAMP', 'Nobody on base to steal', 'info', 1100);
+    case 'hustle':
+      return showCallout(
+        'HUSTLE!',
+        e.runs > 0 ? 'Extra base: 1 run scores' : 'Every runner takes an extra base',
+        'hit',
+      );
     case 'walk':
       return showCallout(
         'WALK!',

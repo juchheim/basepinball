@@ -1,6 +1,6 @@
 import { Rng } from '../core/rng';
 import type { PhysicsEvent } from '../physics/world';
-import { advance, EMPTY, runnersOn, steal, walk, type Bases } from './bases';
+import { advance, advanceAll, EMPTY, runnersOn, steal, walk, type Bases } from './bases';
 import { choosePitch, type PitchSpec, type PitchType, type Side } from './pitching';
 import {
   DEFAULT_TIMING,
@@ -26,6 +26,11 @@ export type LampMode = 'off' | 'on' | 'blink';
 type Lane = 'R' | 'B' | 'I';
 const LANES: Lane[] = ['R', 'B', 'I'];
 const WALK_LETTERS = ['W', 'A', 'L', 'K'];
+/** Bumper hits that fill the HUSTLE meter (five lamps of three hits each). */
+export const HUSTLE_TARGET = 15;
+/** At most one bumper hit counts per this many seconds, so a ball ricocheting through the Gap's
+ * four pops earns by how long it keeps bouncing, not by how many contacts physics produces. */
+export const HUSTLE_COOLDOWN = 0.4;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
 export interface GameOptions {
@@ -75,6 +80,9 @@ export class GameRules {
   private lastKickback = -Infinity;
   private readonly rbi = new Set<Lane>();
   private readonly bat = new Set<string>();
+  private lastBumper = -Infinity;
+  /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
+  hustle = 0;
   /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
   private readonly walkLetters = new Set<string>();
   private readonly buttons = { L: false, R: false };
@@ -144,9 +152,14 @@ export class GameRules {
         this.lastSwing = this.now;
         this.swing();
         return;
-      case 'pop':
-        this.hit(e.id.startsWith('pop.2B') ? '2B' : '1B');
+      case 'pop': {
+        // The Gap pops (1B / 2B) score the hit for a batter who has swung. Every other bumper hit
+        // (the outfield pair, or the Gap after the hit) feeds HUSTLE once a hit has landed.
+        const gap = e.id.startsWith('pop.1B') || e.id.startsWith('pop.2B');
+        if (gap && this.state === 'IN_PLAY') this.hit(e.id.startsWith('pop.2B') ? '2B' : '1B');
+        else this.bumperHit();
         return;
+      }
       case 'kicker':
         // A triple is a made orbit shot: the ball must have come up that orbit's entry switch
         // just before reaching the corner kicker (a ball coming round the top does not count).
@@ -438,6 +451,30 @@ export class GameRules {
     if (result.runs > 0) this.score(result.runs);
   }
 
+  /**
+   * HUSTLE (docs/MVP/01 § 4.8): once a hit has landed and the ball is still live, every bumper hit
+   * (the outfield pair, or the Gap pops, which no longer score anything then) fills the meter. Full, with a runner on, every runner takes an extra base (the
+   * runner on third scores). Full with the bases empty it waits for the next bumper hit with a
+   * runner on.
+   */
+  private bumperHit(): void {
+    // Only the banging after a hit counts. Before the result a bumper just deflects the ball (the
+    // bot sees about 46 such hits a game, which would fill the meter ~7 times); after the hit it
+    // used to be decoration, and this is what makes it matter.
+    if (this.state !== 'LIVE_AFTER_HIT') return;
+    if (this.now - this.lastBumper < HUSTLE_COOLDOWN) return;
+    this.lastBumper = this.now;
+    this.hustle = Math.min(HUSTLE_TARGET, this.hustle + 1);
+    if (this.hustle < HUSTLE_TARGET) return;
+    const result = advanceAll(this.bases);
+    if (!result) return;
+    this.hustle = 0;
+    this.bases = result.bases;
+    this.stats.hustles++;
+    this.emit({ type: 'hustle', runs: result.runs, moved: result.moved });
+    if (result.runs > 0) this.score(result.runs);
+  }
+
   /** A runner can steal whenever one is on base (the right ramp is always armed for them). */
   get stealReady(): boolean {
     return steal(this.bases) !== null;
@@ -532,6 +569,8 @@ export class GameRules {
       hotBat: this.hotBat,
       stealReady: this.stealReady,
       walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
+      hustle: this.hustle,
+      hustleTarget: HUSTLE_TARGET,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,
@@ -567,6 +606,11 @@ export class GameRules {
     for (const l of WALK_LETTERS)
       out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
     for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
+    // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
+    const full = this.hustle >= HUSTLE_TARGET;
+    for (let i = 1; i <= 5; i++) {
+      out[`hustle.${i}`] = full ? 'blink' : on(this.hustle >= i * (HUSTLE_TARGET / 5));
+    }
     return out;
   }
 

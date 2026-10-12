@@ -46,6 +46,10 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'steal', from: 0, runs: 0 },
     { type: 'steal', from: 2, runs: 1 },
   ],
+  hustle: [
+    { type: 'hustle', runs: 0, moved: [0] },
+    { type: 'hustle', runs: 1, moved: [0, 1, 2] },
+  ],
   walk: [
     { type: 'walk', runs: 0, moved: [] },
     { type: 'walk', runs: 1, moved: [0, 1, 2] },

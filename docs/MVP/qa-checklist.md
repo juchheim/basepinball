@@ -35,6 +35,7 @@ person at each browser and device. Run this list once per row of the matrix and 
 - [ ] **Steal:**
   - [ ] Get a runner on, then shoot the right ramp: SAFE!
   - [ ] Spell W-A-L-K on the standup bank at the lower right: the batter walks to first, forced runners advance. The letters stay lit across innings.
+  - [ ] **Hustle:** after a hit, bang the ball off the outfield bumpers and the Gap pops. The HUSTLE chip and the mint lamps fill; when full with a runner on, every runner takes an extra base.
   - [ ] An unlit right ramp spots a letter.
 - [ ] **Hot Bat:** B-A-T all down, then the next hit gains a base.
 - [ ] **Rally:** a re-flip after a hit continues, and the rally count climbs.

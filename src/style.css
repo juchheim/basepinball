@@ -198,6 +198,27 @@ canvas {
   background: #f2b33d;
   color: #0b1020;
 }
+.chip.hustle {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  background: rgba(123, 216, 143, 0.16);
+  color: #7bd88f;
+}
+.chip.hustle i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid rgba(123, 216, 143, 0.6);
+}
+.chip.hustle i.on {
+  background: #7bd88f;
+  box-shadow: 0 0 6px rgba(123, 216, 143, 0.9);
+}
+.chip.hustle.ready {
+  animation: pulse 0.4s ease-in-out infinite alternate;
+}
 .chip.walk {
   display: inline-flex;
   gap: 3px;

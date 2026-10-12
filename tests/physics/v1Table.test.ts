@@ -76,6 +76,18 @@ describe('v1 table: W-A-L-K bank', () => {
   });
 });
 
+describe('v1 table: outfield bumpers and the HUSTLE meter', () => {
+  it('has two outfield bumpers (off the Gap) and five hustle lamps', () => {
+    const pops = v1Table.elements.flatMap((e) => (e.type === 'pop' ? [e.id] : []));
+    expect(pops.filter((id) => id.startsWith('pop.OF.'))).toEqual(['pop.OF.L', 'pop.OF.R']);
+    expect(pops).toHaveLength(6);
+    const lamps = v1Table.elements.flatMap((e) =>
+      e.type === 'lamp' && e.id.startsWith('hustle.') ? [e.id] : [],
+    );
+    expect(lamps).toEqual(['hustle.1', 'hustle.2', 'hustle.3', 'hustle.4', 'hustle.5']);
+  });
+});
+
 describe('v1 table: ramps', () => {
   const fireAtHr = (speed: number): World => {
     const w = world();

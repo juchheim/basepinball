@@ -33,6 +33,8 @@ export type RulesEvent =
   | { type: 'out'; how: OutHow; position?: Position; outs: number }
   | { type: 'runs'; runs: number }
   | { type: 'steal'; from: number; runs: number }
+  /** The HUSTLE meter filled: every runner took an extra base (`moved`: the bases they left). */
+  | { type: 'hustle'; runs: number; moved: number[] }
   | { type: 'hotBat'; source: 'BAT' | 'skillShot' | 'rallyCap' }
   /** W-A-L-K is complete: the batter walks. `moved` lists the bases (0 = first) whose runners advanced. */
   | { type: 'walk'; runs: number; moved: number[] }
@@ -66,6 +68,7 @@ export interface GameStats {
   skillShots: number;
   steals: number;
   walks: number;
+  hustles: number;
   /** Simulation seconds from first pitch to final out. */
   duration: number;
 }
@@ -89,6 +92,7 @@ export function emptyStats(): GameStats {
     skillShots: 0,
     steals: 0,
     walks: 0,
+    hustles: 0,
     duration: 0,
   };
 }
@@ -107,6 +111,9 @@ export interface GameSnapshot {
   stealReady: boolean;
   /** W, A, L, K: which letters have been hit so far. */
   walkHit: boolean[];
+  /** The HUSTLE meter: bumper hits so far, and how many fill it. */
+  hustle: number;
+  hustleTarget: number;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;

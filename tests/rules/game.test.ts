@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
-import { advance, steal, walk } from '../../src/rules/bases';
-import { GameRules } from '../../src/rules/game';
+import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
+import { GameRules, HUSTLE_COOLDOWN, HUSTLE_TARGET } from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
 import type { Machine, RulesEvent } from '../../src/rules/types';
 
@@ -134,6 +134,21 @@ describe('base running', () => {
     });
     expect(walk([true, true, true])).toMatchObject({
       bases: [true, true, true],
+      runs: 1,
+      moved: [0, 1, 2],
+    });
+  });
+
+  it('advanceAll moves every runner up one base; the runner on third scores', () => {
+    expect(advanceAll([false, false, false])).toBeNull();
+    expect(advanceAll([true, false, false])?.bases).toEqual([false, true, false]);
+    expect(advanceAll([true, true, false])).toMatchObject({
+      bases: [false, true, true],
+      runs: 0,
+      moved: [0, 1],
+    });
+    expect(advanceAll([true, true, true])).toMatchObject({
+      bases: [false, true, true],
       runs: 1,
       moved: [0, 1, 2],
     });
@@ -461,6 +476,89 @@ describe('feature goals', () => {
     h.wait(6).ev('plunger');
     h.ev('standup', 'standup.K');
     expect(h.g.stats.walks).toBe(1);
+  });
+
+  const bump = (h: ReturnType<typeof inInPlay>, n: number, id = 'pop.OF.L') => {
+    // Spaced past the cooldown, so every hit counts.
+    for (let i = 0; i < n; i++) h.ev('pop', id).wait(HUSTLE_COOLDOWN + 0.1);
+    return h;
+  };
+
+  it('an outfield bumper never scores a hit, and before a hit it feeds nothing', () => {
+    const h = bump(inInPlay(), 5);
+    expect(h.g.stats.hits).toBe(0);
+    expect(h.g.state).toBe('IN_PLAY');
+    expect(h.g.hustle).toBe(0);
+  });
+
+  it('after a hit, outfield bumpers and the Gap pops all feed HUSTLE (the Gap scores no second hit)', () => {
+    const h = inLiveAfterHit();
+    expect(h.g.hustle).toBe(0); // the hit itself is not hustle
+    h.wait(1).ev('pop', 'pop.2B.R').wait(1).ev('pop', 'pop.1B.R').wait(1).ev('pop', 'pop.OF.L');
+    expect(h.g.stats.hits).toBe(1);
+    expect(h.g.hustle).toBe(3);
+  });
+
+  it('a ball ricocheting through the nest counts once per cooldown, not per contact', () => {
+    const h = inLiveAfterHit().wait(1).ev('pop', 'pop.OF.L');
+    for (let i = 0; i < 8; i++) h.ev('pop', 'pop.OF.R'); // eight more contacts within 0.1 s
+    expect(h.g.hustle).toBe(1);
+    h.wait(HUSTLE_COOLDOWN + 0.05).ev('pop', 'pop.OF.R');
+    expect(h.g.hustle).toBe(2);
+  });
+
+  it('bumper hits do not count in the pitch or the leadoff launch', () => {
+    expect(bump(inPitch(), 4).g.hustle).toBe(0);
+    expect(bump(inLeadoff(), 4).g.hustle).toBe(0);
+  });
+
+  it('a full HUSTLE meter moves every runner up a base, and the third-base runner scores', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L').ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    expect(h.g.bases).toEqual([true, true, false]);
+    bump(h, HUSTLE_TARGET - 1);
+    expect(h.g.bases).toEqual([true, true, false]);
+    expect(h.g.snapshot().hustle).toBe(HUSTLE_TARGET - 1);
+    bump(h, 1);
+    expect(h.g.bases).toEqual([false, true, true]);
+    expect(h.g.hustle).toBe(0);
+    expect(h.g.stats.hustles).toBe(1);
+    expect(h.last('hustle')).toMatchObject({ runs: 0, moved: [0, 1] });
+    // Again: the runner on third scores.
+    bump(h, HUSTLE_TARGET);
+    expect(h.g.stats.runs).toBe(1);
+    expect(h.g.bases).toEqual([false, false, true]);
+  });
+
+  it('a full meter pays the moment it fills when a runner is on', () => {
+    const h = bump(inLiveAfterHit(), HUSTLE_TARGET); // a single: a runner on first
+    expect(h.g.stats.hustles).toBe(1);
+    expect(h.g.bases).toEqual([false, true, false]);
+  });
+
+  it('with nobody on base a full meter holds; a runner arriving lets the next bumper hit pay', () => {
+    // Home run: the bases clear, the ball stays live.
+    const h = inInPlay().ev('sensor', 'gate.HR');
+    expect(h.g.bases).toEqual([false, false, false]);
+    bump(h, HUSTLE_TARGET + 3);
+    expect(h.g.hustle).toBe(HUSTLE_TARGET);
+    expect(h.g.stats.hustles).toBe(0);
+    expect(h.g.lamps()['hustle.5']).toBe('blink');
+    // A walk puts a runner on first; the next bumper hit pays.
+    for (const l of ['W', 'A', 'L', 'K']) h.ev('standup', `standup.${l}`);
+    expect(h.g.bases).toEqual([true, false, false]);
+    bump(h, 1);
+    expect(h.g.stats.hustles).toBe(1);
+    expect(h.g.bases).toEqual([false, true, false]);
+  });
+
+  it('HUSTLE lamps light one per HUSTLE_TARGET / 5 hits, and the meter persists through innings', () => {
+    const per = HUSTLE_TARGET / 5;
+    const h = bump(inLiveAfterHit(), per * 2 + 1);
+    const on = ['1', '2', '3', '4', '5'].map((i) => h.g.lamps()[`hustle.${i}`]);
+    expect(on).toEqual(['on', 'on', 'off', 'off', 'off']);
+    h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
+    expect(h.g.inning).toBe(2);
+    expect(h.g.hustle).toBe(per * 2 + 1);
   });
 
   it('skill shot: the lit lane on the leadoff launch lights HOT BAT; buttons move the lit lane', () => {

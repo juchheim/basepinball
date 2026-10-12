@@ -60,6 +60,7 @@ export type FigureAction =
   | { kind: 'hit'; bases: number }
   | { kind: 'steal'; from: number }
   | { kind: 'walk'; moved: number[] }
+  | { kind: 'advance'; moved: number[] }
   | { kind: 'clearBases' };
 
 const MM = 0.001;
@@ -264,6 +265,16 @@ export class Director {
         o.show('steal');
         o.crowd('cheer', 0.6);
         o.scoreboard(e.runs > 0 ? 'STEALS HOME!' : 'SAFE!', '', '#3fe0cf', 1.8);
+        return;
+      case 'hustle':
+        // Every runner takes an extra base; the five meter lamps flash and reset.
+        o.figure({ kind: 'advance', moved: e.moved });
+        o.sound('award');
+        o.show('hit');
+        for (let i = 1; i <= 5; i++) o.flash(`hustle.${i}`);
+        o.crowd('cheer', e.runs > 0 ? 0.7 : 0.45);
+        o.scoreboard('HUSTLE', e.runs > 0 ? 'RUN SCORES' : 'EXTRA BASE', '#7bd88f', 1.8);
+        o.excite(0.5);
         return;
       case 'walk':
         o.figure({ kind: 'walk', moved: e.moved });

@@ -60,6 +60,16 @@ export function walk(bases: Bases): { bases: Bases; runs: number; moved: number[
   return { bases: [true, true, true], runs: 1, moved: [0, 1, 2] };
 }
 
+/**
+ * Every runner takes the next base at once (the runner on third scores). Returns null if nobody is
+ * on base. `moved` lists the bases (0 = first) whose runners advanced.
+ */
+export function advanceAll(bases: Bases): { bases: Bases; runs: number; moved: number[] } | null {
+  if (!bases[0] && !bases[1] && !bases[2]) return null;
+  const moved = [0, 1, 2].filter((i) => bases[i]);
+  return { bases: [false, bases[0], bases[1]], runs: bases[2] ? 1 : 0, moved };
+}
+
 export function runnersOn(bases: Bases): number {
   return (bases[0] ? 1 : 0) + (bases[1] ? 1 : 0) + (bases[2] ? 1 : 0);
 }

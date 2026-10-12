@@ -182,6 +182,8 @@ export class World {
   readonly events: PhysicsEvent[] = [];
   /** Ball impacts since the presentation last cleared them (capped; see {@link Impact}). */
   readonly impacts: Impact[] = [];
+  /** Per-bumper kick speeds (m/s) that override the global `popKickSpeed`. */
+  private readonly popKicks = new Map<string, number>();
   /** Tilt bob displacement (m) and velocity; nudges swing it. */
   readonly bob = { x: 0, y: 0, vx: 0, vy: 0 };
 
@@ -720,7 +722,8 @@ export class World {
       return;
     }
     const threshold = c.device === 'sling' ? p.slingThreshold : p.popThreshold;
-    const kick = c.device === 'sling' ? p.slingKickSpeed : p.popKickSpeed;
+    const kick =
+      c.device === 'sling' ? p.slingKickSpeed : (this.popKicks.get(c.deviceId) ?? p.popKickSpeed);
     // A pop's skirt switch also closes under a ball resting against it (wedged by a wall).
     const pressed = approach >= threshold || (c.device === 'pop' && b.speed() < 0.05);
     if (!pressed || !this.ready(c.deviceId, 0.06)) return;
@@ -1075,6 +1078,7 @@ export class World {
           break;
         case 'pop':
           circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
+          if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
           break;
         case 'drop':
           seg(el.a, el.b, 2.5, 'dropTarget', 30, 'drop', el.id);

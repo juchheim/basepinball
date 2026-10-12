@@ -80,19 +80,20 @@
 <circle cx="525" cy="692" r="27" fill="#5a3a22"/>
 <circle cx="525" cy="692" r="24.5" fill="none" stroke="#f4f1e8" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="490.0" y="695.0" font-size="9" fill="#f4f1e8" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >1B 3</text>
-<polygon points="85.42,531.99 92.93,578.06 98.64,564.83 105.26,561.31 119.42,563.97" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
-<text x="109.0" y="588.3" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
-<polygon points="148.46,499.91 141.36,546.04 150.88,535.23 158.26,533.92 170.90,540.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>
-<text x="157.2" y="561.4" font-size="8.5" fill="#ff3b3b" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >HOME RUN</text>
+<polygon points="68.42,496.99 75.93,543.06 81.64,529.83 88.26,526.31 102.42,528.97" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
+<text x="92.0" y="553.3" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
+<polygon points="172.46,473.91 165.36,520.04 174.88,509.23 182.26,507.92 194.90,514.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>
+<text x="181.2" y="535.4" font-size="8.5" fill="#ff3b3b" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >HOME RUN</text>
 <polygon points="275.00,484.6 260.00,528.8 271.25,519.8 278.75,519.8 290.00,528.8" fill="#f4f1e8" opacity="0.28" stroke="#f4f1e8" stroke-width="1.2"/>
 <text x="275.0" y="546.8" font-size="8.5" fill="#f4f1e8" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >1B · 2B</text>
-<polygon points="401.54,499.91 379.10,540.83 391.74,533.92 399.12,535.23 408.64,546.04" fill="#2ec4b6" opacity="0.28" stroke="#2ec4b6" stroke-width="1.2"/>
-<text x="392.8" y="561.4" font-size="8.5" fill="#2ec4b6" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >STEAL</text>
-<polygon points="464.58,531.99 430.58,563.97 444.74,561.31 451.36,564.83 457.07,578.06" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
-<text x="441.0" y="588.3" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
+<polygon points="377.54,473.91 355.10,514.83 367.74,507.92 375.12,509.23 384.64,520.04" fill="#2ec4b6" opacity="0.28" stroke="#2ec4b6" stroke-width="1.2"/>
+<text x="368.8" y="535.4" font-size="8.5" fill="#2ec4b6" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >STEAL</text>
+<polygon points="489.58,461.99 455.58,493.97 469.74,491.31 476.36,494.83 482.07,508.06" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
+<text x="466.0" y="518.3" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
 <text x="142.0" y="398.0" font-size="7" fill="#ff3b3b" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >OVER THE WALL</text>
 <text x="408.0" y="398.0" font-size="7" fill="#2ec4b6" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >STEAL</text>
 <text x="275.0" y="604.0" font-size="7" fill="#f2b33d" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >RALLY</text>
+<text x="275.0" y="572.0" font-size="7" fill="#7bd88f" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >HUSTLE</text>
 <text x="95.0" y="668.0" font-size="8" fill="#ff3b3b" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >HOT BAT</text>
 <text x="470.4" y="665.8" font-size="8" fill="#9b5de5" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >WALK</text>
 <text x="40.4" y="665.5" font-size="6.5" fill="#0b1020" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >B</text>
@@ -117,6 +118,11 @@
 <circle cx="275" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="291" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="307" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="243" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="259" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="275" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="291" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="307" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="400" cy="815" r="10.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="275" cy="690" r="10.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="150" cy="815" r="10.6" fill="#0b1020" opacity="0.85"/>
