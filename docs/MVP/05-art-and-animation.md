@@ -130,7 +130,19 @@ outputs         public/tex/playfield.base.{ktx2, webp}
   but emissive surfaces + **additive glow decals** projected onto the playfield, with intensity driven
   by the lamp controller. This gives the "hundreds of bulbs" look cheaply.
 - **Bloom** picks up everything emissive: inserts, pop caps, scoreboard LEDs, fireworks.
-- **Color grading:** an AgX tone map, then a night-game LUT (cool shadows, warm highlights).
+- **Color grading:** an ACES tone map after a night-game grade in linear light: filmic contrast
+  around mid grey, cool shadows and warm highlights, extra saturation, an oval vignette
+  (`Stage.grade`, live-tunable uniforms). Bloom takes the emissive surfaces plus the hottest
+  specular glints, so chrome and the ball sparkle.
+- **Contrast pass (post-1.0):** warm tower keys over a dim, cool moonlight fill; inserts are dark
+  tinted plastic when off and burn bright with a glow halo on the playfield when lit; a GI map
+  (warm pools round the slings and flippers, shade toward the top and the rails) multiplies the
+  printed art and dims with the park lights, and a home run drops the GI and towers out for a beat
+  before they surge back. The cabinet is black powder coat with chrome trim, standing on outfield
+  grass; the backboard is a lit translite (tower banks, light shafts, bleachers) with a chasing
+  bulb marquee round the scoreboard, concourse lights on the tiers, camera flashes in the crowd
+  (off under reduced motion), and light shafts from the towers that stop above the playfield.
+  The grass is a deep emerald with a broadcast mowing checker and red-brown clay.
 - **A slightly darker, richer field (post-1.0 playtest feedback):** the field colours in the printed
   art (grass, dirt, track) are about 12 % darker and 30 % more saturated (`tune()` and `FIELD` in
   `tools/art/playfield.ts`). The lights are unchanged. A spotlight that followed the ball was tried

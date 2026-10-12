@@ -5,6 +5,7 @@ import type { HighScore } from '../storage/highscores';
 import { battingAverage } from '../storage/lifetime';
 import {
   keyName,
+  reducedMotion,
   REMAPPABLE,
   type QualitySetting,
   type RemappableAction,
@@ -47,8 +48,9 @@ export function App({ actions }: { actions: UiActions }) {
   const s = screen.value;
   const inGame = s === 'playing' || s === 'paused';
   const large = settings.value.hudScale === 'large';
+  const calm = reducedMotion(settings.value);
   return (
-    <div class={`ui ${large ? 'hud-large' : ''}`}>
+    <div class={`ui ${large ? 'hud-large' : ''} ${calm ? 'reduced' : ''}`}>
       {inGame && <Hud />}
       {inGame && <LineScore />}
       {inGame && <PitchIndicator paused={s === 'paused'} />}
@@ -511,6 +513,9 @@ function Title({ actions }: { actions: UiActions }) {
   const scores = highScores.value;
   return (
     <div class="panel title" onPointerDown={actions.start}>
+      <p class="kicker">
+        {BRAND.park} · {BRAND.team}
+      </p>
       <h1>{BRAND.game}</h1>
       <p class="tagline">Nine innings. Hit 'em where they ain't.</p>
       <p class="cta">Press Enter or tap to play</p>

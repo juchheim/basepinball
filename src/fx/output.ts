@@ -117,6 +117,9 @@ export function createOutput(d: {
     lights(on) {
       d.setLights(on);
     },
+    giFlash() {
+      d.view.giFlash();
+    },
     shake(amount) {
       d.stage.shake(amount);
     },

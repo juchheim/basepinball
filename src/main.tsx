@@ -198,8 +198,11 @@ async function main(): Promise<void> {
     }
     loaded();
   });
-  // Redraw the scoreboard once the display font is ready.
-  void document.fonts?.load('bold 40px Oswald').then(() => stadium.update(null, BRAND.game));
+  // Redraw the backboard and scoreboard once the display font is ready.
+  void document.fonts?.load('bold 40px Oswald').then(() => {
+    stadium.drawBackboard();
+    stadium.update(null, BRAND.game);
+  });
 
   let rules: GameRules | null = null;
   const timers: { at: number; run: () => void }[] = [];
@@ -741,7 +744,11 @@ async function main(): Promise<void> {
     if (b) roll?.update(b.speed(), b.surface, b.px / 0.55, b.py / 1.17, live);
     else roll?.update(0, 'playfield', 0.5, 0, false);
     lightLevel += (lightTarget - lightLevel) * Math.min(1, dt * 1.5);
-    stage.keyLights.forEach((l, i) => (l.intensity = keyBase[i]! * lightLevel));
+    // A home run's GI flash takes the towers down with it (a ballpark light show).
+    const flashLevel = 0.35 + 0.65 * view.giFlashLevel;
+    stage.keyLights.forEach((l, i) => (l.intensity = keyBase[i]! * lightLevel * flashLevel));
+    view.setGI(lightLevel);
+    stadium.flashesEnabled = !director.reduced;
     stadium.tick(dt);
     // Attract mode sways the camera round the table; it settles into the player view as a game
     // starts (the lights-on intro). Never during play, never with reduced motion.

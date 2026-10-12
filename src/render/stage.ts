@@ -1,6 +1,10 @@
 import * as THREE from 'three/webgpu';
 import {
   emissive,
+  float,
+  luminance,
+  max,
+  mix,
   mrt,
   output,
   pass,
@@ -8,6 +12,9 @@ import {
   saturation,
   screenUV,
   smoothstep,
+  uniform,
+  vec2,
+  vec3,
   vec4,
 } from 'three/tsl';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
@@ -18,9 +25,12 @@ import type { Quality } from './quality';
  * Renderer, scene, lights, camera and post-processing. WebGPU when available, otherwise Three.js
  * falls back to its WebGL2 backend automatically (docs/MVP/04 § 1); `?webgl` forces the fallback.
  *
- * Look (docs/MVP/05 § 6): two stadium-tower key lights casting soft shadows, a dim cool fill,
- * selective bloom on emissive surfaces only, AgX tone mapping and a night-game grade (a touch more
- * saturation and a soft vignette).
+ * Look (docs/MVP/05 § 6): a night game under the lights, graded like a broadcast. Two warm
+ * stadium-tower key lights cast the shadows; the fill is a dim, cool moonlight, so shade reads
+ * blue and lit surfaces read warm. Bloom takes the emissive surfaces (lamps, pop caps, flashes)
+ * plus the hottest specular glints on chrome, so the ball and rails sparkle. ACES tone mapping
+ * and a grade (filmic contrast, cool shadows, warm highlights, richer colour, a vignette) give
+ * the deep blacks and saturated lamps of a modern lit pinball cabinet.
  */
 export class Stage {
   readonly renderer: THREE.WebGPURenderer;
@@ -34,6 +44,21 @@ export class Stage {
   private readonly scenePassColor;
   private readonly scenePass: ReturnType<typeof pass>;
   private fxaaEnabled = true;
+  /**
+   * The grade, live-tunable (uniforms, so changing them never recompiles a shader): exposure,
+   * filmic contrast around mid grey, saturation, the shadow and highlight tints, the vignette, and
+   * how much of the hottest specular light reaches the bloom.
+   */
+  readonly grade = {
+    exposure: uniform(0.88),
+    contrast: uniform(1.12),
+    saturation: uniform(1.08),
+    shadowTint: uniform(new THREE.Vector3(0.9, 0.97, 1.12)),
+    highlightTint: uniform(new THREE.Vector3(1.07, 1.0, 0.9)),
+    vignette: uniform(0.42),
+    sparkle: uniform(0.35),
+    sparkleFrom: uniform(1.6),
+  };
   private fitTarget: THREE.Object3D | null = null;
   private fitExtra: THREE.Vector3[] = [];
   private dprCap = 2;
@@ -53,18 +78,20 @@ export class Stage {
       // full-screen quad reaches the canvas, so a multisampled canvas just burns GPU memory.
       new THREE.WebGPURenderer({ antialias: false, forceWebGL });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.dprCap));
-    this.renderer.toneMapping = THREE.AgXToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(this.renderer.domElement);
 
-    this.scene.background = new THREE.Color(0x070a14);
+    this.scene.background = new THREE.Color(0x03050c);
 
-    this.scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x140f0c, 0.28));
-    // Two "stadium tower" key lights (aimed from the towers once the stadium is built).
-    for (const intensity of [2.3, 1.7]) {
-      const light = new THREE.DirectionalLight(0xfff1d6, intensity);
+    // Sky bounce: a faint navy from above, almost nothing from below, so shade stays deep.
+    this.scene.add(new THREE.HemisphereLight(0x5d78c8, 0x07060a, 0.16));
+    // Two "stadium tower" key lights (aimed from the towers once the stadium is built): warm
+    // metal-halide white, strong enough that lit and shaded sides read clearly apart.
+    for (const intensity of [3.1, 2.2]) {
+      const light = new THREE.DirectionalLight(0xffe9c7, intensity);
       light.position.set(0, 1.4, 0.4);
       light.target.position.set(0.275, 0, -0.35);
       light.castShadow = true;
@@ -77,13 +104,14 @@ export class Stage {
       cam.near = 0.05;
       cam.far = 5;
       light.shadow.bias = -0.0005;
-      light.shadow.radius = 3;
+      light.shadow.radius = 2.5;
       this.keyLights.push(light);
       this.scene.add(light, light.target);
     }
 
-    // A soft fill from the player's side, standing in for the cabinet's GI lighting the toys.
-    const fill = new THREE.DirectionalLight(0xffe6c4, 0.55);
+    // A dim, cool fill from the player's side (moonlight, the scoreboard's glow), so the faces of
+    // the toys turned away from the towers fall into blue shade instead of grey.
+    const fill = new THREE.DirectionalLight(0x8fb0ff, 0.38);
     fill.position.set(0.275, 1.2, 1.6);
     fill.target.position.set(0.275, 0, -0.4);
     this.scene.add(fill, fill.target);
@@ -96,7 +124,12 @@ export class Stage {
     this.scenePass = scenePass;
     scenePass.setMRT(mrt({ output, emissive }));
     this.scenePassColor = scenePass.getTextureNode('output');
-    this.bloomPass = bloom(scenePass.getTextureNode('emissive'), 1.1, 0.4, 0);
+    // The bloom's input: everything emissive, plus the part of the lit scene brighter than
+    // `sparkleFrom` (the tower lights glinting off the ball and the chrome).
+    const lit = this.scenePassColor.rgb;
+    const glint = max(lit.sub(this.grade.sparkleFrom), vec3(0)).mul(this.grade.sparkle);
+    const bloomIn = vec4(scenePass.getTextureNode('emissive').rgb.add(glint), 1);
+    this.bloomPass = bloom(bloomIn, 1.25, 0.55, 0);
     this.pipeline = new THREE.RenderPipeline(this.renderer);
     this.setPost(true, true);
 
@@ -110,7 +143,7 @@ export class Stage {
     this.backend = backend.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     this.scene.environment = pmrem.fromScene(nightEnvironment(), 0.03).texture;
-    this.scene.environmentIntensity = 0.9;
+    this.scene.environmentIntensity = 0.8;
     this.resize();
   }
 
@@ -123,10 +156,7 @@ export class Stage {
     this.bloomEnabled = bloomOn;
     this.fxaaEnabled = fxaaOn;
     const color = bloomOn ? this.scenePassColor.add(this.bloomPass) : this.scenePassColor;
-    // Night grade: +8 % saturation and a soft vignette.
-    const graded = saturation(color.rgb, 1.08);
-    const vignette = smoothstep(0.85, 0.35, screenUV.sub(0.5).length()).mul(0.22).add(0.78);
-    const out = vec4(graded.mul(vignette), 1);
+    const out = vec4(nightGrade(color.rgb, this.grade), 1);
     if (fxaaOn) {
       // FXAA needs display-ready (tone-mapped, sRGB) input, so do the output transform first.
       this.pipeline.outputColorTransform = false;
@@ -315,6 +345,23 @@ export class Stage {
 }
 
 /**
+ * The night-game grade, in linear light before tone mapping: exposure, a filmic contrast curve
+ * pivoting on mid grey (deeper shade, brighter lights), a split tone (cool shadows, warm
+ * highlights), extra saturation, and an oval vignette that pulls the eye to the playfield.
+ */
+function nightGrade(rgbIn: THREE.Node<'vec3'>, g: Stage['grade']): THREE.Node<'vec3'> {
+  const exposed = rgbIn.mul(g.exposure);
+  const contrasted = max(exposed.div(0.18), vec3(1e-5)).pow(vec3(g.contrast)).mul(0.18);
+  const l = luminance(contrasted);
+  const tint = mix(g.shadowTint, g.highlightTint, smoothstep(0.02, 0.7, l));
+  const toned = saturation(contrasted.mul(tint), g.saturation);
+  // Oval (wider than tall), darker at the corners.
+  const d = screenUV.sub(0.5).mul(vec2(1.15, 1)).length();
+  const vignette = float(1).sub(smoothstep(0.32, 0.9, d).mul(g.vignette));
+  return toned.mul(vignette);
+}
+
+/**
  * Image-based lighting for a night game: a dark sky bowl, two banks of tower lights high on
  * either side, a faint glow from the stands and dim field below. Reflections on the clear coat and
  * chrome then show darkness and bright tower lights, as they would in a ballpark, rather than a
@@ -324,7 +371,7 @@ function nightEnvironment(): THREE.Scene {
   const env = new THREE.Scene();
   const bowl = new THREE.Mesh(
     new THREE.SphereGeometry(10, 32, 16),
-    new THREE.MeshBasicMaterial({ color: 0x0a1020, side: THREE.BackSide }),
+    new THREE.MeshBasicMaterial({ color: 0x050914, side: THREE.BackSide }),
   );
   env.add(bowl);
   // `boost` > 1 makes a panel brighter than white (HDR), like a real light source.
@@ -344,13 +391,16 @@ function nightEnvironment(): THREE.Scene {
     m.lookAt(0, 0, 0);
     env.add(m);
   };
-  // Tower light banks (very bright, warm).
-  panel(0xfff0d0, 2.2, 1.0, [-5, 5, -4], 6);
-  panel(0xfff0d0, 2.2, 1.0, [5, 5, -4], 6);
-  panel(0xc8b48c, 1.2, 0.6, [-6, 3.5, 3], 3);
-  panel(0xc8b48c, 1.2, 0.6, [6, 3.5, 3], 3);
-  // The stands catching some light, and the field below.
-  panel(0x1c2236, 14, 2.2, [0, 1.6, -8]);
-  panel(0x10301a, 14, 14, [0, -6, 0]);
+  // Tower light banks (very bright, warm), the near pair dimmer.
+  panel(0xffe8c0, 2.2, 1.0, [-5, 5, -4], 9);
+  panel(0xffe8c0, 2.2, 1.0, [5, 5, -4], 9);
+  panel(0xd8b88a, 1.2, 0.6, [-6, 3.5, 3], 4);
+  panel(0xd8b88a, 1.2, 0.6, [6, 3.5, 3], 4);
+  // A long, soft strip high behind the backboard (the light-tower haze over the outfield): the
+  // clear coat mirrors it as a sheen across the upper playfield, and chrome as a bright band.
+  panel(0xdde4ff, 7, 0.7, [0, 3.2, -7], 1.6);
+  // The stands catching some light (a cool navy), and the dark field below.
+  panel(0x18203a, 14, 2.2, [0, 1.6, -8]);
+  panel(0x081a0e, 14, 14, [0, -6, 0]);
   return env;
 }

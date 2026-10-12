@@ -1,4 +1,20 @@
 import * as THREE from 'three/webgpu';
+import {
+  abs,
+  dot,
+  exp,
+  float,
+  mix,
+  normalView,
+  positionViewDirection,
+  pow,
+  smoothstep,
+  texture,
+  uniform,
+  uv,
+  vec2,
+  vec3,
+} from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { ElementDef, TableDef, Vec2, Vec3 } from '../table/schema';
 import { rampEdges, saucerLipPost, wireformRails, type World } from '../physics/world';
@@ -18,45 +34,103 @@ const MM = 0.001;
 /** How far (m) a rising bumper sinks below the playfield, enough to hide it entirely. */
 const RISER_DEPTH = 0.025;
 
-function rampMaterial(color: number): THREE.MeshStandardMaterial {
-  return new THREE.MeshStandardMaterial({
+/**
+ * Tinted clear acrylic: see-through where you look straight into it, thicker and more strongly
+ * coloured toward grazing angles (a Fresnel term), so the ramp's walls and curves read as glass.
+ */
+function rampMaterial(color: number): THREE.MeshPhysicalNodeMaterial {
+  const m = new THREE.MeshPhysicalNodeMaterial({
     color,
-    roughness: 0.15,
+    roughness: 0.06,
     metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.03,
+    // A faint self-glow in the tint, as edge-lit acrylic has.
+    emissive: new THREE.Color(color),
+    emissiveIntensity: 0.05,
     transparent: true,
-    opacity: 0.5,
     side: THREE.DoubleSide,
     depthWrite: false,
   });
+  const facing = abs(dot(normalView, positionViewDirection));
+  m.opacityNode = mix(float(0.14), float(0.8), pow(float(1).sub(facing), 2.2));
+  return m;
+}
+
+/**
+ * General illumination (GI): the warm bulbs under the plastics of a real table throw pools of light
+ * on the playfield, brightest round the slings and the flipper area, with the far corners in
+ * shade. The printed art is multiplied by this map (playfield mm; x, y, radius, weight). Dimmed
+ * with the park lights for attract mode.
+ */
+const GI_POOLS: [number, number, number, number][] = [
+  [275, 170, 230, 0.2],
+  [96, 330, 120, 0.3],
+  [454, 330, 120, 0.3],
+  [275, 420, 170, 0.14],
+  [275, 900, 150, 0.16],
+  [170, 700, 120, 0.1],
+  [380, 700, 120, 0.1],
+];
+const giLevel = uniform(1);
+const playfieldMap = texture(new THREE.Texture());
+
+function playfieldMaterial(width: number, length: number): THREE.MeshPhysicalNodeMaterial {
+  const m = new THREE.MeshPhysicalNodeMaterial({
+    roughness: 0.6,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+  });
+  const p = uv().mul(vec2(width, length));
+  const pools = GI_POOLS.map(([x, y, r, w]) => {
+    const d = p.sub(vec2(x, y)).div(r);
+    return exp(dot(d, d).negate()).mul(w);
+  }).reduce((a, b) => a.add(b));
+  // Shade toward the top of the field and along the side rails.
+  const shade = mix(float(1), float(0.68), smoothstep(560, length, p.y)).mul(
+    mix(float(0.8), float(1), smoothstep(0, 70, p.x).mul(smoothstep(width, width - 70, p.x))),
+  );
+  // With the GI out the field falls to 40 % (the towers still light it); the pools go entirely.
+  const lit = mix(float(0.4), float(1), giLevel.min(1));
+  const gi = vec3(shade.mul(lit)).add(vec3(1, 0.86, 0.66).mul(pools).mul(giLevel));
+  m.colorNode = playfieldMap.mul(gi);
+  return m;
 }
 
 const mats = {
-  // The printed playfield under a clear coat (art texture applied once it loads).
-  floor: new THREE.MeshPhysicalMaterial({
-    color: 0x3d5a45,
-    roughness: 0.55,
-    metalness: 0,
-    clearcoat: 1,
-    clearcoatRoughness: 0.06,
+  // The cabinet's inner side walls: dark lacquered walnut.
+  wood: new THREE.MeshPhysicalMaterial({
+    color: 0x2a1b12,
+    roughness: 0.45,
+    clearcoat: 0.7,
+    clearcoatRoughness: 0.15,
   }),
-  wood: new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.6 }),
-  metal: new THREE.MeshStandardMaterial({ color: 0xc9ced6, roughness: 0.25, metalness: 0.9 }),
-  rubber: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0xe2e6ee, roughness: 0.14, metalness: 1 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.45 }),
   rubberWhite: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }),
-  plastic: new THREE.MeshStandardMaterial({
-    color: 0xe9e2cf,
-    roughness: 0.3,
+  // Sling plastics: glossy printed acrylic.
+  plastic: new THREE.MeshPhysicalMaterial({
+    color: 0xf1e8d2,
+    roughness: 0.25,
+    clearcoat: 1,
+    clearcoatRoughness: 0.05,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.9,
   }),
   // Tinted clear plastics tell the two ramps apart: red "Over the Wall" (home run), teal Steal.
-  rampHR: rampMaterial(0xffb3a8),
-  rampSteal: rampMaterial(0x9ff0e6),
-  wire: new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.15, metalness: 1 }),
-  flipper: new THREE.MeshStandardMaterial({ color: 0xf4efe1, roughness: 0.35 }),
-  flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc8282a, roughness: 0.6 }),
-  saucer: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 }),
-  mound: new THREE.MeshStandardMaterial({ color: 0xb4683c, roughness: 0.9 }),
+  rampHR: rampMaterial(0xff5a48),
+  rampSteal: rampMaterial(0x2ee6cf),
+  wire: new THREE.MeshStandardMaterial({ color: 0xeef1f6, roughness: 0.07, metalness: 1 }),
+  flipper: new THREE.MeshPhysicalMaterial({
+    color: 0xf4efe1,
+    roughness: 0.3,
+    clearcoat: 0.8,
+    clearcoatRoughness: 0.1,
+  }),
+  flipperRubber: new THREE.MeshStandardMaterial({ color: 0xc41f24, roughness: 0.45 }),
+  saucer: new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 0.9 }),
+  mound: new THREE.MeshStandardMaterial({ color: 0x8e4f2b, roughness: 0.85 }),
   /** The ramp of the mound's wedge (the triangles are not wound consistently, so two-sided). */
   rampBumper: new THREE.MeshStandardMaterial({
     color: 0xf6f1e4,
@@ -65,10 +139,82 @@ const mats = {
     metalness: 0.1,
     side: THREE.DoubleSide,
   }),
-  popBody: new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.3, metalness: 0.6 }),
-  sensor: new THREE.MeshStandardMaterial({ color: 0x9aa6c4, roughness: 0.4, metalness: 0.8 }),
-  ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 1 }),
+  popBody: new THREE.MeshStandardMaterial({ color: 0xe8ebf0, roughness: 0.12, metalness: 1 }),
+  sensor: new THREE.MeshStandardMaterial({ color: 0x9aa6c4, roughness: 0.3, metalness: 0.9 }),
+  ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.04, metalness: 1 }),
 };
+
+/** A soft round glow (white centre fading to nothing), shared by every lamp and pop halo. */
+let haloTexture: THREE.Texture | null = null;
+function getHaloTexture(): THREE.Texture {
+  if (haloTexture) return haloTexture;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d')!;
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.22, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  haloTexture = new THREE.CanvasTexture(c);
+  haloTexture.colorSpace = THREE.SRGBColorSpace;
+  return haloTexture;
+}
+
+/**
+ * A pop bumper's cap: translucent coloured plastic, brighter in the middle where the bulb sits, a
+ * white rim, and its label printed on top.
+ */
+function popCapTexture(color: number, label: string): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d')!;
+  const col = new THREE.Color(color);
+  const css = (k: number): string =>
+    `rgb(${Math.round(Math.min(1, col.r * k) * 255)},${Math.round(Math.min(1, col.g * k) * 255)},${Math.round(Math.min(1, col.b * k) * 255)})`;
+  const g = ctx.createRadialGradient(128, 128, 8, 128, 128, 128);
+  g.addColorStop(0, '#ffffff');
+  g.addColorStop(0.35, css(1.05));
+  g.addColorStop(0.8, css(0.72));
+  g.addColorStop(1, css(0.45));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  ctx.lineWidth = 14;
+  ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath();
+  ctx.arc(128, 128, 112, 0, Math.PI * 2);
+  ctx.stroke();
+  if (label) {
+    ctx.fillStyle = 'rgba(11,16,32,0.85)';
+    ctx.font = 'bold 92px Oswald, "Arial Narrow", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // The cylinder's cap maps the texture a quarter turn round: counter-rotate so it reads upright.
+    ctx.translate(128, 128);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(label, 0, 6);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/**
+ * Light spilling from a lit insert onto the clear coat round it (docs/MVP/05 § 6: glow decals):
+ * an additive disc whose strength follows the lamp.
+ */
+function haloMaterial(color: number): THREE.MeshBasicMaterial {
+  return new THREE.MeshBasicMaterial({
+    color,
+    map: getHaloTexture(),
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+}
 
 function materialFor(name: string): THREE.Material {
   if (name === 'wood') return mats.wood;
@@ -87,6 +233,9 @@ interface Light {
   mode: LampMode;
   /** Emissive intensity added while lit (default 1.6). */
   boost?: number;
+  /** The glow on the playfield round it, and its strength at full brightness. */
+  halo?: THREE.MeshBasicMaterial;
+  haloMax?: number;
 }
 
 /** A mesh from triangles given in mm (the wedge on the mound). */
@@ -109,9 +258,25 @@ function glowMaterial(color: number, base = 0): THREE.MeshStandardMaterial {
   return m;
 }
 
+/**
+ * A playfield insert: tinted plastic that is dark (but clearly coloured) when off and burns
+ * bright when lit, so lit and unlit lamps read apart at a glance.
+ */
+function insertMaterial(color: number): THREE.MeshPhysicalMaterial {
+  return new THREE.MeshPhysicalMaterial({
+    color: new THREE.Color(color).multiplyScalar(0.22),
+    roughness: 0.2,
+    clearcoat: 1,
+    clearcoatRoughness: 0.04,
+    emissive: new THREE.Color(color),
+    emissiveIntensity: 0.12,
+  });
+}
+
 export class TableView {
   readonly group = new THREE.Group();
   readonly floor: THREE.Mesh;
+  private readonly floorMaterial: THREE.MeshPhysicalNodeMaterial;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
   private readonly dropMeshes = new Map<string, { holder: THREE.Object3D; spring: Spring }>();
   /** Bumpers that rise out of the playfield (the Stretch): `shown` is 0 (sunk) to 1 (up). */
@@ -128,6 +293,8 @@ export class TableView {
   private plungerRod: THREE.Object3D | null = null;
   private readonly lights = new Map<string, Light[]>();
   private readonly ballMeshes: THREE.Mesh[] = [];
+  /** A short streak behind a fast ball (docs/MVP/05 § 4), built on the first ball. */
+  private trail: THREE.InstancedMesh | null = null;
   private readonly colliderLines: THREE.LineSegments;
   /** Where standees go (filled while building, placed when the art loads). */
   private readonly standeeSpots: { cell: string; x: number; y: number }[] = [];
@@ -146,7 +313,8 @@ export class TableView {
   ) {
     const w = table.width * MM;
     const l = table.length * MM;
-    this.floor = new THREE.Mesh(new THREE.PlaneGeometry(w, l), mats.floor);
+    this.floorMaterial = playfieldMaterial(table.width, table.length);
+    this.floor = new THREE.Mesh(new THREE.PlaneGeometry(w, l), this.floorMaterial);
     this.floor.position.set(w / 2, l / 2, 0);
     this.floor.receiveShadow = true;
     this.group.add(this.floor);
@@ -172,11 +340,34 @@ export class TableView {
 
   /** Apply the printed playfield art. */
   setPlayfieldTexture(tex: THREE.Texture): void {
-    const old = mats.floor.map;
-    mats.floor.map = tex;
-    mats.floor.color.set(0xffffff);
-    mats.floor.needsUpdate = true;
-    old?.dispose();
+    const old = playfieldMap.value;
+    playfieldMap.value = tex;
+    this.floorMaterial.needsUpdate = true;
+    old.dispose();
+  }
+
+  /** The playfield GI (0 dark to 1 full), following the park lights. */
+  setGI(level: number): void {
+    this.giBase = level;
+  }
+
+  /** The GI drops out for a beat, then surges back brighter and settles (a home run). */
+  giFlash(): void {
+    this.giPulse = 0;
+  }
+
+  private giBase = 1;
+  /** Seconds into a GI flash, or -1. */
+  private giPulse = -1;
+  /** The GI flash's current multiplier (1 when none is running), for the park lights to follow. */
+  giFlashLevel = 1;
+
+  /** The GI flash envelope at `t` seconds: out, a held dark beat, a surge, settle. */
+  private static giEnvelope(t: number): number {
+    if (t < 0.1) return 1 - (t / 0.1) * 0.9;
+    if (t < 0.5) return 0.1;
+    if (t < 0.65) return 0.1 + ((t - 0.5) / 0.15) * 1.6;
+    return 1 + 0.7 * Math.exp(-(t - 0.65) * 4);
   }
 
   /** Printed-acrylic figures (docs/MVP/05 § 5.3), once the standee atlas has loaded. */
@@ -266,6 +457,13 @@ export class TableView {
       d.spring.update(dtSeconds);
       d.apply(d.spring.x);
     }
+    this.giFlashLevel = 1;
+    if (this.giPulse >= 0) {
+      this.giFlashLevel = TableView.giEnvelope(this.giPulse);
+      this.giPulse += dtSeconds;
+      if (this.giPulse > 2) this.giPulse = -1;
+    }
+    giLevel.value = this.giBase * this.giFlashLevel;
     this.figures.update(dtSeconds);
     this.particles.update(dtSeconds);
     for (const [id, mesh] of this.spinnerMeshes) {
@@ -279,7 +477,9 @@ export class TableView {
     for (const list of this.lights.values()) {
       for (const l of list) {
         const lit = l.mode === 'on' || (l.mode === 'blink' && blinkOn);
-        l.material.emissiveIntensity = l.base + (lit ? (l.boost ?? 1.6) : 0) + l.level * 4;
+        const extra = (lit ? (l.boost ?? 1.6) : 0) + l.level * 4;
+        l.material.emissiveIntensity = l.base + extra;
+        if (l.halo) l.halo.opacity = Math.min(1, extra / (l.boost ?? 1.6)) * (l.haloMax ?? 0.8);
         l.level = Math.max(0, l.level - dtSeconds * 6);
       }
     }
@@ -308,6 +508,51 @@ export class TableView {
       qb.set(b.qx, b.qy, b.qz, b.qw);
       m.quaternion.slerpQuaternions(qa, qb, alpha);
     });
+    this.updateTrail();
+  }
+
+  /**
+   * The streak: overlapping soft spheres laid back along the velocity, shrinking toward the tail.
+   * It fades in above ~3 m/s, so a rolling ball has none and a hard shot leaves a short comet tail.
+   */
+  private updateTrail(): void {
+    const N = 24;
+    if (!this.trail) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xbcd4ff,
+        transparent: true,
+        opacity: 0.16,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      this.trail = new THREE.InstancedMesh(
+        new THREE.SphereGeometry(this.world.params.ballRadius, 12, 8),
+        mat,
+        N,
+      );
+      this.trail.frustumCulled = false;
+      this.group.add(this.trail);
+    }
+    const b = this.world.balls[0];
+    const mesh = this.ballMeshes[0];
+    const speed = b && b.active ? b.speed() : 0;
+    const k = Math.min(1, Math.max(0, (speed - 3) / 3));
+    this.trail.visible = k > 0 && !!mesh;
+    if (!this.trail.visible || !b || !mesh) return;
+    // About 22 ms of travel back along the velocity: ~13 cm at 6 m/s.
+    const back = 0.022;
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < N; i++) {
+      const t = ((i + 1) / N) * back;
+      const s = (1 - t / back) * k * 0.95;
+      m.makeScale(s, s, s).setPosition(
+        mesh.position.x - b.vx * t,
+        mesh.position.y - b.vy * t,
+        mesh.position.z - b.vz * t,
+      );
+      this.trail.setMatrixAt(i, m);
+    }
+    this.trail.instanceMatrix.needsUpdate = true;
   }
 
   // ---------------------------------------------------------------- builders
@@ -444,10 +689,25 @@ export class TableView {
       }
       case 'pop': {
         this.addStatic(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody);
-        const cap = glowMaterial(el.color ?? 0xf4efe1, 0.4);
-        cap.transparent = true;
-        cap.opacity = 0.95;
-        this.addLight(el.id, { material: cap, base: 0.4, level: 0, mode: 'off' });
+        const cap = glowMaterial(0xffffff, 0.3);
+        cap.map = cap.emissiveMap = popCapTexture(el.color ?? 0xf4efe1, el.label ?? '');
+        cap.roughness = 0.15;
+        // The flash lights up the playfield round the bumper.
+        const halo = haloMaterial(el.color ?? 0xf4efe1);
+        const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), halo);
+        pool.scale.setScalar(el.radius * MM * 6);
+        pool.position.set(el.x * MM, el.y * MM, 0.0006);
+        pool.renderOrder = 1;
+        this.group.add(pool);
+        this.addLight(el.id, {
+          material: cap,
+          base: 0.3,
+          level: 0,
+          mode: 'off',
+          boost: 1.6,
+          halo,
+          haloMax: 0.35,
+        });
         const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
         m.castShadow = true;
         this.group.add(m);
@@ -662,8 +922,22 @@ export class TableView {
         break;
       }
       case 'lamp': {
-        const mat = glowMaterial(el.color, 0.08);
-        this.addLight(el.id, { material: mat, base: 0.08, level: 0, mode: 'off' });
+        const mat = insertMaterial(el.color);
+        const halo = haloMaterial(el.color);
+        const glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), halo);
+        glow.scale.setScalar(el.radius * MM * (el.arrow !== undefined ? 6 : 5.5));
+        glow.position.set(el.x * MM, el.y * MM, 0.0006);
+        glow.renderOrder = 1;
+        this.group.add(glow);
+        this.addLight(el.id, {
+          material: mat,
+          base: 0.12,
+          level: 0,
+          mode: 'off',
+          boost: 2.6,
+          halo,
+          haloMax: 0.55,
+        });
         let geom: THREE.BufferGeometry;
         if (el.arrow !== undefined) {
           const r = el.radius * MM;
