@@ -148,7 +148,10 @@ export class GameRules {
   onSwitch(e: PhysicsEvent): void {
     this.now = Math.max(this.now, e.time);
     if (e.type !== 'eos') this.lastActivity = this.now;
-    if (e.type !== 'eos' && e.type !== 'swing') this.searches = 0;
+    // A search's own kick can fire the device the ball is resting against (a sling): that is not
+    // progress, or the search would reset the count that leads to a rescue and repeat forever.
+    const ownKick = this.now - this.lastSearch < 2;
+    if (e.type !== 'eos' && e.type !== 'swing' && !ownKick) this.searches = 0;
     if (this.state === 'GAME_OVER' || this.state === 'INNING_BREAK') return;
 
     if (this.tilted) {

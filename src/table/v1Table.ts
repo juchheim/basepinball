@@ -454,17 +454,18 @@ const elements: ElementDef[] = [
   // being knocked off line; its back is a pop bumper face that kicks a ball coming down the table.
   // It covers the mound (radius 30) and is lowered for each pitch (the ball is released from the
   // mound) and rises again once the ball has gone.
-  // The ramp must stay low. A ball leaves the top at its approach speed times the ramp's slope, and
-  // the walls are only 25 mm high: at 4 mm a hard flipper shot (4 m/s) is thrown 40-75 mm into the
-  // air, clears a rail and lands wedged against an inlane guide (about one ball in four games needed
-  // a ball search). At 3 mm it is rescued about once in 40 games, and HR and steal shots are intact.
+  // The ramp must stay low. A ball leaves it with a speed that grows with its slope, and the walls
+  // are only 25 mm high: a ramp 3 mm high threw a 2.7 m/s sling shot 60 mm into the air, over the
+  // sling's cap wall and into the sealed pocket behind it. At 2 mm hardly a shot leaves the floor,
+  // and none gets above 15 mm. The bumper face covers only the back of the mound, and the cone
+  // runs down to the playfield everywhere else, so a shot meets no step to bounce off.
   {
     type: 'rampBumper',
     id: 'pop.mound',
     x: 275,
     y: 355,
     radius: 30,
-    height: 3,
+    height: 2,
     label: 'P',
     color: LAMP.red,
     kick: 0.8,

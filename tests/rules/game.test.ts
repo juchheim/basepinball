@@ -316,6 +316,23 @@ describe('event resolution table', () => {
     expect(h.count('ballRescued')).toBe(1);
   });
 
+  it('a ball resting on a sling that every search kick fires is still rescued', () => {
+    const h = inInPlay();
+    h.m.speed = 0;
+    for (let i = 0; i < 400 && h.count('ballRescued') === 0; i++) {
+      const searches = h.m.calls.filter((c) => c === 'search').length;
+      h.wait(0.1);
+      if (h.m.calls.filter((c) => c === 'search').length > searches) {
+        // The search kick fires the sling the ball is resting against, then it settles again.
+        h.ev('sling', 'sling.L');
+        h.m.speed = 0.3;
+        h.wait(0.5);
+        h.m.speed = 0;
+      }
+    }
+    expect(h.count('ballRescued')).toBe(1);
+  });
+
   it('a cradled ball (flipper held) is never treated as stuck', () => {
     const h = inInPlay();
     h.m.speed = 0;

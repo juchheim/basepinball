@@ -1151,14 +1151,16 @@ export class World {
           if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
           break;
         case 'rampBumper': {
-          // The ramp (triangles) and the bumper face (a pop wall just under the top, so a ball
-          // riding over the top passes above it). All of it switches on and off together.
+          // The bumper face (a pop wall just under the top, so a ball riding over the top passes
+          // above it) and the ramp (triangles). The face goes first: a ball is resolved against
+          // colliders in this order, and the pop must see the ball's full approach speed before
+          // the top's edge has taken any of it. All of it switches on and off together.
           const first = this.colliders.length;
           const m = rampBumperMesh(el);
-          for (const t of [...m.top, ...m.flank]) tri(t[0], t[1], t[2], 'plastic');
           for (let i = 0; i + 1 < m.arc.length; i++) {
             seg(m.arc[i]!, m.arc[i + 1]!, FACE_RADIUS, 'popBumper', el.height - 0.5, 'pop', el.id);
           }
+          for (const t of [...m.top, ...m.flank]) tri(t[0], t[1], t[2], 'plastic');
           if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
           const r: RetractablePop = {
             id: el.id,

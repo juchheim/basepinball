@@ -21,12 +21,11 @@ describe('devices', () => {
   });
 
   describe('ramp-and-bumper wedge', () => {
-    // Centre (300, 400), radius 22: ramp from y = 378 up to y = 400, bumper face round the back.
+    // Centre (300, 400), radius 30, 2 mm: a cone down to the playfield all round, and the bumper face
+    // across the back (the +y side).
     const mound = (): ReturnType<typeof makeWorld> =>
       makeWorld({
-        ...emptyTable([
-          { type: 'rampBumper', id: 'pop.m', x: 300, y: 400, radius: 22, height: 10 },
-        ]),
+        ...emptyTable([{ type: 'rampBumper', id: 'pop.m', x: 300, y: 400, radius: 30, height: 2 }]),
         pitchSpot: { x: 300, y: 395 },
       });
     const raise = (w: ReturnType<typeof makeWorld>): void => {
@@ -67,8 +66,30 @@ describe('devices', () => {
     it('a slow ball from below rolls back down the ramp', () => {
       const w = mound();
       raise(w);
-      const { b } = send(w, true, 0.3);
+      const { b } = send(w, true, 0.1);
       expect(b.py).toBeLessThan(0.38);
+    });
+
+    it('a ball cutting across the side of the cone is not bounced off it', () => {
+      for (const [x0, y0, vx, vy] of [
+        [0.2, 0.36, 2.2, 0.8],
+        [0.4, 0.36, -2.2, 0.8],
+        [0.2, 0.4, 2.2, 0],
+        [0.4, 0.385, -2.2, 0],
+      ] as const) {
+        const w = mound();
+        raise(w);
+        const b = w.addBall(x0, y0);
+        b.vx = vx;
+        b.vy = vy;
+        const ev: PhysicsEvent[] = [];
+        const speed = b.speed();
+        runFor(w, 0.12, collect(w, ev));
+        // Still going the way it was, at nearly the speed it had.
+        expect(Math.sign(b.vx)).toBe(Math.sign(vx));
+        expect(b.speed()).toBeGreaterThan(speed * 0.8);
+        expect(b.pz).toBeLessThan(0.03);
+      }
     });
 
     it('a ball from above is kicked back up the table by the bumper face', () => {
