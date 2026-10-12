@@ -165,6 +165,25 @@ interface DropTarget {
 
 const MM = 0.001;
 
+/** How far a retractable bumper rises (m), and how fast it rises and sinks (m/s). */
+const POP_TRAVEL = 0.04;
+const POP_RISE = 0.3;
+const POP_SINK = 0.5;
+/** Below this height (m) the bumper is flush enough that the ball rolls over it. */
+const POP_SOLID = 0.01;
+
+interface RetractablePop {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  collider: StaticCollider;
+  /** Current height (m) above the playfield: 0 = lowered, POP_TRAVEL = fully raised. */
+  lift: number;
+  /** Commanded state. A raise waits while a ball sits over the bumper. */
+  raised: boolean;
+}
+
 export class World {
   readonly params: PhysicsParams;
   readonly table: TableDef;
@@ -178,6 +197,7 @@ export class World {
   readonly magnets: Magnet[] = [];
   readonly kickbacks: Kickback[] = [];
   readonly drops = new Map<string, DropTarget>();
+  readonly retractables: RetractablePop[] = [];
   plunger: Plunger | null = null;
   readonly events: PhysicsEvent[] = [];
   /** Ball impacts since the presentation last cleared them (capped; see {@link Impact}). */
@@ -260,6 +280,23 @@ export class World {
     for (const d of this.drops.values()) d.down = false;
   }
 
+  /** Raise or lower a retractable bumper. It moves over the next few steps. */
+  setPopRaised(id: string, raised: boolean): void {
+    for (const r of this.retractables) if (r.id === id) r.raised = raised;
+  }
+
+  /** How far up a retractable bumper is, 0 (flush) to 1 (fully raised). */
+  popLift(id: string): number {
+    const r = this.retractables.find((x) => x.id === id);
+    return r ? r.lift / POP_TRAVEL : 0;
+  }
+
+  private setLift(r: RetractablePop, lift: number): void {
+    r.lift = lift;
+    // A collider whose top is below the playfield is never touched.
+    r.collider.height = lift >= POP_SOLID ? lift : -1;
+  }
+
   setKickbackArmed(id: string, armed: boolean): void {
     for (const k of this.kickbacks) if (k.id === id) k.armed = armed;
   }
@@ -300,6 +337,8 @@ export class World {
     const b = this.ball();
     const x = spot.x * MM;
     const y = spot.y * MM;
+    // The ball comes up through the mound, so a bumper there drops out of its way.
+    for (const r of this.retractables) this.setLift(r, 0);
     b.place(x, y, this.floorHeightAt(x, y) + b.radius);
     const dx = tx - x;
     const dy = ty - y;
@@ -341,6 +380,10 @@ export class World {
     this.impacts.length = 0;
     this.resetDropTargets();
     this.releaseSaucers();
+    for (const r of this.retractables) {
+      r.raised = false;
+      this.setLift(r, 0);
+    }
     for (const k of this.kickbacks) k.armed = true;
     for (const m of this.magnets) m.power = 0;
     for (const f of this.flippers) f.pressed = false;
@@ -487,6 +530,16 @@ export class World {
         this.emit('spinner', s.id);
       }
     }
+    for (const r of this.retractables) {
+      if (r.raised && r.lift < POP_TRAVEL) {
+        // Never rise under a ball: it waits until the ball has rolled off (or been pitched away).
+        if (r.lift >= POP_SOLID || !this.ballOver(r)) {
+          this.setLift(r, Math.min(POP_TRAVEL, r.lift + POP_RISE * dt));
+        }
+      } else if (!r.raised && r.lift > 0) {
+        this.setLift(r, Math.max(0, r.lift - POP_SINK * dt));
+      }
+    }
     const pl = this.plunger;
     if (pl) {
       if (pl.pressed) {
@@ -511,6 +564,18 @@ export class World {
         this.emit('tiltBob', 'tilt');
       }
     }
+  }
+
+  /** Is a ball on the playfield close enough to a retractable bumper's footprint to be caught by it? */
+  private ballOver(r: RetractablePop): boolean {
+    for (const b of this.balls) {
+      if (!b.active || b.pz - b.radius > POP_SOLID) continue;
+      const reach = r.radius + b.radius + 0.002;
+      const dx = b.px - r.x;
+      const dy = b.py - r.y;
+      if (dx * dx + dy * dy < reach * reach) return true;
+    }
+    return false;
   }
 
   private releasePlunger(pl: Plunger): void {
@@ -1007,7 +1072,7 @@ export class World {
       height = 25,
       device: DeviceKind = 'none',
       deviceId = '',
-    ): void => {
+    ): StaticCollider => {
       const c = base();
       c.kind = 'circle';
       c.ax = c.bx = x * MM;
@@ -1018,6 +1083,7 @@ export class World {
       c.device = device;
       c.deviceId = deviceId;
       this.colliders.push(c);
+      return c;
     };
     const tri = (a: Vec3, b: Vec3, cc: Vec3, material: MaterialName): void => {
       const c = base();
@@ -1077,8 +1143,23 @@ export class World {
           circle(el.bottom[0], el.bottom[1], 5, 'rubberPost');
           break;
         case 'pop':
-          circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
-          if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
+          {
+            const c = circle(el.x, el.y, el.radius, 'popBumper', 40, 'pop', el.id);
+            if (el.kick !== undefined) this.popKicks.set(el.id, el.kick);
+            if (el.retractable) {
+              const r = {
+                id: el.id,
+                x: el.x * MM,
+                y: el.y * MM,
+                radius: el.radius * MM,
+                collider: c,
+                lift: 0,
+                raised: false,
+              };
+              this.retractables.push(r);
+              this.setLift(r, 0);
+            }
+          }
           break;
         case 'drop':
           seg(el.a, el.b, 2.5, 'dropTarget', 30, 'drop', el.id);

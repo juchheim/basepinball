@@ -81,6 +81,8 @@ export class GameRules {
   private readonly rbi = new Set<Lane>();
   private readonly bat = new Set<string>();
   private lastBumper = -Infinity;
+  /** Whether the mound bumper was last commanded up. */
+  private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
   hustle = 0;
   /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
@@ -105,6 +107,8 @@ export class GameRules {
     this.startTime = now;
     this.lastActivity = now;
     this.machine.setKickback(true);
+    this.moundUp = false;
+    this.machine.setMoundBumper(false);
     this.emit({ type: 'gameStart' });
     this.startInning(1);
   }
@@ -129,7 +133,16 @@ export class GameRules {
       if (next < 0) break;
       this.timers.splice(next, 1)[0]!.run();
     }
+    this.syncMoundBumper();
     this.watchForStuckBall();
+  }
+
+  /** The mound bumper is up exactly while a runner is on base. */
+  private syncMoundBumper(): void {
+    const up = runnersOn(this.bases) > 0;
+    if (up === this.moundUp) return;
+    this.moundUp = up;
+    this.machine.setMoundBumper(up);
   }
 
   onSwitch(e: PhysicsEvent): void {

@@ -439,6 +439,21 @@ const elements: ElementDef[] = [
   // ---- mound
   // The mound and pitcher are visual only: in M1 testing both knocked centre shots off line.
   { type: 'dome', id: 'mound', x: 275, y: 355, radius: 30, height: 4, solid: false },
+  // A bumper in the middle of the mound that rises while a runner is on base and sinks when the
+  // bases clear. It is lowered for each pitch (the ball is released from the mound) and rises again
+  // once the ball has gone. Small and soft, so a runner on adds a hazard to centre shots without
+  // walling off the middle.
+  {
+    type: 'pop',
+    id: 'pop.mound',
+    x: 275,
+    y: 355,
+    radius: 15,
+    label: 'P',
+    color: LAMP.red,
+    kick: 0.8,
+    retractable: true,
+  },
   { type: 'magnet', id: 'magnet.curve', x: 275, y: 270, radius: 60 },
 
   // ---- lower playfield

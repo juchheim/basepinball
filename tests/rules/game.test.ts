@@ -32,6 +32,10 @@ class FakeMachine implements Machine {
   setKickback(armed: boolean): void {
     this.kickback = armed;
   }
+  moundBumper = false;
+  setMoundBumper(raised: boolean): void {
+    this.moundBumper = raised;
+  }
   resetDropTargets(): void {
     this.calls.push('resetDrops');
   }
@@ -159,6 +163,25 @@ describe('base running', () => {
     expect(steal([true, false, false])?.bases).toEqual([false, true, false]);
     expect(steal([true, true, false])?.bases).toEqual([true, false, true]);
     expect(steal([true, false, true])).toMatchObject({ bases: [true, false, false], runs: 1 });
+  });
+});
+
+describe('mound bumper', () => {
+  it('is down at the start and up exactly while a runner is on base', () => {
+    const h = inInPlay();
+    expect(h.m.moundBumper).toBe(false);
+    h.ev('pop', 'pop.1B.L');
+    expect(h.g.bases[0]).toBe(true);
+    expect(h.m.moundBumper).toBe(true);
+  });
+
+  it('goes down again when the bases clear', () => {
+    const h = inLiveAfterHit();
+    expect(h.m.moundBumper).toBe(true);
+    // Drain the ball: the runner is stranded or cleared by the inning change, never left up.
+    h.g.bases = [false, false, false];
+    h.wait(0.1);
+    expect(h.m.moundBumper).toBe(false);
   });
 });
 

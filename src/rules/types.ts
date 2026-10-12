@@ -134,6 +134,8 @@ export interface Machine {
   holdBall(): void;
   setMagnet(power: number): void;
   setKickback(armed: boolean): void;
+  /** Raise the bumper on the mound (a runner is on base) or lower it (the bases are empty). */
+  setMoundBumper(raised: boolean): void;
   resetDropTargets(): void;
   setFlippersEnabled(enabled: boolean): void;
   /** Free a stuck ball (pulse coils / small kick). */

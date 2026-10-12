@@ -279,8 +279,9 @@ function HowToPlay() {
         </li>
         <li>
           <b>Bumpers matter</b>: once the ball is in play, every bumper hit that isn't itself a hit
-          (the two <b>outfield bumpers</b>, or the Gap after a hit) fills the <b>HUSTLE</b> meter.
-          Full, with a runner on, every runner takes an extra base.
+          (the two <b>outfield bumpers</b>, the Gap after a hit, or the <b>mound bumper</b>) fills
+          the <b>HUSTLE</b> meter. Full, with a runner on, every runner takes an extra base. The
+          mound bumper rises while a runner is on base and sinks when the bases are empty.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.

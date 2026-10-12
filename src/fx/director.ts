@@ -329,7 +329,15 @@ export class Director {
       case 'ballSearch':
         // A real ball search pulses every coil.
         o.sound('search');
-        for (const id of ['pop.1B.L', 'pop.1B.R', 'pop.2B.L', 'pop.2B.R', 'sling.L', 'sling.R']) {
+        for (const id of [
+          'pop.1B.L',
+          'pop.1B.R',
+          'pop.2B.L',
+          'pop.2B.R',
+          'pop.mound',
+          'sling.L',
+          'sling.R',
+        ]) {
           o.fire(id);
         }
         return;

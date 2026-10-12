@@ -14,6 +14,8 @@ import { Figures } from './figures';
  */
 
 const MM = 0.001;
+/** How far (m) a rising bumper sinks below the playfield, enough to hide it entirely. */
+const RISER_DEPTH = 0.05;
 
 function rampMaterial(color: number): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({
@@ -93,6 +95,8 @@ export class TableView {
   readonly floor: THREE.Mesh;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
   private readonly dropMeshes = new Map<string, { holder: THREE.Object3D; spring: Spring }>();
+  /** Bumpers that rise out of the playfield (the mound bumper): `shown` is 0 (sunk) to 1 (up). */
+  private readonly risers = new Map<string, { holder: THREE.Object3D; shown: number }>();
   /** Coil-driven parts (pop rings, sling rubbers, kickers, standups) on springs. */
   private readonly devices = new Map<
     string,
@@ -229,6 +233,14 @@ export class TableView {
       d.spring.target = this.world.isDropDown(id) ? -0.028 : 0;
       d.spring.update(dtSeconds);
       d.holder.position.z = Math.min(0.004, d.spring.x);
+    }
+    for (const [id, r] of this.risers) {
+      // Follow the physics up; ease down, so a bumper dropping out of the pitch's way sinks
+      // instead of vanishing.
+      const lift = this.world.popLift(id);
+      r.shown = lift >= r.shown ? lift : Math.max(lift, r.shown - dtSeconds * 8);
+      r.holder.visible = r.shown > 0.001;
+      r.holder.position.z = -(1 - r.shown) * RISER_DEPTH;
     }
     for (const d of this.devices.values()) {
       if (d.spring.settled && d.spring.x === 0) continue;
@@ -412,14 +424,25 @@ export class TableView {
         break;
       }
       case 'pop': {
-        this.addStatic(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody);
+        // A retractable bumper's parts ride in a holder that sinks below the playfield.
+        const holder = el.retractable ? new THREE.Group() : null;
+        if (holder) {
+          holder.visible = false;
+          holder.add(
+            new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody),
+          );
+          this.group.add(holder);
+          this.risers.set(el.id, { holder, shown: 0 });
+        } else {
+          this.addStatic(this.cylinderGeometry(el.x, el.y, el.radius, 30), mats.popBody);
+        }
         const cap = glowMaterial(el.color ?? 0xf4efe1, 0.4);
         cap.transparent = true;
         cap.opacity = 0.95;
         this.addLight(el.id, { material: cap, base: 0.4, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
         m.castShadow = true;
-        this.group.add(m);
+        (holder ?? this.group).add(m);
         // The ring pulls down hard and springs back.
         this.addDevice(el.id, 90, (x) => (m.position.z = -Math.max(0, x) * 0.006));
         break;
@@ -556,7 +579,7 @@ export class TableView {
         g.rotateX(Math.PI / 2);
         g.translate(el.x * MM, el.y * MM, 0);
         this.addStatic(g, mats.mound);
-        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 20 });
+        this.standeeSpots.push({ cell: 'P', x: el.x, y: el.y + 34 });
         break;
       }
       case 'kickback':

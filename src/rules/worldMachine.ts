@@ -32,6 +32,10 @@ export class WorldMachine implements Machine {
     this.world.setKickbackArmed('kickback.L', armed);
   }
 
+  setMoundBumper(raised: boolean): void {
+    this.world.setPopRaised('pop.mound', raised);
+  }
+
   resetDropTargets(): void {
     this.world.resetDropTargets();
   }

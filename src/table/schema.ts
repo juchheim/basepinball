@@ -48,6 +48,11 @@ export interface PopDef {
   color?: number;
   /** Kick speed (m/s) this bumper gives the ball; the physics parameter `popKickSpeed` if omitted. */
   kick?: number;
+  /**
+   * A bumper that sinks flush with the playfield and rises on command (`World.setPopRaised`).
+   * It starts lowered, and while lowered the ball rolls straight over it.
+   */
+  retractable?: boolean;
 }
 
 export interface SaucerDef {
