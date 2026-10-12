@@ -294,7 +294,7 @@ function HowToPlay() {
         <li>
           Each inning's first ball is plunged: roll through the lit top lane for a <b>skill shot</b>
           . Or plunge hard, round the whole arch and down the left orbit through its spinners, for a{' '}
-          <b>spin bonus</b>: a head start on the HUSTLE meter.
+          <b>spin bonus</b>: it lights a dot on the HUSTLE meter.
         </li>
       </ul>
       <h3>Controls</h3>

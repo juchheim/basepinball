@@ -145,7 +145,7 @@ export function calloutFor(e: RulesEvent): void {
     case 'spinBonus':
       return showCallout(
         'SPIN BONUS!',
-        e.gained > 0 ? `HUSTLE +${e.gained}` : 'HUSTLE is already full',
+        e.gained > 0 ? 'A HUSTLE dot lights' : 'HUSTLE is already full',
         'info',
         1800,
       );

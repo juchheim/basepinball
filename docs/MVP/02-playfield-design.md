@@ -397,9 +397,9 @@ word walks the batter). HUSTLE, rallies, steals and the Stretch all need a hit o
 | Area | Change | Result |
 |---|---|---|
 | Trigger | At least **four different left-orbit spinner plates** spun after the leadoff plunge and before the first swing, once an inning (`SPIN_BONUS_PLATES`, `src/rules/game.ts`). | From the physics: a pull of about 0.55 and up runs the whole arch and the five left plates; 0.44-0.50 is the skill-shot window (at most three plates, though a bounce can reach four); about 0.40 falls back and rolls down the right orbit, spinning only the right plates, which does not count. |
-| Reward | **+2 HUSTLE hits** (`SPIN_BONUS_HUSTLE`), with a SPIN BONUS callout, scoreboard message and a blink of the HUSTLE lamps. | The sim bot plunges hard, so it earns the bonus in 94 % of innings. Runs by size (100 games): none 5.7, **+2 6.1**, +3 6.4. HUSTLE payouts 1.3, **2.3**, 2.8 a game. +2 keeps scoring near the middle of the 5-7 target. |
+| Reward | **One HUSTLE lamp: +3 hits** (`SPIN_BONUS_HUSTLE`), so it always lights exactly one new dot (the lamps are three hits each), with a SPIN BONUS callout, scoreboard message and a blink of the HUSTLE lamps. First tried at +2, which is less than a dot and so showed the player nothing. | The sim bot plunges hard, so it earns the bonus in 94 % of innings. Runs by size (100 games): none 5.7, +2 6.1, **+3 6.4**. HUSTLE payouts 1.3, 2.3, **2.8** a game. Still inside the 5-7 target. |
 | Risk | None added. A hard plunge with no flipper input drains and is a strikeout, as before. | Plunges of 0.65 and up drain unless the flippers act. |
 
 The right-orbit route is excluded on purpose: a gentle plunge that happens to roll down the right orbit
 is not a hard plunge. If the bonus feels too automatic (the bot never plunges softly), tighten the
-trigger (all five plates, or a faster ball) or lower the reward to +1 (6.1 runs, 1.8 payouts).
+trigger (all five plates, or a faster ball) or lower the reward to +2 (6.1 runs, 2.3 payouts), which no longer lights a dot by itself.

@@ -42,8 +42,11 @@ export const HUSTLE_COOLDOWN = 0.4;
  * different left-orbit plates before the first swing of an inning starts the HUSTLE meter with a lamp.
  */
 export const SPIN_BONUS_PLATES = 4;
-/** Bumper hits the bonus adds to the meter (the five lamps are three hits each). */
-export const SPIN_BONUS_HUSTLE = 2;
+/**
+ * Bumper hits the bonus adds to the meter: one lamp's worth (the five lamps are three hits each),
+ * so it always lights exactly one new lamp, a clear sign of what the plunge earned.
+ */
+export const SPIN_BONUS_HUSTLE = HUSTLE_TARGET / 5;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
 export interface GameOptions {
