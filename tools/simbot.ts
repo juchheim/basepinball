@@ -27,7 +27,7 @@ const rows: [string, string, string][] = [
   [
     'Runs per game (mean / median)',
     `${(sum((r) => r.stats.runs) / games).toFixed(2)} / ${runs[Math.floor(games / 2)]}`,
-    '3-5 (median 4)',
+    '5-7 (median 6)',
   ],
   ['Game length (sim minutes)', minutes.toFixed(1), '5-8 (bot; humans 6-9)'],
   ['PA per game', (pa / games).toFixed(1), '≈ 40'],

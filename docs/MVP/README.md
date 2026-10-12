@@ -59,7 +59,7 @@ runs as you can.
 | Art | Night-game realism, vector-first assets with a raster-replacement contract |
 | Audio | Full SFX and crowd, original organ stingers. No announcer. |
 | Scores | Runs are the score. Local high scores only. No backend in the MVP. |
-| Session | 6–9 min per game (revised from 8–12 in M6), 3–5 runs for an average player |
+| Session | 6–9 min per game (revised from 8–12 in M6), 5–7 runs for an average player |
 | Naming | The final game name and identity are decided during the art milestone (M3) |
 | Placeholder team | *The Tilt City Silverballs* of *Plunger Park* |
 | Hosting | Vercel (static). Any future backend goes on Cloudflare Workers. Repo: `git@github.com:juchheim/basepinball.git` |

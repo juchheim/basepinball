@@ -289,7 +289,7 @@ Targets for an **average player** (validated by playtests plus the headless simu
 | Metric | Target | M2 sim bot ("average", 30 games) |
 |--------|--------|------|
 | Game length | 6–9 min, including presentation (revised from 8–12 in M6) | 5.4–5.7 sim minutes. The bot never hesitates, cradles briefly and plunges instantly, so human play runs longer. Confirm in playtests. |
-| Runs per game | 3–5 (median 4) | 4.7 (median 4) ✅ |
+| Runs per game | 5–7 (median 6; revised from 3–5 with the mound ramp-and-bumper) | 6.4 (median 6) ✅ (100 games, after the mound device; 4.7 in M2 against the old 3–5) |
 | Hit rate (hits / PA) | ~30 % | 30.5 % ✅ |
 | Hit mix | ~55 % 1B, 25 % 2B, 8 % 3B, 12 % HR | 54.5 / 23.9 / 8.1 / 13.5 ✅ |
 | Drain outs (K + foul out) | Drains are the most common out; fielders punish missed shots (revised in M2) | 55 % drains, 14 % fielder outs ✅ |
