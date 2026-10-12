@@ -296,6 +296,14 @@ export class Director {
         o.show('hotBat');
         o.crowd('cheer', 0.4);
         return;
+      case 'stretch':
+        // The pitcher goes to the stretch: the mound's bumper is up, so shots over it are live.
+        o.sound('award');
+        o.flash('pop.mound');
+        o.fire('pop.mound');
+        o.crowd('ooh');
+        o.scoreboard('FROM THE STRETCH', 'RUNNER ON', '#ff3b3b', 2);
+        return;
       case 'kickbackLit':
         o.sound('award');
         o.flash('lamp.kickback');

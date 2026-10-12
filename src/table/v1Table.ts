@@ -70,6 +70,8 @@ function round(v: number): number {
 }
 
 const ORBIT_MOUTH = 700;
+/** Heights of the extra orbit spinners (mm), clear of the entry switch at 740 and the one at 800. */
+const EXTRA_SPINNER_YS = [760, 830, 860, 890];
 const leftInnerGuide: Vec2[] = [[45, ORBIT_MOUTH], ...quad([45, 910], [45, 1060], [165, 1090])];
 /**
  * Orbit funnel: below each orbit mouth the outer wall angles toward the centre, so a ball coming
@@ -335,6 +337,11 @@ const elements: ElementDef[] = [
   { type: 'wall', points: [m2([165, 1090]), m2([185, 1050])], material: 'metal' },
   { type: 'spinner', id: 'spinner.L', a: [3, 800], b: [42, 800] },
   { type: 'spinner', id: 'spinner.R', a: [mx(42), 800], b: [mx(3), 800] },
+  // More spinners down each orbit's straight run: a ball looping an orbit sets off a string of them.
+  ...EXTRA_SPINNER_YS.flatMap((y): ElementDef[] => [
+    { type: 'spinner', id: `spinner.L.${y}`, a: [3, y], b: [42, y] },
+    { type: 'spinner', id: `spinner.R.${y}`, a: [mx(42), y], b: [mx(3), y] },
+  ]),
   { type: 'sensor', id: 'orbit.L', a: [3, 740], b: [42, 740] },
   { type: 'sensor', id: 'orbit.R', a: [mx(42), 740], b: [mx(3), 740] },
   // Corner kickers (triples): flush with the arch where each orbit's ball meets it. Not mirror

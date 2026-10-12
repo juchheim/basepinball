@@ -142,6 +142,13 @@ export function calloutFor(e: RulesEvent): void {
         e.runs > 0 ? 'Bases loaded: 1 run scores' : 'Take your base',
         'hit',
       );
+    case 'stretch':
+      return showCallout(
+        'FROM THE STRETCH',
+        'Runner on: ramp and bumper up on the mound',
+        'big',
+        2000,
+      );
     case 'kickbackLit':
       return showCallout('KICKBACK LIT', undefined, 'info', 1000);
     case 'tiltWarning':

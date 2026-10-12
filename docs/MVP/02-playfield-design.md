@@ -340,3 +340,47 @@ Gap are other levers.
 
 **Not done:** a lead-off meter that builds steals from bumper hits, the infield base bumper, and
 bumper-fed Hot Bat. All three were options in the plan.
+
+### Pitching from the Stretch: the mound's ramp-and-bumper
+
+Playtest feedback: a runner on base should change the table, and the pitcher should look like he
+knows it. With a runner on, the pitcher goes to the stretch and a half disc rises on the mound.
+It sinks again when the bases are empty. `pop.mound` in `src/table/v1Table.ts`; the shape is built by
+`src/table/rampBumper.ts`, which both the physics and the renderer use.
+
+| Area | Change | Result |
+|---|---|---|
+| Shape | A half disc of radius 30 mm and 8 mm tall on the back half of the mound. Its **straight edge faces the flippers and is a ramp**: a shot rides up it and flies off the back, airborne. Its **rounded back is a pop bumper wall** (kick 2.0 m/s) that kicks a ball coming down the table or in from the side, and counts toward HUSTLE. | 29 % of flipper shots touch it; 43 of 176 shots that cross the mound go over the ramp, none higher than 27 mm. HR ramp 8 (7 without it), steal ramp 16 (13), Gap 1B 72 (86), Gap 2B 6 (10), orbits 9 and 6 (4 and 4). |
+| Rises and sinks | Up while a runner is on base, down when the bases are empty (`Machine.setMoundBumper`, synced every step from the bases). It never rises under a ball, and drops out of the way of each pitch (the ball is released from the mound), rising again once the ball has gone. | |
+| Alert | **FROM THE STRETCH** callout and scoreboard, with the bumper flashing, 1.6 s after it rises (so it does not cover the hit's own callout), and not at all if the bases clear first. | |
+| One-way wall | The wall acts only on a ball outside the half disc. A ball riding the ramp rolls off the back edge; the wall is the slab's side. | Without this the wall stopped balls still on the ramp. |
+| Tall lower walls | The lane guides, slings, caps and lane-top posts are 80 mm tall (slings take an optional `height`); the straight side rails and the shooter-lane separator are 85 mm. | A ball thrown off the ramp comes down in the lower half. With 25 mm walls it dropped in over a guide, or into the sealed pocket behind a sling, and sat wedged: 8 to 10 ball searches in 40 games. Now 0 in 60. |
+
+**Why not a taller or a lower ramp.** A ball leaves the ramp with a speed that grows with its slope. A
+ramp of 2 mm hardly touched any shot and could not be seen; at 8 mm a hard shot is thrown about 30
+mm up, which the tall lower walls now absorb. A first, rounder shape (a cone with the bumper over
+only part of the rim) bounced 41 % of the shots that crossed the mound off its flanks.
+
+**Ball search fix.** A ball resting against a sling was kicked by every search, which fired the sling,
+which counted as progress and reset the search count, so it was never rescued. A switch within 2 s of
+a search no longer counts.
+
+**Result (sim bot, average profile, 100 games):** 6.4 runs a game (the target is now 5-7), hit rate
+29 %, 1.6 steals, 1.6 HUSTLE payouts, 0 ball rescues.
+
+The mound's id is still `pop.mound`; the seventh-inning scoreboard also says STRETCH!, which is a
+different stretch.
+
+### More orbit spinners
+
+Playtest feedback: more of the spinning plates in the orbit lanes. Each orbit now has **five
+spinners** (y = 760, 800, 830, 860 and 890 mm) instead of one, on the straight run between the
+entry switch and the top curve, so a ball looping an orbit sets off a rattling string of whirrs.
+They are cosmetic: a spinner scores nothing and the rules ignore it; it only spins, sounds and
+costs the ball 3 % of its speed per plate.
+
+| Check | Result |
+|---|---|
+| Orbit shots (248 flipper shots) | 9 and 6, as before |
+| Sim bot, 100 games | 5.7 runs, 14.6 % of hits are triples (14.7 % before), 0 ball rescues |
+| Stuck-ball scan, 1,200 random balls | 0 (one spacing, 765 / 835 / 865 / 895, left a ball balanced on the left fielder's lip post once; every other spacing tried gave 0) |

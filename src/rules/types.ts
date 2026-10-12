@@ -40,6 +40,8 @@ export type RulesEvent =
   | { type: 'walk'; runs: number; moved: number[] }
   /** A right-ramp shot with nobody on base to steal. */
   | { type: 'stealRamp'; result: 'noRunner' }
+  /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
+  | { type: 'stretch' }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
   | { type: 'rally'; count: number }

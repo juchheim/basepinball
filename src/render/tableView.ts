@@ -114,7 +114,7 @@ export class TableView {
   readonly floor: THREE.Mesh;
   private readonly flipperMeshes = new Map<Flipper, THREE.Object3D>();
   private readonly dropMeshes = new Map<string, { holder: THREE.Object3D; spring: Spring }>();
-  /** Bumpers that rise out of the playfield (the mound bumper): `shown` is 0 (sunk) to 1 (up). */
+  /** Bumpers that rise out of the playfield (the Stretch): `shown` is 0 (sunk) to 1 (up). */
   private readonly risers = new Map<string, { holder: THREE.Object3D; shown: number }>();
   /** Coil-driven parts (pop rings, sling rubbers, kickers, standups) on springs. */
   private readonly devices = new Map<

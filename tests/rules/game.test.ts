@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
 import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
-import { GameRules, HUSTLE_COOLDOWN, HUSTLE_TARGET } from '../../src/rules/game';
+import {
+  GameRules,
+  HUSTLE_COOLDOWN,
+  HUSTLE_TARGET,
+  STRETCH_ALERT_DELAY,
+} from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
 import type { Machine, RulesEvent } from '../../src/rules/types';
 
@@ -166,13 +171,30 @@ describe('base running', () => {
   });
 });
 
-describe('mound bumper', () => {
+describe('the Stretch (mound bumper)', () => {
   it('is down at the start and up exactly while a runner is on base', () => {
     const h = inInPlay();
     expect(h.m.moundBumper).toBe(false);
     h.ev('pop', 'pop.1B.L');
     expect(h.g.bases[0]).toBe(true);
     expect(h.m.moundBumper).toBe(true);
+  });
+
+  it('alerts once, after the hit callout, when a runner puts it up', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L');
+    // Not at once: the hit's own callout is on screen.
+    expect(h.count('stretch')).toBe(0);
+    h.wait(STRETCH_ALERT_DELAY + 0.1);
+    expect(h.count('stretch')).toBe(1);
+    h.wait(5);
+    expect(h.count('stretch')).toBe(1);
+  });
+
+  it('does not alert if the bases clear before the alert is due', () => {
+    const h = inInPlay().ev('pop', 'pop.1B.L');
+    h.g.bases = [false, false, false];
+    h.wait(STRETCH_ALERT_DELAY + 0.5);
+    expect(h.count('stretch')).toBe(0);
   });
 
   it('goes down again when the bases clear', () => {

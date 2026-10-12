@@ -26,6 +26,9 @@ export type LampMode = 'off' | 'on' | 'blink';
 type Lane = 'R' | 'B' | 'I';
 const LANES: Lane[] = ['R', 'B', 'I'];
 const WALK_LETTERS = ['W', 'A', 'L', 'K'];
+/** Seconds after the Stretch rises before its alert shows (clear of the hit's own callout). */
+export const STRETCH_ALERT_DELAY = 1.6;
+
 /** Bumper hits that fill the HUSTLE meter (five lamps of three hits each). */
 export const HUSTLE_TARGET = 15;
 /** At most one bumper hit counts per this many seconds, so a ball ricocheting through the Gap's
@@ -81,7 +84,7 @@ export class GameRules {
   private readonly rbi = new Set<Lane>();
   private readonly bat = new Set<string>();
   private lastBumper = -Infinity;
-  /** Whether the mound bumper was last commanded up. */
+  /** Whether the Stretch (the mound's ramp-and-bumper) was last commanded up. */
   private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
   hustle = 0;
@@ -137,12 +140,20 @@ export class GameRules {
     this.watchForStuckBall();
   }
 
-  /** The mound bumper is up exactly while a runner is on base. */
+  /**
+   * The mound's ramp-and-bumper (the Stretch) is up exactly while a runner is on base. It rises with
+   * an alert, held back a moment so it does not cover the callout of the hit that put the runner on.
+   */
   private syncMoundBumper(): void {
     const up = runnersOn(this.bases) > 0;
     if (up === this.moundUp) return;
     this.moundUp = up;
     this.machine.setMoundBumper(up);
+    if (up) {
+      this.after(STRETCH_ALERT_DELAY, () => {
+        if (this.moundUp) this.emit({ type: 'stretch' });
+      });
+    }
   }
 
   onSwitch(e: PhysicsEvent): void {

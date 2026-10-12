@@ -279,9 +279,14 @@ function HowToPlay() {
         </li>
         <li>
           <b>Bumpers matter</b>: once the ball is in play, every bumper hit that isn't itself a hit
-          (the two <b>outfield bumpers</b>, the Gap after a hit, or the <b>mound bumper</b>) fills
-          the <b>HUSTLE</b> meter. Full, with a runner on, every runner takes an extra base. The
-          mound bumper rises while a runner is on base and sinks when the bases are empty.
+          (the two <b>outfield bumpers</b>, the Gap after a hit, or the <b>Stretch</b>) fills the{' '}
+          <b>HUSTLE</b> meter. Full, with a runner on, every runner takes an extra base.
+        </li>
+        <li>
+          <b>Pitching from the Stretch</b>: with a runner on base the pitcher goes to the stretch
+          and a half-disc rises on the mound. Its flat front is a ramp, so a shot from a flipper
+          rides up it and flies off the back; its rounded back is a bumper that kicks a ball coming
+          down the table. It sinks again when the bases are empty.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.
