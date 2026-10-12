@@ -56,8 +56,8 @@ export class Stage {
     shadowTint: uniform(new THREE.Vector3(0.9, 0.97, 1.12)),
     highlightTint: uniform(new THREE.Vector3(1.07, 1.0, 0.9)),
     vignette: uniform(0.42),
-    sparkle: uniform(0.35),
-    sparkleFrom: uniform(1.6),
+    sparkle: uniform(0.2),
+    sparkleFrom: uniform(2.2),
   };
   private fitTarget: THREE.Object3D | null = null;
   private fitExtra: THREE.Vector3[] = [];

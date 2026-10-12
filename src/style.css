@@ -377,9 +377,11 @@ canvas {
   }
 }
 
+/* High on the screen, clear of the upper playfield: just under the HUD bar in portrait, over the
+   backboard in landscape (see the landscape layout). */
 .callout {
   position: absolute;
-  top: 18%;
+  top: 11%;
   left: 50%;
   transform: translateX(-50%);
   padding: 4px 0 10px;
@@ -412,7 +414,7 @@ canvas {
 .callout-text {
   display: inline-block;
   padding: 0 0.12em;
-  font-size: clamp(32px, 8.5vw, 72px);
+  font-size: clamp(24px, 6vw, 50px);
   font-weight: 700;
   letter-spacing: 0.02em;
   transform: skewX(-8deg);
@@ -429,8 +431,8 @@ canvas {
   animation: sweep 900ms 120ms ease-out both;
 }
 .callout-sub {
-  margin-top: 2px;
-  font-size: clamp(14px, 3.4vw, 20px);
+  margin-top: 1px;
+  font-size: clamp(12px, 2.8vw, 16px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg);
@@ -452,7 +454,7 @@ canvas {
   --fill: linear-gradient(180deg, #eafaff 0%, #8fe0ff 45%, #2ab4f0 60%, #0d6f9e 100%);
 }
 .callout.info .callout-text {
-  font-size: clamp(24px, 5.5vw, 44px);
+  font-size: clamp(19px, 4.2vw, 34px);
 }
 .callout.big {
   --tone: #e8ecf5;
@@ -471,7 +473,7 @@ canvas {
 }
 @keyframes callout-slam {
   0% {
-    transform: translateX(-50%) scale(1.9);
+    transform: translateX(-50%) scale(1.6);
     opacity: 0;
     filter: blur(6px);
   }
@@ -847,10 +849,10 @@ canvas {
   zoom: 1.35;
 }
 .hud-large .callout-text {
-  font-size: clamp(38px, 10vw, 80px);
+  font-size: clamp(30px, 7.5vw, 62px);
 }
 .hud-large .callout-sub {
-  font-size: clamp(18px, 4.4vw, 26px);
+  font-size: clamp(15px, 3.6vw, 20px);
 }
 
 /* The full line score only fits in landscape. */
@@ -860,6 +862,9 @@ canvas {
 
 /* ---------------------------------------------------------------- landscape layout (P1) */
 @media (orientation: landscape) and (min-aspect-ratio: 5/4) {
+  .callout {
+    top: 6%;
+  }
   /* The HUD moves to a side panel left of the table, with the full line score under it. */
   .hud-bar {
     top: 50%;

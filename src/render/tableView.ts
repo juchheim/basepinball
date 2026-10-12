@@ -521,7 +521,7 @@ export class TableView {
       const mat = new THREE.MeshBasicMaterial({
         color: 0xbcd4ff,
         transparent: true,
-        opacity: 0.16,
+        opacity: 0.11,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       });
