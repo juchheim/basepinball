@@ -8,14 +8,65 @@
  */
 import type { ElementDef, LampDef, SaucerDef, TableDef } from '../../src/table/schema';
 
+/**
+ * Re-tune a '#rrggbb' colour in HSL: scale its lightness and saturation. The field colours below
+ * use it so the whole ballpark can be made a little darker and richer in one place (playtest
+ * feedback: darker, more saturated field, so the ball's spotlight and the lamps stand out).
+ */
+function tune(hex: string, lightness: number, saturation: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d > 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  const l2 = Math.min(1, l * lightness);
+  const s2 = Math.min(1, s * saturation);
+  const c = (1 - Math.abs(2 * l2 - 1)) * s2;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l2 - c / 2;
+  const [r1, g1, b1] =
+    h < 60
+      ? [c, x, 0]
+      : h < 120
+        ? [x, c, 0]
+        : h < 180
+          ? [0, c, x]
+          : h < 240
+            ? [0, x, c]
+            : h < 300
+              ? [x, 0, c]
+              : [c, 0, x];
+  const to = (v: number): string =>
+    Math.round((v + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${to(r1)}${to(g1)}${to(b1)}`;
+}
+
+/** The field: about 12 % darker and 30 % more saturated than the first pass. */
+const FIELD = { lightness: 0.88, saturation: 1.3 };
+
 const C = {
-  grassDark: '#1c4a26',
-  grass: '#2c6a35',
-  grassLight: '#3a7d42',
-  dirt: '#a8643a',
-  dirtDark: '#7e4a2b',
+  grassDark: tune('#1c4a26', FIELD.lightness, FIELD.saturation),
+  grass: tune('#2c6a35', FIELD.lightness, FIELD.saturation),
+  grassLight: tune('#3a7d42', FIELD.lightness, FIELD.saturation),
+  dirt: tune('#a8643a', FIELD.lightness, FIELD.saturation),
+  dirtDark: tune('#7e4a2b', FIELD.lightness, FIELD.saturation),
   chalk: '#f4f1e8',
-  track: '#8c5a3b',
+  track: tune('#8c5a3b', FIELD.lightness, FIELD.saturation),
   navy: '#1b2a4a',
   gold: '#f2b33d',
   red: '#ff3b3b',

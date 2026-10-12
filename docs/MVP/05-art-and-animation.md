@@ -131,6 +131,15 @@ outputs         public/tex/playfield.base.{ktx2, webp}
   by the lamp controller. This gives the "hundreds of bulbs" look cheaply.
 - **Bloom** picks up everything emissive: inserts, pop caps, scoreboard LEDs, fireworks.
 - **Color grading:** an AgX tone map, then a night-game LUT (cool shadows, warm highlights).
+- **The ball's spotlight (post-1.0 playtest feedback):** one warm, shadowless `SpotLight` follows the
+  ball, 0.3 m above it along the playfield's normal with a 0.15 rad cone: a soft pool about 45 mm
+  in radius, a few ball-widths around the ball, so the eye keeps the ball. It follows with a slight
+  lag and fades in and out (a new ball, a saucer catch), at half strength on Low. Its strength
+  (`stage.spotMax`) and `stage.spot.angle` can be tuned live in `?debug`.
+- **A slightly darker, richer field:** the field colours in the printed art (grass, dirt, track) are
+  about 12 % darker and 30 % more saturated (`tune()` and `FIELD` in `tools/art/playfield.ts`),
+  and the ambient, key and fill lights and the environment are about 12 % dimmer, so the spotlight,
+  the lamps and the bloom stand out against the field.
 
 ## 7. Camera
 
