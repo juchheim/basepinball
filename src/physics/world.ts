@@ -171,6 +171,11 @@ const POP_RISE_TIME = 0.15;
 const POP_SINK_TIME = 0.1;
 /** Lift (0-1) from which the device is solid; below it the ball rolls over where it will stand. */
 const POP_SOLID = 0.9;
+/**
+ * A ramp-and-bumper's wall pieces push the ball only along a contact normal within this (cosine)
+ * of the piece's outward face; round the end of the wall the ball meets the ramp instead.
+ */
+const POP_FACE_COS = 0.9;
 /** A ball whose lowest point is below this height (m) is low enough to be caught by a rising device. */
 const POP_CATCH_Z = 0.012;
 
@@ -718,6 +723,9 @@ export class World {
           nx = b.px - (c.ax + sx * t);
           ny = b.py - (c.ay + sy * t);
           dist = Math.sqrt(nx * nx + ny * ny);
+          // A bumper wall piece is hit only on its face: round its end the ball is beside the
+          // wall (on the ramp, or climbing it), not in front of it.
+          if (c.device === 'pop' && nx * c.gnx + ny * c.gny < POP_FACE_COS * dist) continue;
           break;
         }
         case 'triangle': {
@@ -750,8 +758,11 @@ export class World {
       nz /= dist;
       if (nz > 0.5) this.onSurface = true;
       const vnBefore = b.vx * nx + b.vy * ny + b.vz * nz;
+      // The mound's bumper wall fires only at a ball coming down the table. One going up it that
+      // clips the back of the wall from the side glances off it as off a plain wall.
+      const passive = c.kind === 'segment' && c.device === 'pop' && b.vy > 0;
       this.resolve(b, nx, ny, nz, depth, c.material, 0, 0, 0, null, 0, 0);
-      if (primary) this.deviceHit(b, c, nx, ny, -vnBefore);
+      if (primary && !passive) this.deviceHit(b, c, nx, ny, -vnBefore);
     }
   }
 

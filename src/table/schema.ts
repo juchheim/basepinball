@@ -53,11 +53,11 @@ export interface PopDef {
 }
 
 /**
- * A wedge that rises out of the playfield on command (`World.setPopRaised`) and sinks flush again.
- * Its lower half (toward y = 0) is a ramp the ball can ride up and over; its upper half is a pop
- * bumper face that kicks a ball arriving from above. While lowered the ball rolls straight over.
- * Footprint is a disc: the surface rises from the rim at the bottom to `height` at the centre line
- * and stays flat from there to the back rim.
+ * A disc that rises out of the playfield on command (`World.setPopRaised`) and sinks flush again.
+ * Its front half (toward y = 0) and sides are a ramp the ball can ride up and over from any angle;
+ * its back is a pop bumper wall that kicks a ball coming down the table. While lowered the ball
+ * rolls straight over. The surface rises from the front rim to `height` and is flat on top; see
+ * `rampBumper.ts`.
  */
 export interface RampBumperDef {
   type: 'rampBumper';

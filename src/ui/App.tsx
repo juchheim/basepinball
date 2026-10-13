@@ -287,9 +287,9 @@ function HowToPlay() {
         </li>
         <li>
           <b>Pitching from the Stretch</b>: with a runner on base the pitcher goes to the stretch
-          and a half-disc rises on the mound. Its flat front is a ramp, so a shot from a flipper
-          rides up it and flies off the back; its rounded back is a bumper that kicks a ball coming
-          down the table. It sinks again when the bases are empty.
+          and a disc rises on the mound. Its front and sides are a ramp, so a shot from a flipper
+          rides up it and flies off the back; its back is a bumper that kicks a ball coming down the
+          table. It sinks again when the bases are empty.
         </li>
         <li>
           <b>R-B-I</b> top lanes: relight the <b>kickback</b> that saves a left outlane drain.
