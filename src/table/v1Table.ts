@@ -82,6 +82,17 @@ const leftFunnel: Vec2[] = [
   [0, 690],
   [60, 590],
 ];
+/**
+ * The right funnel is not a mirror of the left one: it curves round to point across the table.
+ * A ball that loops the orbit comes down the right side fast, and the straight funnel aimed it
+ * at the back of the W-A-L-K bank, which bounced it into the right outlane on 49 of 67 loops in
+ * the simulation. Curved, it rolls the ball out above the bank and back into play (no loop
+ * drains straight down the right outlane); it ends well clear of the OF bumper so no pocket forms
+ * between them. The flipper shot map is unchanged apart from one flip timing, a rebound that used
+ * to wander into the right orbit and now goes to the Gap.
+ */
+const rightFunnel: Vec2[] = quad([mx(0), 690], [490, 610], [450, 575], 6);
+const RIGHT_FUNNEL_END = rightFunnel[rightFunnel.length - 1]!;
 
 // ---------------------------------------------------------------- lower playfield (from M0)
 
@@ -322,9 +333,15 @@ const elements: ElementDef[] = [
   { type: 'post', x: 45, y: ORBIT_MOUTH, radius: 4, material: 'rubberPost' },
   { type: 'post', x: mx(45), y: ORBIT_MOUTH, radius: 4, material: 'rubberPost' },
   { type: 'wall', points: leftFunnel, material: 'metal' },
-  { type: 'wall', points: leftFunnel.map(m2), material: 'metal' },
+  { type: 'wall', points: rightFunnel, material: 'metal' },
   { type: 'post', x: 60, y: 590, radius: 5, material: 'rubberPost' },
-  { type: 'post', x: mx(60), y: 590, radius: 5, material: 'rubberPost' },
+  {
+    type: 'post',
+    x: RIGHT_FUNNEL_END[0],
+    y: RIGHT_FUNNEL_END[1],
+    radius: 5,
+    material: 'rubberPost',
+  },
   // Close the dead space under each ramp from the top area.
   {
     type: 'wall',
