@@ -118,18 +118,18 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `saucer.3B` | Fielder saucer, half recessed into the left wall | (40, 600) | Sits in the left orbit approach. A strong orbit shot skims it. |
 | `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B |
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
-| `saucer.LF` | Fielder saucer | (85, 750) | Between the left orbit and the left ramp |
+| `saucer.LF` | Fielder saucer | (85, 736) | Between the left orbit and the left ramp |
 | `ramp.HR` | Left ramp, "Over the Wall" | entrance (142, 790), 52 mm wide | HR gate at the crest (75, 1010). Wireform to the left inlane. |
-| `saucer.SS` | Fielder saucer | (200, 765) | Between the left ramp and the Gap |
+| `saucer.SS` | Fielder saucer | (202, 750) | Between the left ramp and the Gap |
 | `gap.mouth` | The Gap entrance | x 240–310 at y = 805 | Funnel walls into the nest |
 | `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (105, 660) / (445, 660), 17 mm, a mirror pair | Score no hit; feed HUSTLE. Soft kick (0.8 m/s; the Gap pops' is 3.4). |
 | `hustle.1`-`.5` | HUSTLE meter lamps | (243 + 16 i, 612) | One lamp per three bumper hits after a hit |
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `saucer.CF` | Fielder saucer in the Gap throat | (275, 910) | Between and just behind the singles |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
-| `saucer.2B` | Fielder saucer | (348, 745) | Between the Gap and the right ramp (20 mm further down the table than SS, to make room for the wider ramp mouth) |
+| `saucer.2B` | Fielder saucer | (348, 750) | Between the Gap and the right ramp (LF, SS, 2B and RF form a mirror-symmetric arc, SS and 2B at 750 and LF and RF at 736, low enough to clear the wider Steal ramp mouth) |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
-| `saucer.RF` | Fielder saucer | (465, 730) | Between the right ramp and the right orbit (moved down 20 mm, as 2B) |
+| `saucer.RF` | Fielder saucer | (465, 736) | Between the right ramp and the right orbit (level with LF) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
 | `lanes.RBI` | Top rollover lanes | x = 245 / 275 / 305, y 1075–1125 | Drop into the back of the Gap. Lane change with the flipper buttons. |
 | `shooter` | Shooter lane + plunger | x 550–590, plunger at (570, 40) | Leadoff launch and skill shot |

@@ -67,21 +67,21 @@
 <circle cx="25" cy="692" r="27" fill="#5a3a22"/>
 <circle cx="25" cy="692" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="60.0" y="695.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >3B 5</text>
-<circle cx="85" cy="420" r="27" fill="#5a3a22"/>
-<circle cx="85" cy="420" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
-<text x="85.0" y="458.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >LF 7</text>
-<circle cx="200" cy="405" r="27" fill="#5a3a22"/>
-<circle cx="200" cy="405" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
-<text x="200.0" y="443.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >SS 6</text>
+<circle cx="85" cy="434" r="27" fill="#5a3a22"/>
+<circle cx="85" cy="434" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
+<text x="85.0" y="472.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >LF 7</text>
+<circle cx="202" cy="420" r="27" fill="#5a3a22"/>
+<circle cx="202" cy="420" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
+<text x="202.0" y="458.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >SS 6</text>
 <circle cx="275" cy="252" r="27" fill="#5a3a22"/>
 <circle cx="275" cy="252" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="275.0" y="290.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >CF 8</text>
-<circle cx="348" cy="425" r="27" fill="#5a3a22"/>
-<circle cx="348" cy="425" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
-<text x="348.0" y="463.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >2B 4</text>
-<circle cx="465" cy="440" r="27" fill="#5a3a22"/>
-<circle cx="465" cy="440" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
-<text x="465.0" y="478.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >RF 9</text>
+<circle cx="348" cy="420" r="27" fill="#5a3a22"/>
+<circle cx="348" cy="420" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
+<text x="348.0" y="458.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >2B 4</text>
+<circle cx="465" cy="434" r="27" fill="#5a3a22"/>
+<circle cx="465" cy="434" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
+<text x="465.0" y="472.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >RF 9</text>
 <circle cx="525" cy="692" r="27" fill="#5a3a22"/>
 <circle cx="525" cy="692" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="490.0" y="695.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >1B 3</text>

@@ -159,9 +159,9 @@ describe('presentation director', () => {
   it('a fast ball skimming past a fielder makes him dive (once, then a cooldown)', () => {
     const { out, calls } = recorder();
     const d = new Director(v1Table, out);
-    // SS saucer at (200, 765) mm, radius 20: pass 30 mm to its right.
-    d.frame(0.016, { x: 0.23, y: 0.765, speed: 2 }, null);
-    d.frame(0.016, { x: 0.23, y: 0.765, speed: 2 }, null);
+    // SS saucer at (202, 750) mm, radius 20: pass 30 mm to its right.
+    d.frame(0.016, { x: 0.232, y: 0.75, speed: 2 }, null);
+    d.frame(0.016, { x: 0.232, y: 0.75, speed: 2 }, null);
     expect(calls.filter((c) => c === 'figure')).toHaveLength(1);
   });
 });

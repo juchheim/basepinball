@@ -165,9 +165,9 @@ const RAMP_WIDTH = 52;
 /**
  * The Steal ramp's mouth is clearly wider than the home-run ramp's, so the cheaper award is the
  * easier shot (a ball must enter within roughly mouth - 44 mm of the centre line: 8 mm of play on
- * the HR ramp, about 26 mm here). The 2B and RF fielders sit 20 mm further down the table than
- * SS and LF to make room: each mouth guard post then keeps a ball-wide (>= 27.5 mm) gap to their
- * glove posts, so no notch can hold a ball.
+ * the HR ramp, about 26 mm here). The four outfield-line fielders sit in a mirror-symmetric arc, SS
+ * and 2B at y = 750 and LF and RF at 736, low enough to make room: each mouth guard post then keeps
+ * a ball-wide (>= 27.5 mm) gap to their glove posts, so no notch can hold a ball.
  */
 const STEAL_RAMP_WIDTH = 70;
 
@@ -438,11 +438,11 @@ const elements: ElementDef[] = [
 
   // ---- fielders (7 saucers)
   fieldSaucer('saucer.3B', '3B', 25, 478, 180),
-  fieldSaucer('saucer.LF', 'LF', 85, 750, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
-  fieldSaucer('saucer.SS', 'SS', 200, 765, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
+  fieldSaucer('saucer.LF', 'LF', 85, 736, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
+  fieldSaucer('saucer.SS', 'SS', 202, 750, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
   fieldSaucer('saucer.CF', 'CF', 275, 918, 90, 'none'),
-  fieldSaucer('saucer.2B', '2B', 348, 745, 90, 'post', { dx: -6, dy: 25, radius: 5 }),
-  fieldSaucer('saucer.RF', 'RF', 465, 730, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
+  fieldSaucer('saucer.2B', '2B', 348, 750, 90, 'post', { dx: -6, dy: 25, radius: 5 }),
+  fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
   fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
 
   // ---- ramps
