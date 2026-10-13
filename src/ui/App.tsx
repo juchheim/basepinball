@@ -517,7 +517,9 @@ function Title({ actions }: { actions: UiActions }) {
       <p class="kicker">
         {BRAND.park} · {BRAND.team}
       </p>
-      <h1>{BRAND.game}</h1>
+      <h1 class="logo">
+        <img src="/steel-diamond.webp" alt={BRAND.game} width={585} height={613} />
+      </h1>
       <p class="tagline">Nine innings. Hit 'em where they ain't.</p>
       <p class="cta">Press Enter or tap to play</p>
       {scores.length > 0 && <ScoreTable scores={scores.slice(0, 5)} highlight={-1} />}

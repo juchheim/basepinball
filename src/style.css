@@ -565,6 +565,17 @@ canvas {
   color: transparent;
   filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.7)) drop-shadow(0 0 22px rgba(242, 179, 61, 0.35));
 }
+/* The title screen's logo already carries the name, so the h1 holds the image instead of lettering. */
+.panel h1.logo {
+  margin: 14px 0 0;
+  line-height: 0;
+  background: none;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 24px rgba(242, 179, 61, 0.25));
+}
+.panel h1.logo img {
+  width: auto;
+  height: clamp(140px, 30vh, 240px);
+}
 .panel h2 {
   margin: 0 0 12px;
   font-size: 30px;
