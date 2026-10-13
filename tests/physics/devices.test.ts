@@ -21,8 +21,8 @@ describe('devices', () => {
   });
 
   describe('ramp-and-bumper', () => {
-    // A half disc of radius 30 on the line y = 400, 8 mm tall: the ramp rises from that line, the
-    // rounded back (up to y = 430) is the bumper wall.
+    // A disc of radius 30 at (300, 400), 8 mm tall: the front half and the sides ramp up from the
+    // rim, the back (up to y = 430) is the bumper wall.
     const mound = (): ReturnType<typeof makeWorld> =>
       makeWorld({
         ...emptyTable([{ type: 'rampBumper', id: 'pop.m', x: 300, y: 400, radius: 30, height: 8 }]),
@@ -93,6 +93,47 @@ describe('devices', () => {
         runFor(w, 0.25);
         expect(Math.sign(b.vx)).toBe(Math.sign(vx));
         expect(b.vy).toBeGreaterThan(0);
+      }
+    });
+
+    it('a ball from below is never kicked, even when it catches the edge or comes in at an angle', () => {
+      for (let deg = -60; deg <= 60; deg += 15) {
+        for (let off = -45; off <= 45; off += 5) {
+          const w = mound();
+          raise(w);
+          // Aim at (300 + off, 400), coming up the table at `deg` from straight.
+          const a = (deg * Math.PI) / 180;
+          const b = w.addBall(0.3 + off / 1000 - 0.09 * Math.sin(a), 0.4 - 0.09 * Math.cos(a));
+          b.vx = 2 * Math.sin(a);
+          b.vy = 2 * Math.cos(a);
+          const ev: PhysicsEvent[] = [];
+          runFor(w, 0.2, collect(w, ev));
+          expect(pops(ev), `${deg} deg, ${off} mm`).toBe(0);
+        }
+      }
+    });
+
+    it('a ball that rides up the edge of the ramp carries on up the table', () => {
+      for (const off of [-35, -25, 25, 35]) {
+        const w = mound();
+        raise(w);
+        const b = w.addBall(0.3 + off / 1000, 0.34);
+        b.vy = 2;
+        runFor(w, 0.25);
+        expect(b.py).toBeGreaterThan(0.43);
+        expect(b.vy).toBeGreaterThan(1);
+      }
+    });
+
+    it('the bumper is as wide as the mound: a ball from above is kicked anywhere across it', () => {
+      for (let off = -40; off <= 40; off += 5) {
+        const w = mound();
+        raise(w);
+        const b = w.addBall(0.3 + off / 1000, 0.48);
+        b.vy = -1.5;
+        const ev: PhysicsEvent[] = [];
+        runFor(w, 0.2, collect(w, ev));
+        expect(pops(ev), `${off} mm`).toBe(1);
       }
     });
 

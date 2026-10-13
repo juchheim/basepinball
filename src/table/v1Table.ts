@@ -480,11 +480,11 @@ const elements: ElementDef[] = [
   // ---- mound
   // The mound and pitcher are visual only: in M1 testing both knocked centre shots off line.
   { type: 'dome', id: 'mound', x: 275, y: 355, radius: 30, height: 4, solid: false },
-  // A half disc on the back half of the mound that rises while a runner is on base and sinks when
-  // the bases clear. Its straight edge faces the flippers and is a ramp: a shot from a flipper rides
-  // up it, goes over the top and off the back, airborne. Its rounded back is a pop bumper wall that
-  // kicks a ball coming down the table or in from the side. It is lowered for each pitch (the ball
-  // is released from the mound) and rises again once the ball has gone.
+  // A disc as wide as the mound that rises while a runner is on base and sinks when the bases
+  // clear. Its front and sides are a ramp: a shot from a flipper, straight on or at an angle, rides
+  // up it, goes over the top and off the back, airborne. Its back is a pop bumper wall that kicks a
+  // ball coming down the table. It is lowered for each pitch (the ball is released from the mound)
+  // and rises again once the ball has gone.
   // A ball thrown off the ramp comes down in the lower half of the table, so the lane guides and
   // slings there are tall (LOW_WALL) and cannot be dropped in over.
   {
