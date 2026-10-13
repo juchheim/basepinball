@@ -260,8 +260,9 @@ function HowToPlay() {
       </p>
       <h3>Outs</h3>
       <p>
-        A ball that settles in a <b>fielder's glove</b> (the seven saucers) is caught.{' '}
-        <b>Every drain is an out</b>: down the middle is a strikeout, off an outlane a foul out.
+        A ball that settles in a <b>fielder's glove</b> (the seven saucers) is caught for an out,
+        even after a hit. <b>Every drain is an out</b>: down the middle is a strikeout, off an
+        outlane a foul out.
       </p>
       <h3>Pitching</h3>
       <p>

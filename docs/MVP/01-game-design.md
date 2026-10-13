@@ -68,23 +68,22 @@ does not.
 | `DEAD` | The ball is being routed back to the mound or trough while animations play. |
 | `INNING_BREAK` / `GAME_OVER` | Transitions and presentation. |
 
-**Core principle: every drain is an out, in every state.** The flippers are the player's defense,
-so a ball that gets past them always costs an out. In the other three live states, *hits* and
-*fielder catches* only count after a swing. This stops a bumper ricochet from awarding a free hit or
-charging a free out.
+**Core principle: every drain and every fielder catch is an out, in every state.** The flippers are
+the player's defense, so a ball that gets past them or into a glove always costs an out. In the
+other three live states, *hits* only count after a swing. This stops a bumper ricochet from
+awarding a free hit.
 
 ```mermaid
 stateDiagram-v2
     [*] --> LEADOFF_LAUNCH: inning start
     LEADOFF_LAUNCH --> IN_PLAY: swing
-    LEADOFF_LAUNCH --> DEAD: drain (OUT)
+    LEADOFF_LAUNCH --> DEAD: drain / fielder saucer (OUT)
     PITCH --> IN_PLAY: swing
-    PITCH --> DEAD: drain (strikeout looking)
+    PITCH --> DEAD: drain (strikeout looking) / fielder saucer (OUT)
     IN_PLAY --> LIVE_AFTER_HIT: hit (1B/2B/3B/HR)
     IN_PLAY --> DEAD: fielder saucer (OUT) / center drain (K) / outlane (foul out)
     LIVE_AFTER_HIT --> IN_PLAY: swing (rally +1)
-    LIVE_AFTER_HIT --> DEAD: drain (OUT)
-    LIVE_AFTER_HIT --> DEAD: fielder saucer (no out, returned to pitcher)
+    LIVE_AFTER_HIT --> DEAD: drain / fielder saucer (OUT)
     DEAD --> PITCH: outs < 3
     DEAD --> INNING_BREAK: 3rd out
     INNING_BREAK --> LEADOFF_LAUNCH: innings < 9
@@ -96,7 +95,7 @@ stateDiagram-v2
 | Event ↓ / State → | `PITCH` | `IN_PLAY` | `LIVE_AFTER_HIT` / `LEADOFF_LAUNCH` |
 |---|---|---|---|
 | Swing | → `IN_PLAY` | — | → `IN_PLAY` (rally +1 if after a hit) |
-| Fielder saucer | Ignored, ball returned, re-pitch (rare) | **OUT** | No out. The fielder "throws it back to the pitcher" and the batter gets a pitch. |
+| Fielder saucer | **OUT** (rare) | **OUT** | **OUT** (after a hit, it charges the next batter) |
 | Hit device | Ignored (rare) | **HIT** → runners advance → `LIVE_AFTER_HIT`. A **triple** counts only for a ball that went up that orbit within 1 s of leaving the bat (a clean shot down the line, not a slingshot ricochet). | Cosmetic only (lights and sound) |
 | Feature shot (drops, standups, Steal ramp, lanes, spinners) | Counts | Counts. **The PA continues.** | Counts |
 | Center drain | **STRIKEOUT** (looking) | **STRIKEOUT** (swinging) | **STRIKEOUT** |
@@ -115,13 +114,12 @@ Resolution details:
   measured and kept under 5 % ([02 § 9](02-playfield-design.md#9-whitebox-iteration-checklist)).
 - **A fielder saucer always captures the ball.** The ball goes to the subway, the fielder plays a
   catch-and-throw animation, and the ball returns to the mound.
-- **A saucer catch before the re-swing is not an out (decided).** After a hit, the fielder is just
-  "fielding the hit" and throwing it back to the infield, as after a real single. The rally
-  chance is lost and the next batter gets a pitch. Reasons:
-  - The CF saucer sits inside the Gap, so ricochets after singles and doubles would otherwise turn
-    into constant free outs.
-  - The player had no say in that bounce, whereas a drain is always something the flippers could
-    have stopped.
+- **A saucer catch is always an out (revised).** Until then a catch before the swing (on the
+  leadoff plunge, or after a hit before the re-swing) was "fielding the hit": no out, the ball went
+  back to the pitcher. In play that read as a bug: the fielder visibly makes the catch and nothing
+  is called. Now a catch is an out in every live state, like a drain; after a hit it charges the
+  next batter. In the sim bot 98 of 575 catches (one in six) used to go uncalled: 78 after a hit,
+  20 on the leadoff plunge before the first swing.
 - **A hit does not capture the ball.** The bumper, kicker or ramp keeps it in play, and play
   continues in `LIVE_AFTER_HIT`. That is what makes rallies possible.
 - **Feature shots never end a PA.** A plate appearance can include several of them (knock down a
