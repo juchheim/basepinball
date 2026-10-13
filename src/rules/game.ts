@@ -298,22 +298,11 @@ export class GameRules {
   }
 
   private saucer(id: string): void {
-    const position = id.slice('saucer.'.length) as Position;
-    switch (this.state) {
-      case 'IN_PLAY':
-        this.out('fielder', position);
-        this.afterOut(this.timing.routeFromSaucer);
-        return;
-      case 'PITCH':
-      case 'LIVE_AFTER_HIT':
-      case 'LEADOFF_LAUNCH':
-        // No out: the fielder throws it back to the pitcher, and the batter gets a pitch.
-        this.endRally();
-        this.schedulePitch(this.timing.routeFromSaucer);
-        return;
-      default:
-        return;
-    }
+    // Like a drain, a catch is an out in every live state, swing or not: after a hit it charges
+    // the next batter (docs/MVP/01 § 4.3).
+    if (!LIVE.includes(this.state)) return;
+    this.out('fielder', id.slice('saucer.'.length) as Position);
+    this.afterOut(this.timing.routeFromSaucer);
   }
 
   private drain(): void {

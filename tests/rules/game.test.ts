@@ -270,11 +270,11 @@ describe('event resolution table', () => {
     expect(live.last('rally')?.count).toBe(1);
   });
 
-  it('fielder saucer', () => {
+  it('fielder saucer is an out in every live state, swing or not', () => {
     const p = inPitch();
     const pitches = p.m.pitches();
     p.ev('saucer', 'saucer.LF').toPitch();
-    expect(p.g.outs).toBe(1); // only the earlier out
+    expect(p.g.outs).toBe(2); // the earlier out and this one
     expect(p.m.pitches()).toBe(pitches + 1);
 
     const ip = inInPlay().ev('saucer', 'saucer.SS');
@@ -282,11 +282,21 @@ describe('event resolution table', () => {
     expect(ip.last('out')).toMatchObject({ how: 'fielder', position: 'SS' });
 
     for (const h of [inLiveAfterHit(), inLeadoff().ev('plunger')]) {
+      const pas = h.g.stats.plateAppearances;
       h.ev('saucer', 'saucer.CF');
-      expect(h.g.outs).toBe(0);
+      expect(h.g.outs).toBe(1);
+      expect(h.last('out')).toMatchObject({ how: 'fielder', position: 'CF' });
+      expect(h.g.stats.fielderOuts).toBe(1);
+      expect(h.g.stats.plateAppearances).toBe(pas + 1);
+      expect(h.g.rally).toBe(0);
       h.toPitch();
       expect(h.state).toBe('PITCH');
     }
+
+    // Not while the ball is dead (being routed back to the mound).
+    const dead = inInPlay().ev('saucer', 'saucer.SS');
+    dead.ev('saucer', 'saucer.SS');
+    expect(dead.g.outs).toBe(1);
   });
 
   it('a corner kicker is a triple only after the ball came up that orbit', () => {
@@ -719,10 +729,13 @@ describe('feature goals', () => {
     }
     let pulsed = false;
     h.ev('plunger').ev('drain', 'drain');
-    for (let k = 0; k < 2000 && !pulsed; k++) {
+    for (let k = 0; k < 6000 && !pulsed; k++) {
       h.wait(0.01);
       if (h.m.magnet > 0) pulsed = true;
-      if (h.state === 'PITCH' && !pulsed) h.ev('saucer', 'saucer.SS');
+      if (pulsed) break;
+      // Not a curve: retire the batter and take the next pitch (in the next inning if need be).
+      if (h.state === 'PITCH') h.ev('saucer', 'saucer.SS');
+      if (h.state === 'LEADOFF_LAUNCH') h.ev('plunger').ev('drain', 'drain');
     }
     expect(pulsed).toBe(true);
   });
