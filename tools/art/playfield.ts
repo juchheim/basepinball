@@ -59,14 +59,18 @@ function tune(hex: string, lightness: number, saturation: number): string {
 /** The field: about 12 % darker and 30 % more saturated than the first pass. */
 const FIELD = { lightness: 0.88, saturation: 1.3 };
 
+/**
+ * Grass is a deep emerald (a little blue in the green, as turf looks under metal-halide lights)
+ * and the clay a red-brown rather than orange, so the renderer's richer grade keeps them natural.
+ */
 const C = {
-  grassDark: tune('#1c4a26', FIELD.lightness, FIELD.saturation),
-  grass: tune('#2c6a35', FIELD.lightness, FIELD.saturation),
-  grassLight: tune('#3a7d42', FIELD.lightness, FIELD.saturation),
-  dirt: tune('#a8643a', FIELD.lightness, FIELD.saturation),
-  dirtDark: tune('#7e4a2b', FIELD.lightness, FIELD.saturation),
-  chalk: '#f4f1e8',
-  track: tune('#8c5a3b', FIELD.lightness, FIELD.saturation),
+  grassDark: tune('#15452a', FIELD.lightness, FIELD.saturation),
+  grass: tune('#22663a', FIELD.lightness, FIELD.saturation),
+  grassLight: tune('#2f7a47', FIELD.lightness, FIELD.saturation),
+  dirt: tune('#9c5634', FIELD.lightness, FIELD.saturation),
+  dirtDark: tune('#6c3a22', FIELD.lightness, FIELD.saturation),
+  chalk: '#f7f4ec',
+  track: tune('#7e4a30', FIELD.lightness, FIELD.saturation),
   navy: '#1b2a4a',
   gold: '#f2b33d',
   red: '#ff3b3b',
@@ -102,8 +106,10 @@ export function playfieldSvg(table: TableDef): string {
   };
 
   // ---- grass, mowing stripes, vignette
+  // A broadcast-style mowing checker: light and dark stripes crossing at right angles.
   out.push(`<rect width="${W}" height="${L}" fill="url(#grass)"/>`);
-  out.push(`<rect width="${W}" height="${L}" fill="url(#mow)" opacity="0.5"/>`);
+  out.push(`<rect width="${W}" height="${L}" fill="url(#mow)"/>`);
+  out.push(`<rect width="${W}" height="${L}" fill="url(#mowCross)"/>`);
 
   // ---- warning track along the top arch and down the orbit lanes ("foul lines")
   const arcPath = (inset: number): string => {
@@ -148,10 +154,10 @@ export function playfieldSvg(table: TableDef): string {
   );
   // Foul lines.
   out.push(
-    `<line x1="${home.x}" y1="${Y(home.y)}" x2="${home.x - 172}" y2="${Y(home.y + 172)}" stroke="${C.chalk}" stroke-width="2"/>`,
+    `<line x1="${home.x}" y1="${Y(home.y)}" x2="${home.x - 172}" y2="${Y(home.y + 172)}" stroke="${C.chalk}" stroke-width="2.4"/>`,
   );
   out.push(
-    `<line x1="${home.x}" y1="${Y(home.y)}" x2="${home.x + 172}" y2="${Y(home.y + 172)}" stroke="${C.chalk}" stroke-width="2"/>`,
+    `<line x1="${home.x}" y1="${Y(home.y)}" x2="${home.x + 172}" y2="${Y(home.y + 172)}" stroke="${C.chalk}" stroke-width="2.4"/>`,
   );
   // Basepath windows: glass channels the runners run under.
   const bases = [
@@ -284,7 +290,11 @@ export function playfieldSvg(table: TableDef): string {
     <stop offset="1" stop-color="${C.grassDark}"/>
   </radialGradient>
   <pattern id="mow" width="56" height="56" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-    <rect width="28" height="56" fill="#ffffff" opacity="0.07"/>
+    <rect width="28" height="56" fill="#ffffff" opacity="0.075"/>
+    <rect x="28" width="28" height="56" fill="#000000" opacity="0.06"/>
+  </pattern>
+  <pattern id="mowCross" width="56" height="56" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+    <rect width="28" height="56" fill="#ffffff" opacity="0.045"/>
   </pattern>
   <radialGradient id="dirt" cx="50%" cy="50%" r="60%">
     <stop offset="0" stop-color="${C.dirt}"/>

@@ -1,4 +1,18 @@
 import * as THREE from 'three/webgpu';
+import {
+  abs,
+  dot,
+  float,
+  instanceIndex,
+  normalView,
+  positionViewDirection,
+  pow,
+  sin,
+  uniform,
+  uv,
+  vec3,
+} from 'three/tsl';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
 import { Particles, type Palette } from '../fx/particles';
 import type { GameSnapshot } from '../rules/types';
@@ -6,8 +20,13 @@ import type { GameSnapshot } from '../rules/types';
 /**
  * The ballpark beyond the playfield and the cabinet around it (docs/MVP/05 § 2): backboard with
  * the outfield wall, a live LED scoreboard, light towers, stands with an instanced crowd, and a
- * night sky; plus wood side rails, the lockdown bar and the apron. Built in playfield metres
- * (z up) and tilted with the table.
+ * night sky; plus the cabinet's side rails, the lockdown bar and the apron. Built in playfield
+ * metres (z up) and tilted with the table.
+ *
+ * Look: a broadcast night game. Everything is dark navy except what the lights touch: tower banks
+ * burning white with shafts of light falling from them, a bulb marquee chasing round the
+ * scoreboard, concourse lights along the tiers, and camera flashes popping in the crowd (more of
+ * them the louder the crowd gets).
  */
 
 const W = 0.59;
@@ -35,10 +54,22 @@ export class Stadium {
   private readonly towerLamp = new THREE.MeshStandardMaterial({
     color: 0xfff4dc,
     emissive: new THREE.Color(0xfff4dc),
-    emissiveIntensity: 3,
+    emissiveIntensity: 6,
   });
   private towerLevel = 1;
   private towerTarget = 1;
+  /** Seconds, for the marquee chase. */
+  private readonly time = uniform(0);
+  /** Marquee brightness: idle chase, brighter while a message is up. */
+  private readonly marquee = uniform(1);
+  /** Strength of the light shafts from the towers (follows the towers). */
+  private readonly beamLevel = uniform(1);
+  /** Camera flashes in the crowd. Off under reduced motion (no flashing). */
+  flashesEnabled = true;
+  private flashes: THREE.InstancedMesh | null = null;
+  private readonly flashLife: number[] = [];
+  private flashBudget = 0;
+  private backboardTexture: THREE.CanvasTexture | null = null;
   /** Fireworks over the backboard (docs/MVP/05 § 9). */
   readonly particles = new Particles(500);
   private readonly launches: {
@@ -51,6 +82,7 @@ export class Stadium {
 
   constructor(title: string) {
     this.buildCabinet();
+    this.buildGround();
     this.buildBackboard();
     this.buildTowers();
     this.buildSky();
@@ -65,22 +97,23 @@ export class Stadium {
     const board = new THREE.Mesh(
       new THREE.PlaneGeometry(0.34, 0.085),
       new THREE.MeshStandardMaterial({
-        map: texture,
+        color: 0x000000,
         emissiveMap: texture,
         emissive: new THREE.Color(0xffffff),
-        emissiveIntensity: 0.9,
-        roughness: 0.6,
+        emissiveIntensity: 1.25,
+        roughness: 0.3,
       }),
     );
     board.rotation.x = Math.PI / 2;
     board.position.set(W / 2, L + 0.004, 0.2);
     this.group.add(board);
     const frame = new THREE.Mesh(
-      new THREE.BoxGeometry(0.36, 0.012, 0.1),
-      new THREE.MeshStandardMaterial({ color: 0x1b2a4a, roughness: 0.5 }),
+      new THREE.BoxGeometry(0.36, 0.012, 0.11),
+      new THREE.MeshStandardMaterial({ color: 0x10182c, roughness: 0.35, metalness: 0.6 }),
     );
     frame.position.set(W / 2, L + 0.011, 0.2);
     this.group.add(frame);
+    this.buildMarquee();
     this.drawScoreboard(null, title);
   }
 
@@ -94,13 +127,17 @@ export class Stadium {
     const geo = new THREE.PlaneGeometry(0.007, 0.011);
     geo.rotateX(Math.PI / 2);
     const mat = new THREE.MeshStandardMaterial({
-      roughness: 0.9,
-      emissive: new THREE.Color(0x222222),
+      roughness: 0.8,
+      emissive: new THREE.Color(0x141414),
     });
     const mesh = new THREE.InstancedMesh(geo, mat, count);
     this.crowdBase = [];
     const m = new THREE.Matrix4();
-    const shirts = [0x1b2a4a, 0xf4efe1, 0xc9ced6, 0xf2b33d, 0x8a2b2b, 0x2e6b34, 0x3d8bfd, 0x555b66];
+    // Mostly home navy, white and gold, with a scatter of everything else.
+    const shirts = [
+      0x1d3a8a, 0x1d3a8a, 0xf4efe1, 0xf4efe1, 0xf2b33d, 0xf2b33d, 0xd63a3a, 0x2e9b54, 0x3d8bfd,
+      0xff7a1a, 0x8c5ad8, 0x2a2f3c,
+    ];
     const color = new THREE.Color();
     for (let i = 0; i < count; i++) {
       // Rows of seats rising away from the field, in a bowl around the backboard.
@@ -115,6 +152,7 @@ export class Stadium {
     }
     this.crowd = mesh;
     this.group.add(mesh);
+    this.buildFlashes();
   }
 
   /** Redraw the LED scoreboard when the game state changes. */
@@ -163,9 +201,13 @@ export class Stadium {
     }
   }
 
-  /** Per-frame animation: crowd, towers, fireworks. */
+  /** Per-frame animation: crowd, towers, fireworks, marquee, camera flashes. */
   tick(dt: number): void {
     this.clock += dt;
+    this.time.value = this.clock;
+    this.marquee.value += ((this.message ? 2.2 : 1) - this.marquee.value) * Math.min(1, dt * 4);
+    this.beamLevel.value = this.towerLevel;
+    this.tickFlashes(dt);
     // Fireworks: a rising spark, then a burst at the top.
     for (let i = this.launches.length - 1; i >= 0; i--) {
       const l = this.launches[i]!;
@@ -217,7 +259,7 @@ export class Stadium {
           ? Math.min(this.towerTarget, this.towerLevel + step)
           : Math.max(this.towerTarget, this.towerLevel - step);
       const flicker = this.towerLevel < 0.6 && Math.random() < 0.15 ? 0.5 : 1;
-      this.towerLamp.emissiveIntensity = 3 * this.towerLevel * flicker;
+      this.towerLamp.emissiveIntensity = 6 * this.towerLevel * flicker;
     }
 
     // The crowd bounces with excitement, each fan on their own rhythm.
@@ -345,88 +387,168 @@ export class Stadium {
   }
 
   private buildCabinet(): void {
-    const wood = new THREE.MeshPhysicalMaterial({
-      color: 0x3b2416,
-      roughness: 0.5,
-      metalness: 0,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.2,
+    // Black powder-coated armour with chrome trim, as on a modern cabinet: a dark frame that makes
+    // the lit playfield the brightest thing on screen.
+    const armour = new THREE.MeshPhysicalMaterial({
+      color: 0x0b0e18,
+      roughness: 0.38,
+      metalness: 0.55,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.25,
     });
     const chrome = new THREE.MeshStandardMaterial({
-      color: 0xe6e9ee,
-      roughness: 0.12,
+      color: 0xf0f2f6,
+      roughness: 0.08,
       metalness: 1,
     });
+    // A thin team-gold pinstripe along the inside of each rail.
+    const stripe = new THREE.MeshStandardMaterial({
+      color: 0x3a2a08,
+      emissive: new THREE.Color(0xf2b33d),
+      emissiveIntensity: 0.55,
+      roughness: 0.4,
+    });
     for (const x of [-0.016, W + 0.016]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, L + 0.06, 0.07), wood);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, L + 0.06, 0.07), armour);
       rail.position.set(x, L / 2, 0.02);
       rail.castShadow = true;
       rail.receiveShadow = true;
       this.group.add(rail);
+      const inner = x < 0 ? x + 0.012 : x - 0.012;
       const trim = new THREE.Mesh(new THREE.BoxGeometry(0.006, L + 0.06, 0.004), chrome);
-      trim.position.set(x < 0 ? x + 0.012 : x - 0.012, L / 2, 0.056);
+      trim.position.set(inner, L / 2, 0.056);
       this.group.add(trim);
+      const pin = new THREE.Mesh(new THREE.BoxGeometry(0.0016, L + 0.06, 0.001), stripe);
+      pin.position.set(x < 0 ? inner + 0.0048 : inner - 0.0048, L / 2, 0.0552);
+      this.group.add(pin);
     }
-    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, W + 0.06, 24), chrome);
+    // Brushed rather than mirror chrome on the lockdown bar, so it does not flare at the bottom
+    // of the screen.
+    const brushed = new THREE.MeshStandardMaterial({
+      color: 0xd8dce4,
+      roughness: 0.26,
+      metalness: 1,
+    });
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, W + 0.06, 32), brushed);
     bar.rotation.z = Math.PI / 2;
     bar.position.set(W / 2, -0.03, 0.05);
     this.group.add(bar);
-    const front = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.03, 0.07), wood);
+    const front = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.03, 0.07), armour);
     front.position.set(W / 2, -0.03, 0.01);
     this.group.add(front);
     // Apron: printed metal over the bottom of the playfield, where the ball drains away.
     const apron = new THREE.Mesh(
       new THREE.BoxGeometry(0.55, 0.036, 0.004),
-      new THREE.MeshStandardMaterial({ color: 0x1a2036, roughness: 0.35, metalness: 0.4 }),
+      new THREE.MeshPhysicalMaterial({
+        color: 0x121a33,
+        roughness: 0.3,
+        metalness: 0.5,
+        clearcoat: 1,
+        clearcoatRoughness: 0.1,
+      }),
     );
     apron.position.set(0.275, 0.018, 0.028);
     apron.castShadow = true;
     this.group.add(apron);
   }
 
+  /**
+   * The cabinet's body and legs, standing on the outfield grass at night: mowing stripes in a pool
+   * of light round the machine, fading to black. Without it the table floats in a void.
+   */
+  private buildGround(): void {
+    const FLOOR = -0.85;
+    const armour = new THREE.MeshPhysicalMaterial({
+      color: 0x0b0e18,
+      roughness: 0.38,
+      metalness: 0.55,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.25,
+    });
+    // Body: sides and front under the rails, down to the legs.
+    const depth = 0.3;
+    for (const x of [-0.016, W + 0.016]) {
+      const side = new THREE.Mesh(new THREE.BoxGeometry(0.026, L + 0.06, depth), armour);
+      side.position.set(x, L / 2, -0.015 - depth / 2);
+      this.group.add(side);
+    }
+    const front = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.026, depth), armour);
+    front.position.set(W / 2, -0.03, -0.015 - depth / 2);
+    this.group.add(front);
+    // Chrome legs at the corners.
+    const chrome = new THREE.MeshStandardMaterial({
+      color: 0xd8dce4,
+      roughness: 0.2,
+      metalness: 1,
+    });
+    const legLength = -FLOOR - depth;
+    for (const [x, y] of [
+      [0.01, 0.02],
+      [W - 0.01, 0.02],
+      [0.01, L - 0.03],
+      [W - 0.01, L - 0.03],
+    ] as const) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, legLength), chrome);
+      leg.position.set(x, y, FLOOR + legLength / 2);
+      this.group.add(leg);
+    }
+    // The grass.
+    const c = document.createElement('canvas');
+    c.width = c.height = 1024;
+    const ctx = c.getContext('2d')!;
+    ctx.fillStyle = '#0a2011';
+    ctx.fillRect(0, 0, 1024, 1024);
+    ctx.save();
+    ctx.translate(512, 512);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#0e2b17';
+    for (let x = -800; x < 800; x += 64) ctx.fillRect(x, -800, 32, 1600);
+    ctx.restore();
+    // Light pool round the cabinet, darkness beyond, a soft shadow under it.
+    const pool = ctx.createRadialGradient(512, 512, 60, 512, 512, 470);
+    pool.addColorStop(0, 'rgba(0,0,0,0)');
+    pool.addColorStop(0.35, 'rgba(0,0,0,0.3)');
+    pool.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = pool;
+    ctx.fillRect(0, 0, 1024, 1024);
+    const shadow = ctx.createRadialGradient(512, 512, 30, 512, 512, 190);
+    shadow.addColorStop(0, 'rgba(0,0,0,0.85)');
+    shadow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadow;
+    ctx.save();
+    ctx.translate(512, 512);
+    ctx.scale(0.62, 1);
+    ctx.translate(-512, -512);
+    ctx.fillRect(0, 0, 1024, 1024);
+    ctx.restore();
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(4, 4),
+      new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 }),
+    );
+    ground.position.set(W / 2, L / 2, FLOOR);
+    this.group.add(ground);
+  }
+
   private buildBackboard(): void {
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 512;
-    const ctx = canvas.getContext('2d')!;
-    const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    sky.addColorStop(0, '#05070f');
-    sky.addColorStop(0.6, '#141b33');
-    sky.addColorStop(1, '#22304f');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Light haze from the towers.
-    for (const x of [90, 934]) {
-      const glow = ctx.createRadialGradient(x, 80, 10, x, 80, 420);
-      glow.addColorStop(0, 'rgba(255,244,220,0.35)');
-      glow.addColorStop(1, 'rgba(255,244,220,0)');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    // Outfield wall: padded green with the yellow home-run line, distance markers.
-    ctx.fillStyle = '#1f4d2a';
-    ctx.fillRect(0, 392, canvas.width, 120);
-    ctx.fillStyle = '#f2b33d';
-    ctx.fillRect(0, 392, canvas.width, 6);
-    ctx.fillStyle = '#f4f1e8';
-    ctx.font = 'bold 44px Oswald, "Arial Narrow", Arial, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('330', 120, 470);
-    ctx.fillText('375', 330, 470);
-    ctx.fillText('400', 512, 470);
-    ctx.fillText('375', 694, 470);
-    ctx.fillText('330', 904, 470);
     const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
+    this.backboardTexture = tex;
+    this.drawBackboard();
     const board = new THREE.Mesh(
       new THREE.PlaneGeometry(W + 0.03, 0.3),
-      // Backboard art is lit from behind like a translite.
+      // A translite: the art is lit from behind (emissive only), under glossy glass.
       new THREE.MeshStandardMaterial({
-        map: tex,
+        color: 0x000000,
         emissiveMap: tex,
         emissive: new THREE.Color(0xffffff),
-        emissiveIntensity: 0.45,
-        roughness: 0.8,
+        emissiveIntensity: 1.1,
+        roughness: 0.35,
       }),
     );
     board.rotation.x = Math.PI / 2;
@@ -435,13 +557,202 @@ export class Stadium {
     this.group.add(board);
   }
 
+  /** Redraw the backboard art (again once the display font has loaded). */
+  drawBackboard(): void {
+    const tex = this.backboardTexture;
+    if (!tex) return;
+    const canvas = tex.image as HTMLCanvasElement;
+    const ctx = canvas.getContext('2d')!;
+    const w = canvas.width;
+    const h = canvas.height;
+    const rng = new Rng(5);
+    // Night sky, glowing toward the horizon over the stands.
+    const sky = ctx.createLinearGradient(0, 0, 0, 392);
+    sky.addColorStop(0, '#010208');
+    sky.addColorStop(0.5, '#050b20');
+    sky.addColorStop(0.82, '#0d1a40');
+    sky.addColorStop(1, '#1a2c5e');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#c9d6ff';
+    for (let i = 0; i < 70; i++) {
+      ctx.globalAlpha = 0.2 + rng.next() * 0.5;
+      ctx.fillRect(rng.next() * w, rng.next() * 220, 1.5, 1.5);
+    }
+    ctx.globalAlpha = 1;
+    // Light towers either side, rising out of the stands, each with a bank of lamps.
+    const towers = [118, 906];
+    ctx.globalCompositeOperation = 'lighter';
+    for (const x of towers) {
+      // Shafts of light falling from the bank toward the field.
+      for (const [spread, alpha] of [
+        [260, 0.08],
+        [150, 0.1],
+        [70, 0.12],
+      ] as const) {
+        const toward = x < w / 2 ? 1 : -1;
+        const g = ctx.createLinearGradient(x, 70, x + toward * 160, 392);
+        g.addColorStop(0, `rgba(255,236,200,${alpha})`);
+        g.addColorStop(1, 'rgba(255,236,200,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(x - 30, 70);
+        ctx.lineTo(x + 30, 70);
+        ctx.lineTo(x + toward * 160 + spread, 392);
+        ctx.lineTo(x + toward * 160 - spread, 392);
+        ctx.closePath();
+        ctx.fill();
+      }
+      const glow = ctx.createRadialGradient(x, 58, 4, x, 58, 230);
+      glow.addColorStop(0, 'rgba(255,240,210,0.9)');
+      glow.addColorStop(0.15, 'rgba(255,225,170,0.35)');
+      glow.addColorStop(1, 'rgba(255,225,170,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    for (const x of towers) {
+      ctx.fillStyle = '#05070d';
+      ctx.fillRect(x - 5, 80, 10, 240);
+      ctx.fillRect(x - 44, 36, 88, 46);
+      ctx.fillStyle = '#fff6e4';
+      for (let r = 0; r < 3; r++)
+        for (let c = 0; c < 6; c++) ctx.fillRect(x - 40 + c * 14, 40 + r * 14, 10, 10);
+    }
+    // Bleachers above the wall: dark tiers speckled with fans, lit along their fronts.
+    const stands = ctx.createLinearGradient(0, 296, 0, 392);
+    stands.addColorStop(0, '#0a1124');
+    stands.addColorStop(1, '#131c36');
+    ctx.fillStyle = stands;
+    ctx.beginPath();
+    ctx.moveTo(0, 300);
+    ctx.quadraticCurveTo(w / 2, 270, w, 300);
+    ctx.lineTo(w, 392);
+    ctx.lineTo(0, 392);
+    ctx.closePath();
+    ctx.fill();
+    const fans = ['#f4efe1', '#f2b33d', '#3d6bd8', '#d63a3a', '#9aa6c4', '#2e9b54'];
+    for (let i = 0; i < 900; i++) {
+      const x = rng.next() * w;
+      const top = 300 - 30 * Math.sin((x / w) * Math.PI);
+      const y = top + 6 + rng.next() * (392 - top - 12);
+      ctx.globalAlpha = 0.35 + rng.next() * 0.4;
+      ctx.fillStyle = fans[Math.floor(rng.next() * fans.length)]!;
+      ctx.fillRect(x, y, 3, 4);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(255,214,150,0.55)';
+    for (const y of [336, 362]) ctx.fillRect(0, y, w, 1.5);
+    // Outfield wall: padded green with seams, the yellow home-run line, distance markers.
+    const wall = ctx.createLinearGradient(0, 392, 0, h);
+    wall.addColorStop(0, '#13502a');
+    wall.addColorStop(1, '#0a2e17');
+    ctx.fillStyle = wall;
+    ctx.fillRect(0, 392, w, 120);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let x = 64; x < w; x += 64) ctx.fillRect(x, 398, 2, 114);
+    ctx.fillStyle = '#ffc53d';
+    ctx.fillRect(0, 392, w, 7);
+    ctx.font = 'bold 46px Oswald, "Arial Narrow", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    for (const [x, t] of [
+      [120, '330'],
+      [330, '375'],
+      [512, '400'],
+      [694, '375'],
+      [904, '330'],
+    ] as const) {
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillText(t, x + 2, 473);
+      ctx.fillStyle = '#f7f3e8';
+      ctx.fillText(t, x, 470);
+    }
+    tex.needsUpdate = true;
+  }
+
+  /** A row of bulbs above and below the scoreboard, chasing (one draw call, animated on the GPU). */
+  private buildMarquee(): void {
+    const perRow = 30;
+    const geo = new THREE.SphereGeometry(0.0021, 10, 6);
+    const mat = new THREE.MeshStandardNodeMaterial({ color: 0x2a1e08, roughness: 0.3 });
+    // Each bulb's brightness: a travelling wave, so the lights chase round the board.
+    const phase = float(instanceIndex).mul(0.55).sub(this.time.mul(7));
+    const chase = pow(sin(phase).mul(0.5).add(0.5), float(3));
+    mat.emissiveNode = vec3(1, 0.78, 0.42).mul(chase.mul(3.2).add(0.6)).mul(this.marquee);
+    const bulbs = new THREE.InstancedMesh(geo, mat, perRow * 2);
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < perRow * 2; i++) {
+      const row = i < perRow ? 0 : 1;
+      const k = i % perRow;
+      // The bottom row runs the other way, so the chase goes round.
+      const t = row === 0 ? k / (perRow - 1) : 1 - k / (perRow - 1);
+      m.makeTranslation(W / 2 - 0.172 + t * 0.344, L + 0.004, 0.2 + (row === 0 ? 0.05 : -0.05));
+      bulbs.setMatrixAt(i, m);
+    }
+    this.group.add(bulbs);
+  }
+
+  /** Camera flashes popping in the stands: hidden (zero-size) until one fires. */
+  private buildFlashes(): void {
+    if (this.flashes) {
+      this.group.remove(this.flashes);
+      this.flashes.geometry.dispose();
+    }
+    const n = 32;
+    const geo = new THREE.PlaneGeometry(0.0045, 0.0045);
+    geo.rotateX(Math.PI / 2);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      emissive: new THREE.Color(0xeef4ff),
+      emissiveIntensity: 9,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.InstancedMesh(geo, mat, n);
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (let i = 0; i < n; i++) mesh.setMatrixAt(i, zero);
+    this.flashLife.length = 0;
+    for (let i = 0; i < n; i++) this.flashLife.push(0);
+    this.flashes = mesh;
+    this.group.add(mesh);
+  }
+
+  private tickFlashes(dt: number): void {
+    const mesh = this.flashes;
+    if (!mesh || this.crowdBase.length === 0) return;
+    // A steady trickle, a storm when the crowd is on its feet.
+    this.flashBudget += dt * (this.flashesEnabled ? 1.2 + this.energy * 30 : 0);
+    let changed = false;
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < this.flashLife.length; i++) {
+      if (this.flashLife[i]! > 0) {
+        this.flashLife[i]! -= dt;
+        if (this.flashLife[i]! <= 0) {
+          mesh.setMatrixAt(i, m.makeScale(0, 0, 0));
+          changed = true;
+        }
+      } else if (this.flashBudget >= 1) {
+        this.flashBudget -= 1;
+        const base = this.crowdBase[Math.floor(Math.random() * this.crowdBase.length)]!;
+        m.copy(base);
+        m.elements[13] -= 0.001;
+        m.elements[14] += 0.006;
+        mesh.setMatrixAt(i, m);
+        this.flashLife[i] = 0.05 + Math.random() * 0.04;
+        changed = true;
+      }
+    }
+    this.flashBudget = Math.min(this.flashBudget, 3);
+    if (changed) mesh.instanceMatrix.needsUpdate = true;
+  }
+
   private buildTowers(): void {
     const steel = new THREE.MeshStandardMaterial({
-      color: 0x3a4152,
-      roughness: 0.5,
-      metalness: 0.7,
+      color: 0x1a1f2b,
+      roughness: 0.45,
+      metalness: 0.8,
     });
     const lamp = this.towerLamp;
+    const target = new THREE.Vector3(W / 2, L * 0.55, 0);
     for (const head of this.towerHeads) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, head.z, 10), steel);
       pole.rotation.x = Math.PI / 2;
@@ -449,24 +760,73 @@ export class Stadium {
       this.group.add(pole);
       const bank = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.05), steel);
       bank.position.copy(head);
-      bank.lookAt(new THREE.Vector3(W / 2, L / 2, 0));
+      bank.lookAt(target);
       this.group.add(bank);
       for (let i = 0; i < 6; i++) {
         const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.004, 0.012), lamp);
         bulb.position.set(-0.033 + (i % 3) * 0.033, -0.008, i < 3 ? 0.012 : -0.012);
         bank.add(bulb);
       }
+      this.group.add(this.lightShaft(head, target));
     }
   }
 
+  /**
+   * A fake volumetric shaft from a tower toward the field (docs/MVP/05 § 2): an open cone, additive,
+   * fading along its length and toward its edges. It ends well above the playfield, so it never
+   * hazes over play.
+   */
+  private lightShaft(from: THREE.Vector3, to: THREE.Vector3): THREE.Mesh {
+    const length = 0.5;
+    const geo = new THREE.CylinderGeometry(0.03, 0.16, length, 32, 1, true);
+    geo.translate(0, -length / 2, 0);
+    const mat = new THREE.MeshBasicNodeMaterial({
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    // Brightest at the lamps (uv.y = 1), gone by the far end; soft at the silhouette.
+    const along = pow(uv().y, float(2.2));
+    const across = pow(abs(dot(normalView, positionViewDirection)), float(1.5));
+    mat.colorNode = vec3(1, 0.9, 0.72);
+    mat.opacityNode = along.mul(across).mul(0.38).mul(this.beamLevel);
+    const shaft = new THREE.Mesh(geo, mat);
+    shaft.position.copy(from);
+    shaft.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, -1, 0),
+      to.clone().sub(from).normalize(),
+    );
+    shaft.renderOrder = 2;
+    return shaft;
+  }
+
   private buildSky(): void {
-    // Stands: stepped concrete tiers behind the backboard.
-    const concrete = new THREE.MeshStandardMaterial({ color: 0x2a3142, roughness: 0.9 });
+    // Stands: stepped tiers behind the backboard, painted dark navy, each with a strip of warm
+    // concourse lights along its front edge.
+    const concrete = new THREE.MeshStandardMaterial({ color: 0x070b17, roughness: 0.95 });
+    const strips: THREE.BufferGeometry[] = [];
     for (let row = 0; row < 7; row++) {
+      const y = L + 0.07 + row * 0.044;
+      const z = 0.24 + row * 0.036;
       const tier = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.044, 0.04), concrete);
-      tier.position.set(W / 2, L + 0.07 + row * 0.044, 0.24 + row * 0.036);
+      tier.position.set(W / 2, y, z);
+      tier.receiveShadow = true;
       this.group.add(tier);
+      strips.push(
+        new THREE.BoxGeometry(W + 0.5, 0.0008, 0.0008).translate(W / 2, y - 0.023, z + 0.019),
+      );
     }
+    this.group.add(
+      new THREE.Mesh(
+        mergeGeometries(strips),
+        new THREE.MeshStandardMaterial({
+          color: 0x000000,
+          emissive: new THREE.Color(0xffc98a),
+          emissiveIntensity: 0.9,
+        }),
+      ),
+    );
     // A distant star field.
     const rng = new Rng(9);
     const stars = new Float32Array(600 * 3);

@@ -44,6 +44,8 @@ export interface PresentationOut {
   wave(): void;
   /** Light towers and the cabinet's GI: on (with a warm-up) or dimmed for attract mode. */
   lights(on: boolean): void;
+  /** The cabinet's GI drops out for a beat and surges back (a home run). */
+  giFlash(): void;
   shake(amount: number): void;
 }
 
@@ -219,6 +221,7 @@ export class Director {
           o.stinger('homeRun');
           o.show('homeRun');
           o.fireworks(this.reduced ? 1 : 5);
+          if (!this.reduced) o.giFlash();
           o.scoreboard('HOME RUN', e.runs > 1 ? `${e.runs} RUNS SCORE` : '', '#ff4d4d', 3.5);
           o.figure({ kind: 'celebrate' });
           o.excite(1);
