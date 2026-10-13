@@ -74,6 +74,7 @@ export class Stage {
   private orbitClock = 0;
 
   constructor(container: HTMLElement, forceWebGL: boolean) {
+    this.container = container;
     this.renderer = // No MSAA on the canvas: the scene is drawn into the post-processing pass and only a
       // full-screen quad reaches the canvas, so a multisampled canvas just burns GPU memory.
       new THREE.WebGPURenderer({ antialias: false, forceWebGL });
@@ -133,8 +134,19 @@ export class Stage {
     this.pipeline = new THREE.RenderPipeline(this.renderer);
     this.setPost(true, true);
 
-    window.addEventListener('resize', () => this.resize());
+    // Follow the container's laid-out size. iOS Safari can report a short innerHeight while the
+    // page loads (the toolbar still settling) and never fire the window resize that corrects it,
+    // which left the table drawn in the top part of the screen until a reload. The observer sees
+    // the box itself change; the window events are fallbacks.
+    new ResizeObserver(() => this.resize()).observe(container);
+    const resize = (): void => this.resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('orientationchange', resize);
+    window.addEventListener('pageshow', resize);
+    window.visualViewport?.addEventListener('resize', resize);
   }
+
+  private readonly container: HTMLElement;
 
   async init(): Promise<void> {
     await this.renderer.init();
@@ -221,14 +233,15 @@ export class Stage {
   }
 
   private resize(): void {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    const w = this.container.clientWidth || window.innerWidth;
+    const h = this.container.clientHeight || window.innerHeight;
     // The pixel ratio is the device's, capped by the tier and by the canvas's total pixel budget.
     const budget = Math.sqrt(this.maxPixels / Math.max(1, w * h));
     this.renderer.setPixelRatio(
       Math.max(0.75, Math.min(window.devicePixelRatio, this.dprCap, budget)),
     );
-    this.renderer.setSize(w, h);
+    // Drawing-buffer size only: CSS sizes the canvas, so a stale size can't pin it smaller.
+    this.renderer.setSize(w, h, false);
     this.onResize?.(w, h, this.renderer.getPixelRatio());
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();

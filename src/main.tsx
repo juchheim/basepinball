@@ -647,7 +647,11 @@ async function main(): Promise<void> {
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
     const pick = (ev: PointerEvent): THREE.Vector3 | null => {
-      ndc.set((ev.clientX / window.innerWidth) * 2 - 1, -(ev.clientY / window.innerHeight) * 2 + 1);
+      const r = stage.renderer.domElement.getBoundingClientRect();
+      ndc.set(
+        ((ev.clientX - r.left) / r.width) * 2 - 1,
+        -((ev.clientY - r.top) / r.height) * 2 + 1,
+      );
       raycaster.setFromCamera(ndc, stage.camera);
       const hit = raycaster.intersectObject(view.floor, false)[0];
       return hit ? view.group.worldToLocal(hit.point.clone()) : null;
