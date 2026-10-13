@@ -35,16 +35,26 @@ body {
   overscroll-behavior: none;
 }
 
+/* The canvas fills the viewport by layout, not by numbers read from `window` at boot: iOS Safari can
+   report a short innerHeight while the page loads and never send the resize that corrects it. The
+   stage follows this box's real size (see Stage.resize). */
+#app {
+  position: fixed;
+  inset: 0;
+}
+
 #app,
 canvas {
   display: block;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
 }
 
 /* Fatal messages (lost graphics, start-up failure): plain DOM over everything. */

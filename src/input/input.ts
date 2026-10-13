@@ -35,9 +35,13 @@ export const TOUCH = { plungerX: 0.82, plungerY: 0.72, flipperTop: 0.3 };
 
 type Zone = 'plunger' | 'flipperL' | 'flipperR' | 'nudge';
 
-function touchZone(x: number, y: number): Zone {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+/** The touch surface's size (the full-screen canvas), measured from layout like the renderer. */
+function surface(el: HTMLElement): { w: number; h: number } {
+  return { w: el.clientWidth || window.innerWidth, h: el.clientHeight || window.innerHeight };
+}
+
+function touchZone(x: number, y: number, el: HTMLElement): Zone {
+  const { w, h } = surface(el);
   if (x > w * TOUCH.plungerX && y > h * TOUCH.plungerY) return 'plunger';
   if (y < h * TOUCH.flipperTop) return 'nudge';
   return x < w / 2 ? 'flipperL' : 'flipperR';
@@ -137,7 +141,7 @@ export class Input {
     canvas.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return;
       e.preventDefault();
-      const zone = touchZone(e.clientX, e.clientY);
+      const zone = touchZone(e.clientX, e.clientY, canvas);
       touches.set(e.pointerId, {
         zone,
         x: e.clientX,
@@ -154,7 +158,7 @@ export class Input {
       const dy = e.clientY - t.y;
       if (!t.dragging && Math.abs(dy) < 8) return;
       t.dragging = true;
-      const value = Math.max(0, Math.min(1, dy / (window.innerHeight * 0.2)));
+      const value = Math.max(0, Math.min(1, dy / (surface(canvas).h * 0.2)));
       this.emit({ action: 'plunger', pressed: true, time: e.timeStamp, value });
     });
     const release = (e: PointerEvent): void => {
