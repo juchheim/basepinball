@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
 import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
+  BULLPEN,
+  BULLPEN_HOLD,
+  DOUBLEHEADER_HOLD,
+  DOUBLEHEADER_SAVE,
+  ERROR_HOLD,
   GameRules,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
@@ -16,21 +21,39 @@ import type { Machine, RulesEvent } from '../../src/rules/types';
 
 class FakeMachine implements Machine {
   calls: string[] = [];
-  inPlay = false;
+  /** Balls on the playfield. */
+  balls = 0;
+  get inPlay(): boolean {
+    return this.balls > 0;
+  }
+  set inPlay(on: boolean) {
+    this.balls = on ? Math.max(1, this.balls) : 0;
+  }
   speed = 1;
   flippers = true;
   kickback = false;
   magnet = 0;
   serveToPlunger(): void {
     this.calls.push('serve');
-    this.inPlay = true;
+    this.balls = 1;
   }
   pitch(spec: PitchSpec): void {
     this.calls.push(`pitch:${spec.type}`);
-    this.inPlay = true;
+    this.balls = 1;
   }
   holdBall(): void {
-    this.inPlay = false;
+    this.balls = 0;
+  }
+  ejectSaucer(id: string): void {
+    this.calls.push(`eject:${id}`);
+    this.balls++;
+  }
+  addBall(): void {
+    this.calls.push('addBall');
+    this.balls++;
+  }
+  ballsInPlay(): number {
+    return this.balls;
   }
   setMagnet(p: number): void {
     this.magnet = p;
@@ -71,7 +94,7 @@ class Harness {
   }
   ev(type: PhysicsEventType, id = ''): this {
     this.t += 0.01;
-    if (type === 'drain' || type === 'saucer') this.m.inPlay = false;
+    if (type === 'drain' || type === 'saucer') this.m.balls = Math.max(0, this.m.balls - 1);
     this.g.onSwitch({ type, id, time: this.t } as PhysicsEvent);
     this.g.update(this.t);
     return this;
@@ -624,12 +647,6 @@ describe('feature goals', () => {
     expect(h.g.hustle).toBe(3);
   });
 
-  it('a ride on the Twister counts as a bumper hit after a hit, and feeds nothing before one', () => {
-    expect(inInPlay().ev('disc', 'disc.RF').g.hustle).toBe(0);
-    const h = inLiveAfterHit().wait(1).ev('disc', 'disc.RF');
-    expect(h.g.hustle).toBe(1);
-  });
-
   it('a ball ricocheting through the nest counts once per cooldown, not per contact', () => {
     const h = inLiveAfterHit().wait(1).ev('pop', 'pop.OF.L');
     for (let i = 0; i < 8; i++) h.ev('pop', 'pop.OF.R'); // eight more contacts within 0.1 s
@@ -744,5 +761,94 @@ describe('feature goals', () => {
       if (h.state === 'LEADOFF_LAUNCH') h.ev('plunger').ev('drain', 'drain');
     }
     expect(pulsed).toBe(true);
+  });
+});
+
+describe('the Bullpen and DOUBLEHEADER', () => {
+  /** A ball into the Bullpen scoop, held and kicked back out. */
+  const bullpen = (h: Harness): Harness => h.ev('saucer', BULLPEN).wait(BULLPEN_HOLD + 0.05);
+  /** Two balls into the Bullpen: DOUBLEHEADER starts and both balls are in play. */
+  const inDoubleheader = (): Harness => {
+    const h = bullpen(inInPlay())
+      .ev('saucer', BULLPEN)
+      .wait(DOUBLEHEADER_HOLD + 0.05);
+    expect(h.g.doubleheader).toBe(true);
+    return h;
+  };
+
+  it('a ball in the Bullpen warms up a reliever: no out, and it is kicked back into play', () => {
+    const h = inInPlay().ev('saucer', BULLPEN);
+    expect(h.last('bullpen')).toMatchObject({ locks: 1 });
+    expect(h.g.outs).toBe(0);
+    expect(h.state).toBe('IN_PLAY');
+    expect(h.g.lamps()['lamp.bullpen.1']).toBe('on');
+    expect(h.m.balls).toBe(0);
+    h.wait(BULLPEN_HOLD + 0.05);
+    expect(h.m.calls).toContain(`eject:${BULLPEN}`);
+    expect(h.m.balls).toBe(1);
+    expect(h.g.doubleheader).toBe(false);
+  });
+
+  it('the second starts DOUBLEHEADER: the scoop kicks its ball out and a second ball is pitched', () => {
+    const h = bullpen(inInPlay()).ev('saucer', BULLPEN);
+    expect(h.count('doubleheader')).toBe(1);
+    expect(h.g.bullpen).toBe(0);
+    expect(h.g.stats.doubleheaders).toBe(1);
+    h.wait(DOUBLEHEADER_HOLD + 0.05);
+    expect(h.m.calls.filter((c) => c === 'addBall')).toHaveLength(1);
+    expect(h.m.balls).toBe(2);
+    expect(h.g.lamps()['lamp.bullpen.1']).toBe('blink');
+    expect(h.g.snapshot().ballSave).toBeGreaterThan(DOUBLEHEADER_SAVE - 1);
+  });
+
+  it('relievers stay warm through the inning change', () => {
+    const h = bullpen(inInPlay());
+    h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
+    expect(h.g.inning).toBe(2);
+    expect(h.g.bullpen).toBe(1);
+  });
+
+  it('a ball drained in the opening seconds is pitched straight back in', () => {
+    const h = inDoubleheader().ev('drain', 'drain');
+    expect(h.count('ballSaved')).toBe(1);
+    expect(h.g.outs).toBe(0);
+    expect(h.m.balls).toBe(2);
+    expect(h.g.doubleheader).toBe(true);
+  });
+
+  it('after the save there are still no outs: it ends when one ball is left, then outs count', () => {
+    const h = inDoubleheader()
+      .wait(DOUBLEHEADER_SAVE + 0.1)
+      .ev('drain', 'drain');
+    expect(h.g.outs).toBe(0);
+    expect(h.count('ballSaved')).toBe(0);
+    expect(h.g.doubleheader).toBe(false);
+    expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 0 });
+    h.ev('drain', 'drain');
+    expect(h.g.outs).toBe(1);
+  });
+
+  it('a fielder drops the ball in DOUBLEHEADER: an error, no out, and the ball is thrown back', () => {
+    const h = inDoubleheader().ev('saucer', 'saucer.LF');
+    expect(h.last('fieldingError')).toMatchObject({ position: 'LF' });
+    expect(h.g.outs).toBe(0);
+    h.wait(ERROR_HOLD + 0.05);
+    expect(h.m.calls).toContain('eject:saucer.LF');
+    expect(h.m.balls).toBe(2);
+  });
+
+  it('every run counts twice in DOUBLEHEADER', () => {
+    // A runner on third, then DOUBLEHEADER, then a single brings him home: 2 runs.
+    const h = inInPlay();
+    h.g.bases = [false, false, true];
+    bullpen(h)
+      .ev('saucer', BULLPEN)
+      .wait(DOUBLEHEADER_HOLD + 0.05);
+    const before = h.g.stats.runs;
+    h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    expect(h.last('hit')).toMatchObject({ runs: 2 });
+    expect(h.g.stats.runs - before).toBe(2);
+    h.wait(DOUBLEHEADER_SAVE + 0.1).ev('drain', 'drain');
+    expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 2 });
   });
 });

@@ -68,6 +68,17 @@ const rows: [string, string, string][] = [
   ],
   ['Hustles per game', (sum((r) => r.stats.hustles) / games).toFixed(2), '—'],
   ['Walks per game', (sum((r) => r.stats.walks) / games).toFixed(2), '—'],
+  [
+    'DOUBLEHEADERS per game, runs each',
+    `${(sum((r) => r.stats.doubleheaders) / games).toFixed(2)}, ${(
+      sum((r) => r.events.reduce((n, e) => n + (e.type === 'doubleheaderEnd' ? e.runs : 0), 0)) /
+      Math.max(
+        1,
+        sum((r) => r.stats.doubleheaders),
+      )
+    ).toFixed(1)}`,
+    'rare',
+  ],
   ['Ball rescues per game', (sum((r) => r.rescues) / games).toFixed(2), '< 0.05'],
 ];
 console.log(

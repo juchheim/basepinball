@@ -47,6 +47,16 @@ export type RulesEvent =
   | { type: 'spinBonus'; gained: number }
   /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
   | { type: 'stretch' }
+  /** A ball in the Bullpen scoop: a reliever warms up (`locks` of `BULLPEN_LOCKS`). */
+  | { type: 'bullpen'; locks: number }
+  /** Both relievers are warm: DOUBLEHEADER, two-ball multiball, begins. */
+  | { type: 'doubleheader' }
+  /** A ball drained in DOUBLEHEADER's opening seconds: it is pitched straight back in. */
+  | { type: 'ballSaved' }
+  /** Down to one ball: DOUBLEHEADER is over. `runs` were scored during it (already doubled). */
+  | { type: 'doubleheaderEnd'; runs: number }
+  /** In DOUBLEHEADER a fielder's catch is no out: he drops it and throws the ball back in. */
+  | { type: 'fieldingError'; position: Position }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
   | { type: 'rally'; count: number }
@@ -76,6 +86,7 @@ export interface GameStats {
   steals: number;
   walks: number;
   hustles: number;
+  doubleheaders: number;
   /** Simulation seconds from first pitch to final out. */
   duration: number;
 }
@@ -100,6 +111,7 @@ export function emptyStats(): GameStats {
     steals: 0,
     walks: 0,
     hustles: 0,
+    doubleheaders: 0,
     duration: 0,
   };
 }
@@ -121,6 +133,13 @@ export interface GameSnapshot {
   /** The HUSTLE meter: bumper hits so far, and how many fill it. */
   hustle: number;
   hustleTarget: number;
+  /** Relievers warmed up in the Bullpen (locks), and how many start DOUBLEHEADER. */
+  bullpen: number;
+  bullpenTarget: number;
+  /** Two-ball multiball is running. */
+  doubleheader: boolean;
+  /** Seconds of DOUBLEHEADER's ball save left (0 when off). */
+  ballSave: number;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;
@@ -137,8 +156,14 @@ export interface Machine {
   serveToPlunger(): void;
   /** Ball comes up the mound VUK and is pitched (the ball may currently be held or in play). */
   pitch(spec: PitchSpec): void;
-  /** Take the ball off the playfield (it is in the subway or trough). */
+  /** Take every ball off the playfield (it is in the subway or trough). */
   holdBall(): void;
+  /** Kick the ball a saucer (the Bullpen scoop, or a fielder in multiball) holds back into play. */
+  ejectSaucer(id: string): void;
+  /** Multiball: pitch another ball from the mound while the others stay in play. */
+  addBall(spec: PitchSpec): void;
+  /** How many balls are on the playfield. */
+  ballsInPlay(): number;
   setMagnet(power: number): void;
   setKickback(armed: boolean): void;
   /** Raise the bumper on the mound (a runner is on base) or lower it (the bases are empty). */
@@ -147,9 +172,9 @@ export interface Machine {
   setFlippersEnabled(enabled: boolean): void;
   /** Free a stuck ball (pulse coils / small kick). */
   ballSearch(): void;
-  /** Is the ball on the playfield (not drained, captured, or held)? */
+  /** Is a ball on the playfield (not drained, captured, or held)? */
   ballInPlay(): boolean;
-  /** Ball speed (m/s), for stuck-ball detection. */
+  /** Speed (m/s) of the fastest ball in play, for stuck-ball detection. */
   ballSpeed(): number;
 }
 

@@ -192,24 +192,6 @@ export interface MagnetDef {
   radius: number;
 }
 
-/**
- * A turntable set flush in the playfield that spins all the time. A ball rolling over it is
- * dragged toward the surface's own velocity (as fast as friction allows), so it is flung off on a
- * curve: a slow ball is thrown hard, a fast one only bends.
- */
-export interface DiscDef {
-  type: 'disc';
-  id: string;
-  x: number;
-  y: number;
-  /** Radius (mm). */
-  radius: number;
-  /** Spin (rad/s); positive is counter-clockwise seen from above. */
-  spin: number;
-  /** Colour key for the renderer. */
-  color?: number;
-}
-
 export interface KickbackDef {
   type: 'kickback';
   id: string;
@@ -276,7 +258,6 @@ export type ElementDef =
   | WireformDef
   | DomeDef
   | MagnetDef
-  | DiscDef
   | KickbackDef
   | PlungerDef
   | FlipperDef

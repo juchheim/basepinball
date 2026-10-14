@@ -343,7 +343,7 @@ const elements: ElementDef[] = [
     material: 'rubberPost',
   },
   // The deep corners above each ramp's far end are open to the top of the table, so a ball coming
-  // off the top can drop in on CF (left) or the Twister (right). A short wall in each corner,
+  // off the top can drop in on CF (left) or the Bullpen (right). A short wall in each corner,
   // sloping down from the orbit guide to the ramp's end, rolls a ball out of the nook between them.
   {
     type: 'wall',
@@ -471,11 +471,22 @@ const elements: ElementDef[] = [
   { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
-  // ---- the Twister: a turntable deep in right-centre, up the alley between the Steal ramp and the
-  // Gap (across from CF). It spins the way runners go round the bases (counter-clockwise), always
-  // on. A ball rolling over it is whipped round: a slow one is flung off sideways or back up the
-  // table, a fast one just bends. It feeds HUSTLE like a bumper.
-  { type: 'disc', id: 'disc.RF', x: 394, y: 970, radius: 20, spin: 35, color: LAMP.amber },
+  // ---- the Bullpen: a scoop deep in right-centre, up the alley between the Steal ramp and the Gap
+  // (CF's mirror). A ball in it warms up a reliever and is kicked back out; the second starts
+  // DOUBLEHEADER, two-ball multiball (docs/MVP/01 § 4.8). Its glove post is above the dish, slim
+  // enough to leave a ball-wide gap to the ramp and to the Gap wall. No standee: the dish is the
+  // bullpen mound.
+  {
+    type: 'saucer',
+    id: 'saucer.BULLPEN',
+    x: 397,
+    y: 985,
+    radius: 20,
+    depth: 7,
+    lipAngle: 90,
+    lip: 'post',
+    lipPost: { dx: 0, dy: 24, radius: 3 },
+  },
 
   // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (out in the open, lower right)
   ...BAT_BANK.centers.map(([x, y], i): ElementDef => {
@@ -652,6 +663,9 @@ const elements: ElementDef[] = [
     color: LAMP.violet,
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
+  // The Bullpen's two lock lamps, below the scoop: one per reliever warming up.
+  { type: 'lamp', id: 'lamp.bullpen.1', x: 386, y: 950, radius: 6, color: LAMP.amber },
+  { type: 'lamp', id: 'lamp.bullpen.2', x: 408, y: 950, radius: 6, color: LAMP.amber },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
 

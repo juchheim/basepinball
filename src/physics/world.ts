@@ -34,7 +34,6 @@ export type PhysicsEventType =
   | 'spinner'
   | 'kickback'
   | 'plunger'
-  | 'disc'
   | 'tiltBob';
 
 /**
@@ -93,7 +92,11 @@ interface Saucer {
   bowlR: number;
   bowlZ: number;
   settle: number;
+  /** The ball settling in the dish (multiball: only that ball's time counts). */
+  settling: Ball | null;
   holding: boolean;
+  /** The ball the saucer is holding, so it can kick that one back out. */
+  ball: Ball | null;
 }
 
 /** A smooth hump: z = height · (1 − (h/a)²)², flat-tangent at its rim so balls roll over it. */
@@ -114,8 +117,8 @@ interface Sensor {
   zMin: number;
   zMax: number;
   spinner: boolean;
-  /** Ball side of the line at the last substep (NaN until seen). */
-  side: number;
+  /** Each ball's side of the line at the last substep (by index in `balls`; unset until seen). */
+  sides: number[];
 }
 
 export interface SpinnerState {
@@ -136,20 +139,6 @@ export interface Magnet {
   radius: number;
   /** 0..1, set by game logic (curveballs). */
   power: number;
-}
-
-/** A spinning turntable flush with the playfield (see `DiscDef`). */
-export interface Disc {
-  id: string;
-  cx: number;
-  cy: number;
-  radius: number;
-  /** Spin (rad/s), counter-clockwise positive. */
-  omega: number;
-  /** Turned angle (rad), for the renderer. */
-  angle: number;
-  /** A ball was on the disc at the last substep. */
-  occupied: boolean;
 }
 
 export interface Kickback {
@@ -180,6 +169,9 @@ interface DropTarget {
 }
 
 const MM = 0.001;
+
+/** Restitution of one steel ball striking another. */
+const BALL_RESTITUTION = 0.9;
 
 /** Seconds a retractable device takes to rise and to sink. */
 const POP_RISE_TIME = 0.15;
@@ -218,7 +210,6 @@ export class World {
   readonly sensors: Sensor[] = [];
   readonly spinners = new Map<string, SpinnerState>();
   readonly magnets: Magnet[] = [];
-  readonly discs: Disc[] = [];
   readonly kickbacks: Kickback[] = [];
   readonly drops = new Map<string, DropTarget>();
   readonly retractables: RetractablePop[] = [];
@@ -291,9 +282,20 @@ export class World {
     return b;
   }
 
-  /** The single ball in play, created on demand (MVP has one ball). */
+  /** The main ball, created on demand: serves and pitches use it. */
   ball(): Ball {
     return this.balls[0] ?? this.addBall(0, 0);
+  }
+
+  /** The balls on the playfield (multiball can have more than one). */
+  activeBalls(): Ball[] {
+    return this.balls.filter((b) => b.active);
+  }
+
+  /** A ball that is neither in play nor held in a saucer, created if every ball is busy. */
+  spareBall(): Ball {
+    const held = new Set(this.saucers.map((s) => s.ball));
+    return this.balls.find((b) => !b.active && !held.has(b)) ?? this.addBall(0, 0);
   }
 
   setFlipper(id: string, pressed: boolean): void {
@@ -354,11 +356,14 @@ export class World {
     pl.pullTarget = Math.max(0, Math.min(1, amount));
   }
 
-  /** Pitch from the mound: the ball appears at the pitch spot and is kicked toward (tx, ty) (m). */
-  pitchBall(tx: number, ty: number, speed: number): Ball | null {
+  /**
+   * Pitch from the mound: the ball appears at the pitch spot and is kicked toward (tx, ty) (m). The
+   * main ball unless another is given (a second ball for multiball).
+   */
+  pitchBall(tx: number, ty: number, speed: number, ball: Ball = this.ball()): Ball | null {
     const spot = this.table.pitchSpot;
     if (!spot) return null;
-    const b = this.ball();
+    const b = ball;
     const x = spot.x * MM;
     const y = spot.y * MM;
     // The ball comes up through the mound, so a bumper there drops out of its way.
@@ -390,6 +395,8 @@ export class World {
     if (!s) return;
     s.holding = false;
     s.settle = 0;
+    s.settling = null;
+    s.ball = null;
     ball.place(s.cx, s.cy, this.params.ballRadius);
     const a = angleDeg * DEG;
     ball.vx = speed * dcos(a);
@@ -419,11 +426,24 @@ export class World {
     this.bob.x = this.bob.y = this.bob.vx = this.bob.vy = 0;
   }
 
+  /**
+   * Kicks the ball a saucer is holding back into play (a scoop's eject, or a fielder's throw back
+   * during multiball). Nothing happens if the saucer is empty.
+   */
+  kickOutSaucer(saucerId: string, speed: number, angleDeg: number): boolean {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s?.holding || !s.ball) return false;
+    this.ejectFromSaucer(s.ball, saucerId, speed, angleDeg);
+    return true;
+  }
+
   /** Clears saucer holds (the ball was routed elsewhere). */
   releaseSaucers(): void {
     for (const s of this.saucers) {
       s.holding = false;
       s.settle = 0;
+      s.settling = null;
+      s.ball = null;
     }
   }
 
@@ -500,13 +520,13 @@ export class World {
       if (f.eos && !wasEos) this.emit('eos', f.id);
     }
 
-    for (const b of this.balls) {
+    for (let bi = 0; bi < this.balls.length; bi++) {
+      const b = this.balls[bi]!;
       if (!b.active) continue;
       b.vx += this.gx * h;
       b.vy += this.gy * h;
       b.vz += this.gz * h;
       for (const m of this.magnets) this.applyMagnet(b, m, h);
-      for (const d of this.discs) this.applyDisc(b, d, h);
       b.px += b.vx * h;
       b.py += b.vy * h;
       b.pz += b.vz * h;
@@ -531,12 +551,64 @@ export class World {
         b.vz *= k;
       }
 
-      this.updateSensors(b);
+      this.updateSensors(b, bi);
       this.updateKickbacks(b);
       this.updateSaucers(b, h);
       if (b.active && b.py < this.drainY && b.pz < 0.05) {
         b.active = false;
         this.emit('drain', 'drain');
+      }
+    }
+    if (this.balls.length > 1) this.collideBalls();
+  }
+
+  /**
+   * Multiball: steel on steel. Equal masses, so overlapping balls are pushed apart equally and
+   * swap the approaching part of their velocities (less a little for restitution).
+   */
+  private collideBalls(): void {
+    const balls = this.balls;
+    for (let i = 0; i < balls.length; i++) {
+      const a = balls[i]!;
+      if (!a.active) continue;
+      for (let j = i + 1; j < balls.length; j++) {
+        const b = balls[j]!;
+        if (!b.active) continue;
+        const dx = b.px - a.px;
+        const dy = b.py - a.py;
+        const dz = b.pz - a.pz;
+        const min = a.radius + b.radius;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 >= min * min || d2 < 1e-12) continue;
+        const d = Math.sqrt(d2);
+        const nx = dx / d;
+        const ny = dy / d;
+        const nz = dz / d;
+        const push = (min - d) / 2;
+        a.px -= nx * push;
+        a.py -= ny * push;
+        a.pz -= nz * push;
+        b.px += nx * push;
+        b.py += ny * push;
+        b.pz += nz * push;
+        const vn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny + (a.vz - b.vz) * nz;
+        if (vn <= 0) continue;
+        if (vn > 0.12 && this.impacts.length < 64) {
+          this.impacts.push({
+            speed: vn,
+            material: 'metal',
+            x: a.px + nx * a.radius,
+            y: a.py + ny * a.radius,
+            z: a.pz,
+          });
+        }
+        const k = ((1 + BALL_RESTITUTION) * vn) / 2;
+        a.vx -= nx * k;
+        a.vy -= ny * k;
+        a.vz -= nz * k;
+        b.vx += nx * k;
+        b.vy += ny * k;
+        b.vz += nz * k;
       }
     }
   }
@@ -555,7 +627,6 @@ export class World {
         this.emit('spinner', s.id);
       }
     }
-    for (const d of this.discs) d.angle = (d.angle + d.omega * dt) % (2 * Math.PI);
     for (const r of this.retractables) {
       if (r.raised && r.lift < 1) {
         // Never rise under a ball: it waits until the ball has rolled off (or been pitched away).
@@ -988,43 +1059,15 @@ export class World {
     b.vy += (dy / d) * a * h;
   }
 
-  /**
-   * A ball on a turntable is dragged toward the velocity of the surface under it (ω × r), by
-   * friction. The grip grows from nothing at the hub to `discGrip` at the rim: near the hub it is
-   * weaker than the slope, so a ball can never be held there, and further out the surface moves so
-   * fast that the ball cannot keep up with it round the turn and is thrown off.
-   */
-  private applyDisc(b: Ball, d: Disc, h: number): void {
-    const dx = b.px - d.cx;
-    const dy = b.py - d.cy;
-    const r2 = dx * dx + dy * dy;
-    const on = b.pz < b.radius + 0.002 && r2 < d.radius * d.radius;
-    if (on && !d.occupied) {
-      const ready = this.cooldowns.get(d.id) ?? -1;
-      if (this.time >= ready) this.emit('disc', d.id);
-      this.cooldowns.set(d.id, this.time + 0.3);
-    }
-    d.occupied = on;
-    if (!on || r2 < 1e-12) return;
-    const sx = -d.omega * dy - b.vx;
-    const sy = d.omega * dx - b.vy;
-    const slip = Math.sqrt(sx * sx + sy * sy);
-    if (slip < 1e-9) return;
-    const dv = Math.min(slip, ((this.params.discGrip * Math.sqrt(r2)) / d.radius) * h);
-    b.vx += (sx / slip) * dv;
-    b.vy += (sy / slip) * dv;
-    b.wz += (d.omega - b.wz) * Math.min(1, 20 * h);
-  }
-
   // ---------------------------------------------------------------- sensors & devices
 
-  private updateSensors(b: Ball): void {
+  private updateSensors(b: Ball, bi: number): void {
     for (const s of this.sensors) {
       const sx = s.bx - s.ax;
       const sy = s.by - s.ay;
       const side = sx * (b.py - s.ay) - sy * (b.px - s.ax);
-      const prev = s.side;
-      s.side = side;
+      const prev = s.sides[bi] ?? NaN;
+      s.sides[bi] = side;
       if (Number.isNaN(prev) || prev < 0 === side < 0) continue;
       if (b.pz < s.zMin || b.pz > s.zMax) continue;
       const len2 = sx * sx + sy * sy;
@@ -1065,16 +1108,22 @@ export class World {
       const dy = b.py - s.cy;
       const inside = dx * dx + dy * dy < s.a * 0.6 * (s.a * 0.6) && b.pz < b.radius;
       if (inside && b.speed() < p.saucerCaptureSpeed) {
+        if (s.settling !== b) {
+          s.settling = b;
+          s.settle = 0;
+        }
         s.settle += h;
         if (s.settle >= p.saucerCaptureTime) {
           s.holding = true;
           s.settle = 0;
+          s.ball = b;
           b.active = false;
           b.vx = b.vy = b.vz = 0;
           this.emit('saucer', s.id);
         }
-      } else {
+      } else if (s.settling === b) {
         s.settle = 0;
+        s.settling = null;
       }
     }
   }
@@ -1185,7 +1234,7 @@ export class World {
         zMin: zMin * MM,
         zMax: zMax * MM,
         spinner,
-        side: NaN,
+        sides: [],
       });
     };
 
@@ -1328,17 +1377,6 @@ export class World {
             power: 0,
           });
           break;
-        case 'disc':
-          this.discs.push({
-            id: el.id,
-            cx: el.x * MM,
-            cy: el.y * MM,
-            radius: el.radius * MM,
-            omega: el.spin,
-            angle: 0,
-            occupied: false,
-          });
-          break;
         case 'kickback':
           this.kickbacks.push({
             id: el.id,
@@ -1374,7 +1412,9 @@ export class World {
             bowlR,
             bowlZ: bowlR - d,
             settle: 0,
+            settling: null,
             holding: false,
+            ball: null,
           });
           // Rubber-faced back lip (the fielder standee base).
           const la = el.lipAngle * DEG;

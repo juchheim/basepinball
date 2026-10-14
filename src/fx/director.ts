@@ -2,7 +2,7 @@ import type { StingerName } from '../audio/organ';
 import type { SoundName } from '../audio/sounds';
 import type { MaterialName } from '../physics/params';
 import type { Impact, PhysicsEvent } from '../physics/world';
-import type { GameSnapshot, RulesEvent } from '../rules/types';
+import { POSITIONS, type GameSnapshot, type RulesEvent } from '../rules/types';
 import type { SaucerDef, TableDef } from '../table/schema';
 import type { ShowName } from './lampShows';
 
@@ -134,13 +134,14 @@ export class Director {
         this.out.sound('spinner', at);
         this.out.flash(e.id.endsWith('.L') ? 'arrow.orbit.L' : 'arrow.orbit.R');
         return;
-      case 'disc':
-        this.out.sound('disc', at);
-        this.out.flash(e.id);
-        return;
       case 'saucer': {
         const s = this.saucers.find((x) => x.id === e.id);
         this.out.sound('saucer', s ? this.place(s.x * MM, s.y * MM) : at);
+        // The Bullpen scoop has no fielder: its lock lamps flash instead.
+        if (s && !s.label) {
+          this.out.flash('lamp.bullpen.1');
+          this.out.flash('lamp.bullpen.2');
+        }
         if (s?.label) {
           // The outfielders stand on the grass; the rest are on the dirt.
           this.out.figure({
@@ -317,6 +318,43 @@ export class Director {
         o.fire('pop.mound');
         o.crowd('ooh');
         o.scoreboard('FROM THE STRETCH', 'RUNNER ON', '#ff3b3b', 2);
+        return;
+      case 'bullpen':
+        // A reliever warms up: the scoop's lock lamp lights.
+        o.sound('award');
+        o.show('bullpen');
+        o.crowd('ooh');
+        o.scoreboard('BULLPEN', 'A RELIEVER IS WARMING UP', '#ff9f1c', 2);
+        return;
+      case 'doubleheader':
+        o.stinger('homeRun');
+        o.crowd('roar');
+        o.show('doubleheader');
+        o.fireworks(this.reduced ? 1 : 4);
+        if (!this.reduced) o.giFlash();
+        o.scoreboard('DOUBLEHEADER!', 'TWO BALLS · NO OUTS · RUNS COUNT TWICE', '#ff9f1c', 4);
+        o.excite(1);
+        return;
+      case 'ballSaved':
+        o.sound('uiConfirm');
+        o.flash('pitch.FB');
+        o.flash('pitch.CH');
+        o.flash('pitch.CB');
+        return;
+      case 'fieldingError':
+        // In DOUBLEHEADER a catch is dropped: no out, and the fielder throws the ball back in.
+        o.crowd('ooh');
+        o.sound('uiTick');
+        o.scoreboard(`E${POSITIONS[e.position]}`, `ERROR ON THE ${e.position}`, '#ff9f1c', 1.4);
+        return;
+      case 'doubleheaderEnd':
+        o.crowd('cheer', e.runs > 0 ? 0.7 : 0.3);
+        o.scoreboard(
+          'DOUBLEHEADER OVER',
+          `${e.runs} RUN${e.runs === 1 ? '' : 'S'}`,
+          '#ff9f1c',
+          2.5,
+        );
         return;
       case 'kickbackLit':
         o.sound('award');

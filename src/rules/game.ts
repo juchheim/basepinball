@@ -49,6 +49,23 @@ export const SPIN_BONUS_PLATES = 4;
 export const SPIN_BONUS_HUSTLE = HUSTLE_TARGET / 5;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
+/** The Bullpen scoop (docs/MVP/01 § 4.8). */
+export const BULLPEN = 'saucer.BULLPEN';
+/** Balls in the Bullpen (relievers warmed up) that start DOUBLEHEADER. */
+export const BULLPEN_LOCKS = 2;
+/** Seconds the scoop holds a ball before kicking it out: a lock, and the start of DOUBLEHEADER. */
+export const BULLPEN_HOLD = 1.2;
+export const DOUBLEHEADER_HOLD = 2.5;
+/** Seconds a fielder holds a ball he has dropped in DOUBLEHEADER before throwing it back. */
+export const ERROR_HOLD = 0.8;
+/** In DOUBLEHEADER every run counts this many times. */
+export const DOUBLEHEADER_RUNS = 2;
+/**
+ * Seconds from the second ball's pitch in which a drained ball is pitched straight back in, so
+ * DOUBLEHEADER always gets going (a pitched ball drains easily before the player has it).
+ */
+export const DOUBLEHEADER_SAVE = 20;
+
 export interface GameOptions {
   seed?: number;
   innings?: number;
@@ -104,6 +121,13 @@ export class GameRules {
   private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
   hustle = 0;
+  /** Relievers warmed up in the Bullpen. They carry over between innings, until DOUBLEHEADER. */
+  bullpen = 0;
+  /** Two-ball multiball is running, and the runs scored in it so far. */
+  doubleheader = false;
+  private doubleheaderRuns = 0;
+  /** Sim time until which DOUBLEHEADER's ball save is on. */
+  private saveUntil = -Infinity;
   /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
   private readonly walkLetters = new Set<string>();
   private readonly buttons = { L: false, R: false };
@@ -212,10 +236,6 @@ export class GameRules {
       case 'spinner':
         this.plungeSpin(e.id);
         return;
-      case 'disc':
-        // The Twister counts as a bumper: a ride on it after a hit feeds HUSTLE.
-        this.bumperHit();
-        return;
       case 'saucer':
         this.saucer(e.id);
         return;
@@ -278,7 +298,8 @@ export class GameRules {
     const value = { '1B': 1, '2B': 2, '3B': 3, HR: 4 }[hit];
     const useHotBat = this.hotBat && hit !== 'HR';
     const reached = useHotBat ? Math.min(4, value + 1) : value;
-    const { bases, runs } = advance(this.bases, reached);
+    const { bases, runs: moved } = advance(this.bases, reached);
+    const runs = this.runValue(moved);
     this.bases = bases;
     this.stats.plateAppearances++;
     this.stats.hits++;
@@ -302,15 +323,81 @@ export class GameRules {
   }
 
   private saucer(id: string): void {
+    if (id === BULLPEN) {
+      this.bullpenCatch();
+      return;
+    }
+    if (!LIVE.includes(this.state)) return;
+    const position = id.slice('saucer.'.length) as Position;
+    if (this.doubleheader) {
+      // No outs in DOUBLEHEADER: the fielder drops it (an error) and throws the ball back in.
+      this.emit({ type: 'fieldingError', position });
+      this.after(ERROR_HOLD, () => this.machine.ejectSaucer(id));
+      return;
+    }
     // Like a drain, a catch is an out in every live state, swing or not: after a hit it charges
     // the next batter (docs/MVP/01 § 4.3).
-    if (!LIVE.includes(this.state)) return;
-    this.out('fielder', id.slice('saucer.'.length) as Position);
+    this.out('fielder', position);
     this.afterOut(this.timing.routeFromSaucer);
+  }
+
+  /**
+   * The Bullpen (docs/MVP/01 § 4.8). A ball in the scoop warms up a reliever and is kicked back out;
+   * play goes on as if nothing happened. With the second reliever warm, DOUBLEHEADER begins: the
+   * scoop kicks its ball out and a second ball is pitched from the mound. In DOUBLEHEADER (or when
+   * the ball is not live) the scoop just kicks the ball back out.
+   */
+  private bullpenCatch(): void {
+    if (this.doubleheader || !LIVE.includes(this.state)) {
+      this.after(BULLPEN_HOLD, () => this.machine.ejectSaucer(BULLPEN));
+      return;
+    }
+    this.bullpen++;
+    if (this.bullpen < BULLPEN_LOCKS) {
+      this.emit({ type: 'bullpen', locks: this.bullpen });
+      this.after(BULLPEN_HOLD, () => this.machine.ejectSaucer(BULLPEN));
+      return;
+    }
+    this.bullpen = 0;
+    this.doubleheader = true;
+    this.doubleheaderRuns = 0;
+    this.stats.doubleheaders++;
+    this.emit({ type: 'doubleheader' });
+    this.after(DOUBLEHEADER_HOLD, () => {
+      if (!this.doubleheader) return;
+      this.machine.ejectSaucer(BULLPEN);
+      this.machine.addBall(choosePitch(this.inning, this.rng));
+      this.saveUntil = this.now + DOUBLEHEADER_SAVE;
+    });
+  }
+
+  /** Down to one ball (or none): normal play resumes with whatever ball is left. */
+  private endDoubleheader(): void {
+    if (!this.doubleheader) return;
+    this.doubleheader = false;
+    this.saveUntil = -Infinity;
+    this.emit({ type: 'doubleheaderEnd', runs: this.doubleheaderRuns });
+  }
+
+  /** Runs a scoring play is worth: every run counts twice in DOUBLEHEADER. */
+  private runValue(runs: number): number {
+    return this.doubleheader ? runs * DOUBLEHEADER_RUNS : runs;
   }
 
   private drain(): void {
     if (!LIVE.includes(this.state)) return;
+    if (this.doubleheader && this.now < this.saveUntil) {
+      // Ball save: the drained ball is pitched straight back in.
+      this.emit({ type: 'ballSaved' });
+      this.machine.addBall(choosePitch(this.inning, this.rng));
+      return;
+    }
+    if (this.doubleheader) {
+      // No outs in DOUBLEHEADER: a drained ball just leaves play, until one is left.
+      const left = this.machine.ballsInPlay();
+      if (left <= 1) this.endDoubleheader();
+      if (left >= 1) return;
+    }
     // Every drain is an out (docs/MVP/01 § 4.2): down an outlane is a foul out, else a strikeout.
     const foul =
       this.now - this.lastOutlane < this.timing.outlaneWindow &&
@@ -348,6 +435,7 @@ export class GameRules {
   }
 
   private score(runs: number): void {
+    if (this.doubleheader) this.doubleheaderRuns += runs;
     this.stats.runs += runs;
     this.stats.runsByInning[this.inning - 1] =
       (this.stats.runsByInning[this.inning - 1] ?? 0) + runs;
@@ -357,6 +445,7 @@ export class GameRules {
   // ---------------------------------------------------------------- pitching
 
   private schedulePitch(delay: number): void {
+    this.endDoubleheader();
     this.state = 'DEAD';
     this.machine.holdBall();
     const spec = choosePitch(this.inning, this.rng);
@@ -420,6 +509,7 @@ export class GameRules {
       lob,
     });
     this.bases = EMPTY;
+    this.endDoubleheader();
     this.endRally();
     this.clearPitch();
     this.skillLane = null;
@@ -501,10 +591,11 @@ export class GameRules {
     this.walkLetters.clear();
     if (!LIVE.includes(this.state)) return;
     const result = walk(this.bases);
+    const runs = this.runValue(result.runs);
     this.bases = result.bases;
     this.stats.walks++;
-    this.emit({ type: 'walk', runs: result.runs, moved: result.moved });
-    if (result.runs > 0) this.score(result.runs);
+    this.emit({ type: 'walk', runs, moved: result.moved });
+    if (runs > 0) this.score(runs);
   }
 
   /**
@@ -524,11 +615,12 @@ export class GameRules {
     if (this.hustle < HUSTLE_TARGET) return;
     const result = advanceAll(this.bases);
     if (!result) return;
+    const runs = this.runValue(result.runs);
     this.hustle = 0;
     this.bases = result.bases;
     this.stats.hustles++;
-    this.emit({ type: 'hustle', runs: result.runs, moved: result.moved });
-    if (result.runs > 0) this.score(result.runs);
+    this.emit({ type: 'hustle', runs, moved: result.moved });
+    if (runs > 0) this.score(runs);
   }
 
   /** A runner can steal whenever one is on base (the right ramp is always armed for them). */
@@ -547,10 +639,11 @@ export class GameRules {
       this.emit({ type: 'stealRamp', result: 'noRunner' });
       return;
     }
+    const runs = this.runValue(result.runs);
     this.bases = result.bases;
     this.stats.steals++;
-    this.emit({ type: 'steal', from: result.from, runs: result.runs });
-    if (result.runs > 0) this.score(result.runs);
+    this.emit({ type: 'steal', from: result.from, runs });
+    if (runs > 0) this.score(runs);
   }
 
   // ---------------------------------------------------------------- tilt & stuck balls
@@ -564,6 +657,7 @@ export class GameRules {
     }
     // TILT: flippers die, the PA is an out, the ball drains normally (docs/MVP/01 § 4.9).
     this.tilted = true;
+    this.endDoubleheader();
     this.machine.setFlippersEnabled(false);
     this.emit({ type: 'tilt' });
     this.out('tilt');
@@ -627,6 +721,10 @@ export class GameRules {
       walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
       hustle: this.hustle,
       hustleTarget: HUSTLE_TARGET,
+      bullpen: this.bullpen,
+      bullpenTarget: BULLPEN_LOCKS,
+      doubleheader: this.doubleheader,
+      ballSave: this.doubleheader ? Math.max(0, this.saveUntil - this.now) : 0,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,
@@ -662,6 +760,10 @@ export class GameRules {
     for (const l of WALK_LETTERS)
       out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
     for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
+    // The Bullpen: a lamp per reliever warming up; both blink through DOUBLEHEADER.
+    for (let i = 1; i <= BULLPEN_LOCKS; i++) {
+      out[`lamp.bullpen.${i}`] = this.doubleheader ? 'blink' : on(this.bullpen >= i);
+    }
     // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
     const full = this.hustle >= HUSTLE_TARGET;
     for (let i = 1; i <= 5; i++) {

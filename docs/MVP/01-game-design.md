@@ -95,7 +95,8 @@ stateDiagram-v2
 | Event ↓ / State → | `PITCH` | `IN_PLAY` | `LIVE_AFTER_HIT` / `LEADOFF_LAUNCH` |
 |---|---|---|---|
 | Swing | → `IN_PLAY` | — | → `IN_PLAY` (rally +1 if after a hit) |
-| Fielder saucer | **OUT** (rare) | **OUT** | **OUT** (after a hit, it charges the next batter) |
+| Fielder saucer | **OUT** (rare) | **OUT** | **OUT** (after a hit, it charges the next batter). In DOUBLEHEADER: an error, no out (§ 4.8.2). |
+| Bullpen scoop | Lock (§ 4.8) | Lock | Lock. Never an out. |
 | Hit device | Ignored (rare) | **HIT** → runners advance → `LIVE_AFTER_HIT`. A **triple** counts only for a ball that went up that orbit within 1 s of leaving the bat (a clean shot down the line, not a slingshot ricochet). | Cosmetic only (lights and sound) |
 | Feature shot (drops, standups, Steal ramp, lanes, spinners) | Counts | Counts. **The PA continues.** | Counts |
 | Center drain | **STRIKEOUT** (looking) | **STRIKEOUT** (swinging) | **STRIKEOUT** |
@@ -203,6 +204,7 @@ Resolution details:
 | **WALK** | Spell **W-A-L-K** on the four standups at the lower right. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
 | **HUSTLE** | **After a hit, while the ball is still live,** every bumper hit counts: the two **outfield bumpers**, or the Gap pops (which score nothing then). At most one hit counts per 0.4 s, so a ricochet through the nest earns by how long it keeps bouncing, not by contacts. 15 hits fill the meter (five lamps of three). | **Every runner takes an extra base** (the runner on third scores). With the bases empty a full meter waits and pays on the next bumper hit once a runner is on. It persists through innings. |
 | **SPIN BONUS** | At the top of an inning, **plunge hard**: round the whole arch and down the left orbit through its five spinners (about 0.55 of a full pull and up), spinning at least four of them before the first swing. A gentle plunge that falls into the right orbit does not count, and the soft plunge for the skill shot spins at most three of them, though a plunge in that zone can sometimes bounce in and earn both. Once per inning. | **One HUSTLE lamp** (3 bumper hits, so it always lights exactly one new dot, up to the full meter). The risk is the plunge itself: a hard ball is likelier to run on to the drain, where it is a strikeout if the flippers do not catch it. |
+| **DOUBLEHEADER** | Get the ball into the **Bullpen** scoop (deep right-centre, up the alley between the Steal ramp and the Gap) twice. The first warms up a reliever (a lock: the scoop kicks the ball back out and play goes on). The relievers **stay warm through innings**. | **Two-ball multiball** (§ 4.8.2): no outs, and every run counts twice. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-B-I lanes lit) carries over between PAs and
@@ -227,6 +229,24 @@ including across innings.
   down while HOT BAT is lit, and reset when it is used.
 - Presentation: the bat icon and the B-A-T inserts stay lit with a heat shimmer, and the hit callout
   reads, for example, "HOT BAT — DOUBLE!".
+
+#### 4.8.2 DOUBLEHEADER in detail
+
+The rare, big payoff. The Bullpen sits deep, so the ball gets there only now and then: the sim bot
+starts a DOUBLEHEADER about once every seven games.
+
+- **Start.** The second ball in the Bullpen holds for a moment (callout, fireworks, a lamp show), then
+  the scoop kicks its ball out and a second ball is pitched from the mound.
+- **Ball save.** For the first 20 s, a drained ball is pitched straight back in, so both balls get
+  going (a pitched ball drains easily before the player has it).
+- **No outs.** After the save, a drained ball just leaves play. A fielder who catches a ball drops it:
+  an **error** ("E8"), no out, and he throws it back into play after a moment.
+- **Every run counts twice**: hits, steals, walks and HUSTLE.
+- Both balls play as normal otherwise: hits need a swing, the Steal ramp steals, bumpers feed HUSTLE.
+- **End.** When one ball is left, DOUBLEHEADER is over (with a tally of its runs) and normal play
+  goes on with that ball: its next drain or catch is an out. A tilt, a rescue or the end of the
+  inning also ends it.
+- In DOUBLEHEADER the Bullpen scoop just kicks the ball back out; it does not warm another reliever.
 
 ### 4.9 Tilt and nudge
 

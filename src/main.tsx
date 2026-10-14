@@ -22,7 +22,7 @@ import { createOutput } from './fx/output';
 import { loadParams } from './debug/params';
 import { Input, vibrate, type InputEvent } from './input/input';
 import { World } from './physics/world';
-import { GameRules } from './rules/game';
+import { BULLPEN, GameRules } from './rules/game';
 import type { RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
 import { AdaptiveQuality, initialTier, TIERS, type Quality } from './render/quality';
@@ -68,7 +68,7 @@ import {
  * Steel Diamond: the v1 table with the baseball rules, HUD, game flow, and (M4) the presentation:
  * sound, lamp shows, figure animation, particles and stadium reactions.
  * `?debug` adds the physics tuning panel, perf overlay and debug keys (B serve, K pitch,
- * C colliders, [ ] slow motion). `?table=m0` loads the M0 physics test table in free play.
+ * C colliders, J drop the ball in the Bullpen, [ ] slow motion). `?table=m0` loads the M0 physics test table in free play.
  */
 
 async function main(): Promise<void> {
@@ -251,9 +251,10 @@ async function main(): Promise<void> {
   const loop = new FixedLoop(
     () => world,
     () => {
-      const ball = world.balls[0];
+      // Sounds are placed at a ball in play (in multiball, the first one).
+      const ball = world.balls.find((b) => b.active);
       for (const e of world.events) {
-        director.physics(e, ball && ball.active ? { x: ball.px, y: ball.py } : null);
+        director.physics(e, ball ? { x: ball.px, y: ball.py } : null);
         rules?.onSwitch(e);
         if (e.type === 'pop' || e.type === 'sling') haptic(0.3, 40, 0);
         if (freePlay && e.type === 'drain') after(1, idleBall);
@@ -505,6 +506,12 @@ async function main(): Promise<void> {
     if (e.action === 'pitch') at(() => world.pitchBall(0.221, 0.175, 1.2));
     if (e.action === 'resetTargets') world.resetDropTargets();
     if (e.action === 'toggleColliders') view.showColliders = !view.showColliders;
+    if (e.action === 'bullpen') {
+      // Set the ball in play down in the Bullpen scoop (to try the locks and DOUBLEHEADER).
+      const s = world.table.elements.find((el) => el.type === 'saucer' && el.id === BULLPEN);
+      const b = world.balls.find((x) => x.active);
+      if (s?.type === 'saucer' && b) at(() => b.place(s.x / 1000, s.y / 1000));
+    }
     if (e.action === 'slower') loop.timeScale = Math.max(0.05, loop.timeScale / 2);
     if (e.action === 'faster') loop.timeScale = Math.min(1, loop.timeScale * 2);
   };
@@ -740,11 +747,13 @@ async function main(): Promise<void> {
     const over = shows.overrides();
     for (const id of shows.lampIds) view.setLamp(id, over.get(id) ?? base[id] ?? 'off');
     // Presentation per frame: crowd tension, near misses, the rolling ball, the lights.
-    const b = world.balls[0];
+    // The rolling sound and near misses follow the fastest ball in play (multiball has two).
+    let b = world.balls[0];
+    for (const x of world.balls) if (x.active && (!b?.active || x.speed() > b.speed())) b = x;
     const live = !!b && b.active && !loop.paused;
     const snap0 = rules ? rules.snapshot() : null;
     if (snap0) view.figures.sync(snap0.bases);
-    director.frame(dt, live ? { x: b.px, y: b.py, speed: b.speed() } : null, snap0);
+    director.frame(dt, b && live ? { x: b.px, y: b.py, speed: b.speed() } : null, snap0);
     if (b) roll?.update(b.speed(), b.surface, b.px / 0.55, b.py / 1.17, live);
     else roll?.update(0, 'playfield', 0.5, 0, false);
     lightLevel += (lightTarget - lightLevel) * Math.min(1, dt * 1.5);

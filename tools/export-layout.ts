@@ -50,12 +50,11 @@ function render(table: TableDef): string {
         break;
       case 'saucer':
         out.push(
-          `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="#0a0a0a" stroke="#e6e6e6" stroke-width="2"/>`,
+          `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="#0a0a0a" stroke="${el.label ? '#e6e6e6' : '#ff9f1c'}" stroke-width="2"/>`,
         );
-        if (el.label)
-          out.push(
-            `<text x="${X(el.x)}" y="${Y(el.y) + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${el.label}</text>`,
-          );
+        out.push(
+          `<text x="${X(el.x)}" y="${Y(el.y) + 4}" text-anchor="middle" font-size="${el.label ? 11 : 7}" font-weight="700" fill="#fff">${el.label ?? 'BULLPEN'}</text>`,
+        );
         break;
       case 'drop':
       case 'standup':
@@ -108,14 +107,6 @@ function render(table: TableDef): string {
           `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="none" stroke="#c9a7ff" stroke-dasharray="4 3"/>`,
         );
         break;
-      case 'disc':
-        out.push(
-          `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="${hex(el.color ?? 0xff9f1c)}" stroke="#f4efe1" stroke-width="2"/>`,
-        );
-        out.push(
-          `<text x="${X(el.x)}" y="${Y(el.y) + 4}" text-anchor="middle" font-size="9" font-weight="700" fill="#1b2a4a">SPIN</text>`,
-        );
-        break;
       case 'kickback':
         out.push(
           `<rect x="${X(el.x0)}" y="${Y(el.y1)}" width="${el.x1 - el.x0}" height="${el.y1 - el.y0}" fill="#f2b33d" fill-opacity="0.25"/>`,
@@ -146,7 +137,6 @@ function render(table: TableDef): string {
   const order: ElementDef['type'][] = [
     'lamp',
     'magnet',
-    'disc',
     'kickback',
     'dome',
     'sensor',
@@ -176,7 +166,7 @@ function render(table: TableDef): string {
     ['#2ec4b6', 'Steal ramp'],
     ['#f2b33d', 'B-A-T drop targets'],
     ['#9b5de5', 'W-A-L-K standups'],
-    ['#ff9f1c', 'The Twister (spinning disc)'],
+    ['#ff9f1c', 'Bullpen scoop (DOUBLEHEADER locks)'],
     ['#9aa6c4', 'Switch / sensor (dashed)'],
   ];
   const lx = PAD * 2 + W;

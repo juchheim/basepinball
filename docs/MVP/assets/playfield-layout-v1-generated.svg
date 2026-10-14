@@ -36,10 +36,10 @@
 <circle cx="489" cy="704.5" r="6" fill="#9b5de5" opacity="0.85"/>
 <circle cx="506.2" cy="724" r="6" fill="#9b5de5" opacity="0.85"/>
 <circle cx="115" cy="670" r="8" fill="#ff3b3b" opacity="0.85"/>
+<circle cx="406" cy="240" r="6" fill="#ff9f1c" opacity="0.85"/>
+<circle cx="428" cy="240" r="6" fill="#ff9f1c" opacity="0.85"/>
 <circle cx="40" cy="1020" r="6" fill="#f2b33d" opacity="0.85"/>
 <circle cx="295" cy="920" r="60" fill="none" stroke="#c9a7ff" stroke-dasharray="4 3"/>
-<circle cx="414" cy="220" r="20" fill="#ff9f1c" stroke="#f4efe1" stroke-width="2"/>
-<text x="414" y="224" text-anchor="middle" font-size="9" font-weight="700" fill="#1b2a4a">SPIN</text>
 <rect x="20" y="1050" width="40" height="80" fill="#f2b33d" fill-opacity="0.25"/>
 <circle cx="295" cy="835" r="30" fill="#b4683c" opacity="0.8"/>
 <line x1="572" y1="290" x2="608" y2="290" stroke="#9aa6c4" stroke-width="1.5" stroke-dasharray="3 3"/>
@@ -69,6 +69,8 @@
 <text x="485" y="458" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">RF</text>
 <circle cx="545" cy="712" r="20" fill="#0a0a0a" stroke="#e6e6e6" stroke-width="2"/>
 <text x="545" y="716" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">1B</text>
+<circle cx="417" cy="205" r="20" fill="#0a0a0a" stroke="#ff9f1c" stroke-width="2"/>
+<text x="417" y="209" text-anchor="middle" font-size="7" font-weight="700" fill="#fff">BULLPEN</text>
 <polyline points="20,1190 20,190" fill="none" stroke="#c9ced6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 <polyline points="610,1190 610,190" fill="none" stroke="#c9ced6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
 <polyline points="20,190 22.5,167.8 30.1,146 42.5,124.9 59.5,105 81,86.5 106.4,69.8 135.4,55.1 167.5,42.8 202.1,32.9 238.6,25.8 276.5,21.5 315,20 353.5,21.5 391.4,25.8 427.9,32.9 462.5,42.8 494.6,55.1 523.6,69.8 549,86.5 570.5,105 587.5,124.9 599.9,146 607.5,167.8 610,190" fill="none" stroke="#c9ced6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -172,6 +174,6 @@
 <circle cx="640" cy="210" r="8" fill="#2ec4b6" stroke="#fff"/><text x="656" y="215" font-size="13" fill="#f4f1e8">Steal ramp</text>
 <circle cx="640" cy="236" r="8" fill="#f2b33d" stroke="#fff"/><text x="656" y="241" font-size="13" fill="#f4f1e8">B-A-T drop targets</text>
 <circle cx="640" cy="262" r="8" fill="#9b5de5" stroke="#fff"/><text x="656" y="267" font-size="13" fill="#f4f1e8">W-A-L-K standups</text>
-<circle cx="640" cy="288" r="8" fill="#ff9f1c" stroke="#fff"/><text x="656" y="293" font-size="13" fill="#f4f1e8">The Twister (spinning disc)</text>
+<circle cx="640" cy="288" r="8" fill="#ff9f1c" stroke="#fff"/><text x="656" y="293" font-size="13" fill="#f4f1e8">Bullpen scoop (DOUBLEHEADER locks)</text>
 <circle cx="640" cy="314" r="8" fill="#9aa6c4" stroke="#fff"/><text x="656" y="319" font-size="13" fill="#f4f1e8">Switch / sensor (dashed)</text>
 </svg>

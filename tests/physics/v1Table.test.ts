@@ -193,57 +193,68 @@ describe('v1 table: devices', () => {
     expect(roll(-30 * lx, -30 * ly, 0.4 * lx, 0.4 * ly)).toBe(true);
     expect(roll(-50, 0, 2.5, 0)).toBe(false);
   });
+});
 
-  it('the Twister whips a slow ball round and only bends a fast one', () => {
-    const disc = v1Table.elements.find((e) => e.type === 'disc')!;
-    if (disc.type !== 'disc') throw new Error('no disc');
-    // Roll a ball straight down the table across the disc, a little off its hub on the side where
-    // the surface runs up the table against it, and see which way it is heading as it leaves. (On a bare playfield, so no wall or post gets in the way.)
-    const bare = { ...v1Table, elements: [disc] };
-    const cross = (speed: number) => {
-      const w = new World(bare, defaultParams());
-      const side = disc.spin > 0 ? 12 : -12;
-      const b = w.addBall((disc.x + side) / 1000, (disc.y + disc.radius + 14) / 1000);
-      b.vy = -speed;
-      let entered = false;
-      const events: PhysicsEvent[] = [];
-      for (let i = 0; i < 2000; i++) {
-        w.step();
-        events.push(...w.events);
-        w.events.length = 0;
-        if (w.discs[0]!.occupied) entered = true;
-        else if (entered) break;
-      }
-      return { events, turn: Math.abs(Math.atan2(b.vx, -b.vy)) };
-    };
-    const slow = cross(0.8);
-    const fast = cross(2.5);
-    expect(slow.events.some((e) => e.type === 'disc' && e.id === 'disc.RF')).toBe(true);
-    expect(slow.turn).toBeGreaterThan(0.6); // about 45°
-    expect(fast.turn).toBeLessThan(0.05);
+describe('v1 table: the Bullpen and multiball', () => {
+  it('the Bullpen scoop catches a ball rolling up into it and kicks it back down the alley', () => {
+    const w = world();
+    // Up the alley between the Gap and the Steal ramp, toward the scoop's glove post.
+    const b = w.addBall(0.397, 0.93);
+    b.vy = 0.5;
+    expect(run(w, 3000, (e) => e.type === 'saucer').some((e) => e.id === 'saucer.BULLPEN')).toBe(
+      true,
+    );
+    expect(b.active).toBe(false);
+    expect(w.kickOutSaucer('saucer.BULLPEN', 1.4, 270)).toBe(true);
+    expect(b.active).toBe(true);
+    expect(w.isSaucerHolding('saucer.BULLPEN')).toBe(false);
+    run(w, 400);
+    expect(b.py).toBeLessThan(0.93);
+    // Nothing to kick out once it is empty.
+    expect(w.kickOutSaucer('saucer.BULLPEN', 1.4, 270)).toBe(false);
+  });
+
+  it('two balls collide instead of passing through each other', () => {
+    const bare = { ...v1Table, elements: [] };
+    const w = new World(bare, defaultParams());
+    const a = w.addBall(0.2, 0.6);
+    const b = w.addBall(0.3, 0.6);
+    a.vx = 1;
+    b.vx = -1;
+    let closest = 1;
+    for (let i = 0; i < 200; i++) {
+      w.step();
+      closest = Math.min(closest, Math.hypot(b.px - a.px, b.py - a.py));
+    }
+    expect(closest).toBeGreaterThan(2 * a.radius - 0.001);
+    // Head on with equal masses, they bounce back off each other.
+    expect(a.vx).toBeLessThan(0);
+    expect(b.vx).toBeGreaterThan(0);
+  });
+
+  it('a switch fires for each ball that crosses it, not for two balls on either side of it', () => {
+    const w = world();
+    // The Gap mouth's switch is the line y = 815 between x = 242 and 308.
+    const above = w.addBall(0.275, 0.84);
+    const below = w.addBall(0.275, 0.79);
+    above.vy = below.vy = 0;
+    const fired = run(w, 50).filter((e) => e.id === 'gap.mouth');
+    expect(fired.length).toBeLessThanOrEqual(1);
+  });
+
+  it('a saucer catches a ball while another is in play elsewhere', () => {
+    const w = world();
+    const cf = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.CF')!;
+    if (cf.type !== 'saucer') throw new Error('no CF');
+    const b = w.addBall(cf.x / 1000, (cf.y - 30) / 1000);
+    b.vy = 0.4;
+    const other = w.addBall(0.275, 0.6);
+    other.vx = 1.5;
+    expect(run(w, 2000, (e) => e.type === 'saucer').some((e) => e.id === 'saucer.CF')).toBe(true);
   });
 });
 
 describe('v1 table: stuck balls', () => {
-  it('no ball can rest on the Twister', () => {
-    const disc = v1Table.elements.find((e) => e.type === 'disc')!;
-    if (disc.type !== 'disc') throw new Error('no disc');
-    for (let i = 0; i < 48; i++) {
-      const w = world();
-      // Set balls down still on rings round the hub (including dead centre).
-      const r = ((i % 4) / 4) * disc.radius;
-      const a = (i / 48) * 2 * Math.PI * 5;
-      w.addBall((disc.x + r * Math.cos(a)) / 1000, (disc.y + r * Math.sin(a)) / 1000);
-      let onFor = 0;
-      for (let k = 0; k < 3000; k++) {
-        w.step();
-        w.events.length = 0;
-        if (w.discs[0]!.occupied) onFor++;
-      }
-      expect(onFor, `ball ${i} at r ${r.toFixed(0)} mm`).toBeLessThan(1000);
-    }
-  });
-
   it('no ball comes to rest outside a cradle or a saucer', () => {
     const rng = new Rng(5);
     const stuck: string[] = [];

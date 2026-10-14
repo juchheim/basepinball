@@ -6,7 +6,14 @@ import { DEFAULT_KEYS, type RemappableAction } from '../storage/settings';
  */
 
 export type Action =
-  RemappableAction | 'serve' | 'pitch' | 'resetTargets' | 'toggleColliders' | 'slower' | 'faster';
+  | RemappableAction
+  | 'serve'
+  | 'pitch'
+  | 'resetTargets'
+  | 'toggleColliders'
+  | 'bullpen'
+  | 'slower'
+  | 'faster';
 
 export interface InputEvent {
   action: Action;
@@ -22,6 +29,7 @@ const DEBUG_KEYS: Record<string, Action> = {
   KeyK: 'pitch',
   KeyR: 'resetTargets',
   KeyC: 'toggleColliders',
+  KeyJ: 'bullpen',
   BracketLeft: 'slower',
   BracketRight: 'faster',
 };

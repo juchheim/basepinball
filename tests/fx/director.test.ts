@@ -55,6 +55,14 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'walk', runs: 1, moved: [0, 1, 2] },
   ],
   stealRamp: [{ type: 'stealRamp', result: 'noRunner' }],
+  bullpen: [{ type: 'bullpen', locks: 1 }],
+  doubleheader: [{ type: 'doubleheader' }],
+  ballSaved: [{ type: 'ballSaved' }],
+  doubleheaderEnd: [
+    { type: 'doubleheaderEnd', runs: 0 },
+    { type: 'doubleheaderEnd', runs: 6 },
+  ],
+  fieldingError: [{ type: 'fieldingError', position: 'CF' }],
   spinBonus: [
     { type: 'spinBonus', gained: 3 },
     { type: 'spinBonus', gained: 0 },

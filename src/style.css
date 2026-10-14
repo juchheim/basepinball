@@ -261,6 +261,31 @@ canvas {
 .chip.hustle.ready {
   animation: pulse 0.4s ease-in-out infinite alternate;
 }
+.chip.bullpen {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  background: rgba(255, 159, 28, 0.16);
+  color: #ffb44d;
+}
+.chip.bullpen i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 159, 28, 0.6);
+}
+.chip.bullpen i.on {
+  background: #ff9f1c;
+  box-shadow: 0 0 6px rgba(255, 159, 28, 0.9);
+}
+.chip.doubleheader {
+  background: linear-gradient(180deg, #ffc061, #ff8a00);
+  border-color: #ffd08a;
+  color: #1a0d00;
+  box-shadow: 0 0 14px rgba(255, 159, 28, 0.8);
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
 .chip.walk {
   display: inline-flex;
   gap: 3px;
@@ -617,6 +642,7 @@ canvas {
 }
 .ui.reduced .cta,
 .ui.reduced .chip.hot,
+.ui.reduced .chip.doubleheader,
 .ui.reduced .chip.hustle.ready {
   animation: none;
 }

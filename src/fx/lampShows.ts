@@ -111,6 +111,34 @@ export const SHOWS = {
       },
     ],
   },
+  /** A reliever warms up: the Bullpen's lock lamps pulse. */
+  bullpen: {
+    priority: 3,
+    duration: 1.6,
+    tracks: [
+      {
+        lamps: ['lamp.bullpen.1', 'lamp.bullpen.2'],
+        from: 0,
+        to: 1.6,
+        pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 },
+      },
+    ],
+  },
+  /** DOUBLEHEADER: a fast chase round the table with the bases and the Bullpen pulsing. */
+  doubleheader: {
+    priority: 4,
+    duration: 4,
+    tracks: [
+      { lamps: '@ring', from: 0, to: 4, pattern: { kind: 'chase', period: 0.6, width: 0.3 } },
+      { lamps: '@bases', from: 0, to: 4, pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 } },
+      {
+        lamps: ['lamp.bullpen.1', 'lamp.bullpen.2'],
+        from: 0,
+        to: 4,
+        pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 },
+      },
+    ],
+  },
   skillShot: {
     priority: 3,
     duration: 1.5,

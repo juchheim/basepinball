@@ -69,7 +69,7 @@ regular pinball.
    RF, right orbit.
 8. **The Gap** (y ≈ 805–1030): the center pop-bumper nest (singles in front, doubles behind).
    Up the alleys either side of it, between the Gap and the ramps: **CF** (left) and **the
-   Twister** (right).
+   Bullpen** scoop (right).
 9. **Top** (y > 1030): R-B-I rollover lanes, the orbit arch, corner kicker bumpers (triples),
    ramp crests, the shooter lane exit.
 
@@ -129,7 +129,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
 | `saucer.2B` | Fielder saucer | (348, 750) | Between the Gap and the right ramp (LF, SS, 2B and RF form a mirror-symmetric arc, SS and 2B at 750 and LF and RF at 736, low enough to clear the wider Steal ramp mouth) |
 | `saucer.CF` | Fielder saucer, deep left-centre | (151, 985) | Up the alley between the HR ramp and the Gap, below the open corner above the ramp's far end. Slim glove post (3 mm) above the dish, a ball-wide gap each side. |
-| `disc.RF` | **The Twister**: a spinning disc, flush with the playfield | (394, 970), 20 mm | Up the alley between the Steal ramp and the Gap, across from CF. Spins counter-clockwise (the way runners go round), always on. Feeds HUSTLE like a bumper. |
+| `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out), with two lock lamps below it | (397, 985); lamps at (386, 950) / (408, 950) | CF's mirror, up the alley between the Steal ramp and the Gap. Two balls in start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
 | `saucer.RF` | Fielder saucer | (465, 736) | Between the right ramp and the right orbit (level with LF) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
@@ -432,3 +432,22 @@ LF / SS / 2B / RF saucers. A taller mound ramp makes it worse (at 14-30 mm, CF c
 it, a split roof, deflectors outside the top lanes): the roofs trapped balls under the outer lanes
 or fed the corners below CF and the Twister, and the best deflector traded about 20 % more Twister
 rides for about 20 % fewer CF catches, so none was kept.
+
+### DOUBLEHEADER: the Bullpen replaces the Twister
+
+Playtest feedback: the Twister was underwhelming. In its place, something with a big payoff
+precisely because it rarely triggers: two-ball multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)).
+
+| Area | Change | Result |
+|---|---|---|
+| The Bullpen | A scoop at **(397, 985)**, CF's mirror up the alley between the Steal ramp and the Gap, with a slim glove post above the dish (a ball-wide gap to the ramp and the Gap wall) and two lock lamps below it. A ball in it holds 1.2 s and is kicked back down the alley (1.4 m/s). Never an out. The Twister (`disc`) is gone, device and all. | The sim bot gets a ball in about 0.7 times a game. |
+| Locks | The first ball warms up a reliever (a lock lamp lights); the second starts DOUBLEHEADER. The relievers stay warm through innings. | **0.16 DOUBLEHEADERS a game** (about one game in six). |
+| DOUBLEHEADER | The scoop kicks its ball out and a second ball is pitched from the mound. A 20 s ball save pitches a drained ball straight back in; after it, no outs (a fielder's catch is an error and he throws the ball back) until one ball is left. Every run counts twice. | Without the save it was over in 4-16 s and scored 1.3 runs on average; with it, about 30 s of two-ball play and **6.2 runs each**. |
+| Multiball physics | Steel-on-steel ball collisions. Switches and saucers now track each ball: a line switch remembered one "last side", so with a ball either side of it it fired every millisecond, and a saucer's settle timer was reset by the other ball, so it could not catch one. | Every switch fires once per ball crossing it; saucers catch with another ball in play. |
+
+**Result (sim bot, 500 games, same seeds, before → after):** runs per game 7.06 → 8.24 (the extra
+runs come in rare bursts: a DOUBLEHEADER is worth about 6 runs and comes once in six games),
+fielder outs 23.8 → 23.3 % of PA, ball rescues 0.02 → 0.01 a game. To make it rarer or smaller:
+`BULLPEN_LOCKS` (3 locks), `DOUBLEHEADER_SAVE` (a shorter save) or `DOUBLEHEADER_RUNS`
+(`src/rules/game.ts`).
+

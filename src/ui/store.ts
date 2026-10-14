@@ -156,6 +156,36 @@ export function calloutFor(e: RulesEvent): void {
         'big',
         2000,
       );
+    case 'bullpen':
+      return showCallout(
+        'BULLPEN',
+        'A reliever warms up · one more for a DOUBLEHEADER',
+        'info',
+        2000,
+      );
+    case 'doubleheader':
+      return showCallout(
+        'DOUBLEHEADER!',
+        'Two balls · no outs · every run counts twice',
+        'big',
+        3200,
+      );
+    case 'ballSaved':
+      return showCallout('BALL SAVED', undefined, 'info', 900);
+    case 'fieldingError':
+      return showCallout(
+        `ERROR · E${POS_NUM[e.position]}`,
+        'No outs in a doubleheader',
+        'info',
+        1200,
+      );
+    case 'doubleheaderEnd':
+      return showCallout(
+        'DOUBLEHEADER OVER',
+        `${e.runs} run${e.runs === 1 ? '' : 's'} scored`,
+        'big',
+        2200,
+      );
     case 'kickbackLit':
       return showCallout('KICKBACK LIT', undefined, 'info', 1000);
     case 'tiltWarning':

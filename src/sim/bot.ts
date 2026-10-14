@@ -1,5 +1,7 @@
 import { Rng } from '../core/rng';
 import { defaultParams, type PhysicsParams } from '../physics/params';
+import type { Ball } from '../physics/ball';
+import type { Flipper } from '../physics/flipper';
 import { World } from '../physics/world';
 import { GameRules } from '../rules/game';
 import type { GameStats, RulesEvent } from '../rules/types';
@@ -109,47 +111,60 @@ export class Bot {
         }
         continue;
       }
-      if (!b || !b.active || plan.pressAt >= 0 || f.pressed) continue;
-
-      // Is the ball arriving at this flipper? Work out where it will meet the bat and when.
-      const dx = (b.px - f.px) * f.dir; // + = toward this flipper's tip
-      const dy = b.py - f.py;
-      if (dx < -0.02 || dx > 0.1 || dy > 0.09 || dy < -0.06 || b.pz > 0.03) continue;
-      f.distance(b.px, b.py, this.probe);
-      const gap = this.probe.d - b.radius;
-      const approach = -(b.vx * this.probe.nx + b.vy * this.probe.ny); // speed toward the bat
-      const cx = b.px - this.probe.nx * this.probe.d;
-      const cy = b.py - this.probe.ny * this.probe.d;
-      const along = ((cx - f.px) * Math.cos(f.theta) + (cy - f.py) * Math.sin(f.theta)) / f.length;
-      const speed = b.speed();
-
-      if (speed < 0.35 && gap < 0.004 && along < 0.45 && this.rng.next() < this.profile.cradle) {
-        // Catch it: hold the flipper up and let the ball settle, then aim from the cradle.
-        press(true);
-        plan.cradleUntil = now + this.rng.range(0.4, 1.2);
-        continue;
+      if (plan.pressAt >= 0 || f.pressed) continue;
+      // In multiball, react to whichever ball reaches this flipper first.
+      for (const ball of world.balls) {
+        if (ball.active && this.plan(ball, f, plan, now, press)) break;
       }
-      // Time until the ball reaches the bat (falling onto it), or until a ball rolling down the
-      // bat reaches the bot's chosen hitting point.
-      let eta: number;
-      if (approach > 0.15) eta = gap / approach;
-      else {
-        const rollSpeed = b.vx * Math.cos(f.theta) + b.vy * Math.sin(f.theta);
-        if (rollSpeed <= 0.05 || gap > 0.004) continue;
-        eta = Math.max(0, (this.targetAlong - along) * f.length) / rollSpeed;
-      }
-      const flipLead = 0.012; // the bat takes ~12 ms to reach a ball resting on it
-      if (eta > flipLead + 0.03) continue;
-      if (this.rng.next() > this.profile.attention) {
-        plan.pressAt = now + 1; // distracted: too late to matter
-        plan.releaseAt = plan.pressAt + 0.05;
-        continue;
-      }
-      plan.pressAt =
-        now + Math.max(0, eta - flipLead + this.rng.range(-1, 1) * this.profile.jitter);
-      plan.releaseAt = plan.pressAt + 0.17;
-      this.targetAlong = this.rng.range(0.45, 0.85);
     }
+  }
+
+  /** Plan a flip (or a cradle) for a ball arriving at flipper `f`. True if a plan was made. */
+  private plan(
+    b: Ball,
+    f: Flipper,
+    plan: FlipperPlan,
+    now: number,
+    press: (on: boolean) => void,
+  ): boolean {
+    // Is the ball arriving at this flipper? Work out where it will meet the bat and when.
+    const dx = (b.px - f.px) * f.dir; // + = toward this flipper's tip
+    const dy = b.py - f.py;
+    if (dx < -0.02 || dx > 0.1 || dy > 0.09 || dy < -0.06 || b.pz > 0.03) return false;
+    f.distance(b.px, b.py, this.probe);
+    const gap = this.probe.d - b.radius;
+    const approach = -(b.vx * this.probe.nx + b.vy * this.probe.ny); // speed toward the bat
+    const cx = b.px - this.probe.nx * this.probe.d;
+    const cy = b.py - this.probe.ny * this.probe.d;
+    const along = ((cx - f.px) * Math.cos(f.theta) + (cy - f.py) * Math.sin(f.theta)) / f.length;
+    const speed = b.speed();
+
+    if (speed < 0.35 && gap < 0.004 && along < 0.45 && this.rng.next() < this.profile.cradle) {
+      // Catch it: hold the flipper up and let the ball settle, then aim from the cradle.
+      press(true);
+      plan.cradleUntil = now + this.rng.range(0.4, 1.2);
+      return true;
+    }
+    // Time until the ball reaches the bat (falling onto it), or until a ball rolling down the
+    // bat reaches the bot's chosen hitting point.
+    let eta: number;
+    if (approach > 0.15) eta = gap / approach;
+    else {
+      const rollSpeed = b.vx * Math.cos(f.theta) + b.vy * Math.sin(f.theta);
+      if (rollSpeed <= 0.05 || gap > 0.004) return false;
+      eta = Math.max(0, (this.targetAlong - along) * f.length) / rollSpeed;
+    }
+    const flipLead = 0.012; // the bat takes ~12 ms to reach a ball resting on it
+    if (eta > flipLead + 0.03) return false;
+    if (this.rng.next() > this.profile.attention) {
+      plan.pressAt = now + 1; // distracted: too late to matter
+      plan.releaseAt = plan.pressAt + 0.05;
+      return true;
+    }
+    plan.pressAt = now + Math.max(0, eta - flipLead + this.rng.range(-1, 1) * this.profile.jitter);
+    plan.releaseAt = plan.pressAt + 0.17;
+    this.targetAlong = this.rng.range(0.45, 0.85);
+    return true;
   }
 }
 
