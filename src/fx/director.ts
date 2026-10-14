@@ -2,7 +2,7 @@ import type { StingerName } from '../audio/organ';
 import type { SoundName } from '../audio/sounds';
 import type { MaterialName } from '../physics/params';
 import type { Impact, PhysicsEvent } from '../physics/world';
-import { POSITIONS, type GameSnapshot, type RulesEvent } from '../rules/types';
+import type { GameSnapshot, RulesEvent } from '../rules/types';
 import type { SaucerDef, TableDef } from '../table/schema';
 import type { ShowName } from './lampShows';
 
@@ -334,14 +334,8 @@ export class Director {
         o.show('doubleheader');
         o.fireworks(this.reduced ? 1 : 4);
         if (!this.reduced) o.giFlash();
-        o.scoreboard('DOUBLEHEADER!', 'TWO BALLS · NO OUTS · RUNS COUNT TWICE', '#ff9f1c', 4);
+        o.scoreboard('DOUBLEHEADER!', 'THE RELIEVER IS IN · TWO BALLS', '#ff9f1c', 4);
         o.excite(1);
-        return;
-      case 'fieldingError':
-        // In DOUBLEHEADER a catch is dropped: no out, and the fielder throws the ball back in.
-        o.crowd('ooh');
-        o.sound('uiTick');
-        o.scoreboard(`E${POSITIONS[e.position]}`, `ERROR ON THE ${e.position}`, '#ff9f1c', 1.4);
         return;
       case 'doubleheaderEnd':
         o.crowd('cheer', e.runs > 0 ? 0.7 : 0.3);

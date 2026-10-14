@@ -55,10 +55,6 @@ export const BULLPEN = 'saucer.BULLPEN';
 export const BULLPEN_HOLD = 1.2;
 /** Seconds from striking the reliever to his entrance (the scoop kicks him into play). */
 export const RELIEVER_ENTRANCE = 0.6;
-/** Seconds a fielder holds a ball he has dropped in DOUBLEHEADER before throwing it back. */
-export const ERROR_HOLD = 0.8;
-/** In DOUBLEHEADER every run counts this many times. */
-export const DOUBLEHEADER_RUNS = 2;
 
 export interface GameOptions {
   seed?: number;
@@ -295,8 +291,7 @@ export class GameRules {
     const value = { '1B': 1, '2B': 2, '3B': 3, HR: 4 }[hit];
     const useHotBat = this.hotBat && hit !== 'HR';
     const reached = useHotBat ? Math.min(4, value + 1) : value;
-    const { bases, runs: moved } = advance(this.bases, reached);
-    const runs = this.runValue(moved);
+    const { bases, runs } = advance(this.bases, reached);
     this.bases = bases;
     this.stats.plateAppearances++;
     this.stats.hits++;
@@ -326,10 +321,9 @@ export class GameRules {
     }
     if (!LIVE.includes(this.state)) return;
     const position = id.slice('saucer.'.length) as Position;
-    if (this.doubleheader) {
-      // No outs in DOUBLEHEADER: the fielder drops it (an error) and throws the ball back in.
-      this.emit({ type: 'fieldingError', position });
-      this.after(ERROR_HOLD, () => this.machine.ejectSaucer(id));
+    if (this.extraBallLost()) {
+      // The fielder keeps it: that ball is out of play, but it costs no out.
+      this.machine.releaseSaucer(id);
       return;
     }
     // Like a drain, a catch is an out in every live state, swing or not: after a hit it charges
@@ -389,20 +383,21 @@ export class GameRules {
     this.emit({ type: 'doubleheaderEnd', runs: this.doubleheaderRuns });
   }
 
-  /** Runs a scoring play is worth: every run counts twice in DOUBLEHEADER. */
-  private runValue(runs: number): number {
-    return this.doubleheader ? runs * DOUBLEHEADER_RUNS : runs;
+  /**
+   * A ball has left play (drained or caught) in DOUBLEHEADER. DOUBLEHEADER's reward is the second
+   * ball, so while another is still in play (a reliever on his way in counts) losing one costs no
+   * out: it just leaves play. Down to one ball, normal play resumes. True if the loss costs nothing.
+   */
+  private extraBallLost(): boolean {
+    if (!this.doubleheader) return false;
+    const left = this.machine.ballsInPlay() + (this.relieverPending ? 1 : 0);
+    if (left <= 1) this.endDoubleheader(false);
+    return left >= 1;
   }
 
   private drain(): void {
     if (!LIVE.includes(this.state)) return;
-    if (this.doubleheader) {
-      // No outs in DOUBLEHEADER: a drained ball just leaves play, until one is left (a reliever on
-      // his way in counts as one).
-      const left = this.machine.ballsInPlay() + (this.relieverPending ? 1 : 0);
-      if (left <= 1) this.endDoubleheader(false);
-      if (left >= 1) return;
-    }
+    if (this.extraBallLost()) return;
     // Every drain is an out (docs/MVP/01 § 4.2): down an outlane is a foul out, else a strikeout.
     const foul =
       this.now - this.lastOutlane < this.timing.outlaneWindow &&
@@ -598,7 +593,7 @@ export class GameRules {
     this.walkLetters.clear();
     if (!LIVE.includes(this.state)) return;
     const result = walk(this.bases);
-    const runs = this.runValue(result.runs);
+    const { runs } = result;
     this.bases = result.bases;
     this.stats.walks++;
     this.emit({ type: 'walk', runs, moved: result.moved });
@@ -622,7 +617,7 @@ export class GameRules {
     if (this.hustle < HUSTLE_TARGET) return;
     const result = advanceAll(this.bases);
     if (!result) return;
-    const runs = this.runValue(result.runs);
+    const { runs } = result;
     this.hustle = 0;
     this.bases = result.bases;
     this.stats.hustles++;
@@ -646,7 +641,7 @@ export class GameRules {
       this.emit({ type: 'stealRamp', result: 'noRunner' });
       return;
     }
-    const runs = this.runValue(result.runs);
+    const { runs } = result;
     this.bases = result.bases;
     this.stats.steals++;
     this.emit({ type: 'steal', from: result.from, runs });

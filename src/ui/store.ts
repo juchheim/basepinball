@@ -159,19 +159,7 @@ export function calloutFor(e: RulesEvent): void {
     case 'bullpenReady':
       return showCallout('BULLPEN', 'A new reliever is warming up', 'info', 1800);
     case 'doubleheader':
-      return showCallout(
-        'DOUBLEHEADER!',
-        'Two balls · no outs · every run counts twice',
-        'big',
-        3200,
-      );
-    case 'fieldingError':
-      return showCallout(
-        `ERROR · E${POS_NUM[e.position]}`,
-        'No outs in a doubleheader',
-        'info',
-        1200,
-      );
+      return showCallout('DOUBLEHEADER!', 'The reliever is in: two balls in play', 'big', 3200);
     case 'doubleheaderEnd':
       return showCallout(
         'DOUBLEHEADER OVER',

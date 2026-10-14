@@ -73,9 +73,9 @@
 <circle cx="158" cy="230" r="27" fill="#5a3a22"/>
 <circle cx="158" cy="230" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="158.0" y="268.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >CF 8</text>
-<circle cx="202" cy="420" r="27" fill="#5a3a22"/>
-<circle cx="202" cy="420" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
-<text x="202.0" y="458.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >SS 6</text>
+<circle cx="188" cy="448" r="27" fill="#5a3a22"/>
+<circle cx="188" cy="448" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
+<text x="188.0" y="486.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >SS 6</text>
 <circle cx="362" cy="448" r="27" fill="#5a3a22"/>
 <circle cx="362" cy="448" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="362.0" y="486.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >2B 4</text>
@@ -90,8 +90,8 @@
 <text x="392.0" y="288.0" font-size="8" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >BULLPEN</text>
 <polygon points="24.00,404.6 9.00,448.8 20.25,439.8 27.75,439.8 39.00,448.8" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
 <text x="24.0" y="466.8" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
-<polygon points="172.46,473.91 165.36,520.04 174.88,509.23 182.26,507.92 194.90,514.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>
-<text x="181.2" y="535.4" font-size="8.5" fill="#ff3b3b" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >HOME RUN</text>
+<polygon points="154.46,485.91 147.36,532.04 156.88,521.23 164.26,519.92 176.90,526.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>
+<text x="163.2" y="547.4" font-size="8.5" fill="#ff3b3b" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >HOME RUN</text>
 <polygon points="275.00,484.6 260.00,528.8 271.25,519.8 278.75,519.8 290.00,528.8" fill="#f7f4ec" opacity="0.28" stroke="#f7f4ec" stroke-width="1.2"/>
 <text x="275.0" y="546.8" font-size="8.5" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >1B · 2B</text>
 <polygon points="395.54,485.91 373.10,526.83 385.74,519.92 393.12,521.23 402.64,532.04" fill="#2ec4b6" opacity="0.28" stroke="#2ec4b6" stroke-width="1.2"/>

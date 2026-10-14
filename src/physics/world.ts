@@ -172,6 +172,9 @@ interface DropTarget {
 
 const MM = 0.001;
 
+/** A ball out of touch with a flipper this long (s) touches it afresh (a new swing). */
+const SWING_GAP = 0.05;
+
 /** Restitution of one steel ball striking another. */
 const BALL_RESTITUTION = 0.9;
 
@@ -235,6 +238,8 @@ export class World {
   flippersEnabled = true;
 
   private readonly cooldowns = new Map<string, number>();
+  /** Last sim time each ball touched each flipper, so a swing is counted once per touch. */
+  private readonly flipperTouch = new WeakMap<Ball, Map<string, number>>();
   private readonly rng: Rng;
   private grid: Grid;
   private gx = 0;
@@ -457,6 +462,16 @@ export class World {
     s.settle = 0;
     s.settling = null;
     s.ball = b;
+  }
+
+  /** Lets one saucer go of the ball it holds; the ball stays out of play. */
+  releaseSaucer(saucerId: string): void {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s || s.ball?.parkedIn) return;
+    s.holding = false;
+    s.settle = 0;
+    s.settling = null;
+    s.ball = null;
   }
 
   /** Clears saucer holds (the ball was routed elsewhere). A parked ball stays where it is. */
@@ -971,7 +986,16 @@ export class World {
       const ux = -f.omega * ry;
       const uy = f.omega * rx;
       this.resolve(b, nx, ny, 0, depth, 'rubberFlipper', ux, uy, 0, f, rx, ry);
-      if (f.pressed && this.ready(`swing:${f.id}`, 0.05)) this.emit('swing', f.id);
+      // A swing is a ball meeting a held-up flipper: once per touch. A ball cradled on the bat stays
+      // in touch, so it swings once, not over and over (in multiball a run of swings would let the
+      // other ball score a hit off every bumper it touched).
+      const touch = this.flipperTouch.get(b) ?? new Map<string, number>();
+      this.flipperTouch.set(b, touch);
+      const last = touch.get(f.id) ?? -Infinity;
+      touch.set(f.id, this.time);
+      if (f.pressed && this.time - last > SWING_GAP && this.ready(`swing:${f.id}`, 0.05)) {
+        this.emit('swing', f.id);
+      }
     }
   }
 

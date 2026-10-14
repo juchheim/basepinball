@@ -455,7 +455,12 @@ const elements: ElementDef[] = [
   // only a ball already dead slow could drop in, and the singles kept those away. Its glove post is
   // set into the Gap wall (above it, in an alley this narrow, it left a notch that held balls).
   fieldSaucer('saucer.CF', 'CF', 158, 940, 90, 'post', { dx: 23, dy: 22, radius: 4 }),
-  fieldSaucer('saucer.SS', 'SS', 202, 750, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
+  // LF, SS, 2B and RF are mirror images across the centre line, staggered: LF and RF at y = 736, SS
+  // and 2B a little lower at 722, wide of the Gap, so they sit off the lines from the flippers up
+  // the alleys either side of it (to CF and the Bullpen). Chosen by sweeping symmetric layouts for
+  // the one that blocks nothing: every ramp, orbit and target shot as before, the Gap a little up.
+  // (All four level at 736 cost the Gap about 6 % of its shots; all at 722 left a notch by RF.)
+  fieldSaucer('saucer.SS', 'SS', mx(362), 722, 90, 'post', { dx: -6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.2B', '2B', 362, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
   fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
@@ -606,9 +611,17 @@ const elements: ElementDef[] = [
 
   // ---- whitebox lamps (coloured discs standing in for printed inserts)
   { type: 'lamp', id: 'arrow.orbit.L', x: 24, y: 745, radius: 12, color: LAMP.amber, arrow: 90 },
-  { type: 'lamp', id: 'arrow.ramp.HR', x: 176, y: 676, radius: 12, color: LAMP.red, arrow: 100 },
+  // The two ramp arrows mirror each other, up and outside of SS and 2B.
+  {
+    type: 'lamp',
+    id: 'arrow.ramp.HR',
+    x: mx(392),
+    y: 664,
+    radius: 12,
+    color: LAMP.red,
+    arrow: 100,
+  },
   { type: 'lamp', id: 'arrow.gap', x: 275, y: 665, radius: 12, color: LAMP.ivory, arrow: 90 },
-  // Up and right of the HOME RUN arrow's mirror spot, clear of 2B (moved off the way to the Bullpen).
   {
     type: 'lamp',
     id: 'arrow.ramp.STEAL',

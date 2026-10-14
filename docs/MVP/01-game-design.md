@@ -55,7 +55,9 @@ the crowd roars. Nine innings, three outs each. Score as many runs as you can.
 A **swing** is any ball contact with a flipper while that flipper's button is held (the flipper is
 rising or holding up). The ball sliding passively off a resting flipper is *not* a swing. With this
 rule, cradling (holding the ball on a raised flipper) counts as a swing, and a passive roll-off
-does not.
+does not. It is **one swing per touch**: a ball held in the cradle swings once, not again and again
+for as long as it rests there (in multiball that let the other ball score a hit off every bumper it
+touched).
 
 ### 4.2 Ball states (at-bat state machine)
 
@@ -95,7 +97,7 @@ stateDiagram-v2
 | Event ↓ / State → | `PITCH` | `IN_PLAY` | `LIVE_AFTER_HIT` / `LEADOFF_LAUNCH` |
 |---|---|---|---|
 | Swing | → `IN_PLAY` | — | → `IN_PLAY` (rally +1 if after a hit) |
-| Fielder saucer | **OUT** (rare) | **OUT** | **OUT** (after a hit, it charges the next batter). In DOUBLEHEADER: an error, no out (§ 4.8.2). |
+| Fielder saucer | **OUT** (rare) | **OUT** | **OUT** (after a hit, it charges the next batter). In DOUBLEHEADER, while another ball is in play, it costs no out (§ 4.8.2). |
 | Bullpen reliever (touched) | DOUBLEHEADER (§ 4.8.2) | DOUBLEHEADER | DOUBLEHEADER. The empty scoop is never an out. |
 | Hit device | Ignored (rare) | **HIT** → runners advance → `LIVE_AFTER_HIT`. A **triple** counts only for a ball that went up that orbit within 1 s of leaving the bat (a clean shot down the line, not a slingshot ricochet). | Cosmetic only (lights and sound) |
 | Feature shot (drops, standups, Steal ramp, lanes, spinners) | Counts | Counts. **The PA continues.** | Counts |
@@ -204,7 +206,7 @@ Resolution details:
 | **WALK** | Spell **W-A-L-K** on the four standups at the lower right. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
 | **HUSTLE** | **After a hit, while the ball is still live,** every bumper hit counts: the two **outfield bumpers**, or the Gap pops (which score nothing then). At most one hit counts per 0.4 s, so a ricochet through the nest earns by how long it keeps bouncing, not by contacts. 15 hits fill the meter (five lamps of three). | **Every runner takes an extra base** (the runner on third scores). With the bases empty a full meter waits and pays on the next bumper hit once a runner is on. It persists through innings. |
 | **SPIN BONUS** | At the top of an inning, **plunge hard**: round the whole arch and down the left orbit through its five spinners (about 0.55 of a full pull and up), spinning at least four of them before the first swing. A gentle plunge that falls into the right orbit does not count, and the soft plunge for the skill shot spins at most three of them, though a plunge in that zone can sometimes bounce in and earn both. Once per inning. | **One HUSTLE lamp** (3 bumper hits, so it always lights exactly one new dot, up to the full meter). The risk is the plunge itself: a hard ball is likelier to run on to the drain, where it is a strikeout if the flippers do not catch it. |
-| **DOUBLEHEADER** | A **reliever** (a second ball) waits on show in the **Bullpen** scoop, deep in right-centre up the alley between the Steal ramp and the Gap, its lamp lit. **Touch him** with the ball in play. | **Two-ball multiball** (§ 4.8.2): no outs, and every run counts twice. |
+| **DOUBLEHEADER** | A **reliever** (a second ball) waits on show in the **Bullpen** scoop, deep in right-centre up the alley between the Steal ramp and the Gap, its lamp lit. **Touch him** with the ball in play. | **Two-ball multiball** (§ 4.8.2): the reward is the second ball. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-B-I lanes lit) carries over between PAs and
@@ -237,11 +239,11 @@ alley between the Steal ramp and the Gap.
 
 - **Start.** Touch the reliever with the ball in play: callout, fireworks, a lamp show, and a moment
   later the scoop kicks him into play as the second ball.
-- **No ball save.** The player plays with both balls until both are lost; nothing is put back.
-- **No outs.** A drained ball just leaves play. A fielder who catches a ball drops it: an **error**
-  ("E8"), no out, and he throws it back into play after a moment. A drain in the moment before the
-  reliever is in play is no out either: he still comes in.
-- **Every run counts twice**: hits, steals, walks and HUSTLE.
+- **The reward is the second ball**, nothing more: no ball save, no bonus runs. The player plays
+  with both balls until both are lost.
+- **Losing one costs no out.** While the other ball is still in play, a ball that drains or is caught
+  by a fielder just leaves play (the fielder keeps it). A drain in the moment before the reliever is
+  in play costs no out either: he still comes in.
 - Both balls play as normal otherwise: hits need a swing, the Steal ramp steals, bumpers feed HUSTLE.
 - **End.** When one ball is left, DOUBLEHEADER is over (with a tally of its runs) and normal play
   goes on with that ball: its next drain or catch is an out. A tilt, a rescue or the end of the

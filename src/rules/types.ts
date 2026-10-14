@@ -53,8 +53,6 @@ export type RulesEvent =
   | { type: 'doubleheader' }
   /** Down to one ball: DOUBLEHEADER is over. `runs` were scored during it (already doubled). */
   | { type: 'doubleheaderEnd'; runs: number }
-  /** In DOUBLEHEADER a fielder's catch is no out: he drops it and throws the ball back in. */
-  | { type: 'fieldingError'; position: Position }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
   | { type: 'rally'; count: number }
@@ -153,8 +151,10 @@ export interface Machine {
   pitch(spec: PitchSpec): void;
   /** Take every ball off the playfield (it is in the subway or trough). */
   holdBall(): void;
-  /** Kick the ball a saucer (the Bullpen scoop, or a fielder in multiball) holds back into play. */
+  /** Kick the ball a saucer (the Bullpen scoop) holds back into play. */
   ejectSaucer(id: string): void;
+  /** Let a saucer go of the ball it caught, leaving that ball out of play (multiball). */
+  releaseSaucer(id: string): void;
   /** Park a ball on show in the Bullpen scoop (the waiting reliever). */
   parkBullpen(): void;
   /** How many balls are on the playfield. */

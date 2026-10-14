@@ -227,6 +227,25 @@ describe('v1 table: the Bullpen and multiball', () => {
     expect(w.balls.filter((b) => b.parkedIn)).toHaveLength(1);
   });
 
+  it('a ball cradled on a held flipper is one swing, not one every few milliseconds', () => {
+    // The multiball scoring bug: a cradled ball fired a swing every 50 ms, so the other ball scored
+    // a hit off every bumper it touched.
+    const w = world();
+    w.setFlipper('flipper.L', true);
+    run(w, 200);
+    // Set a ball down on the raised bat and let it settle into the cradle for two seconds.
+    const f = w.flippers.find((x) => x.id === 'flipper.L')!;
+    const along = 0.3 * f.length;
+    w.addBall(
+      f.px + Math.cos(f.theta) * along,
+      f.py + Math.sin(f.theta) * along + f.baseRadius + 0.0135 + 0.002,
+    );
+    // It lands and rolls down into the cradle: a touch or two (it was 33 swings in these 2 s).
+    const swings = run(w, 2000).filter((e) => e.type === 'swing');
+    expect(swings.length).toBeGreaterThanOrEqual(1);
+    expect(swings.length).toBeLessThanOrEqual(3);
+  });
+
   it('two balls collide instead of passing through each other', () => {
     const bare = { ...v1Table, elements: [] };
     const w = new World(bare, defaultParams());

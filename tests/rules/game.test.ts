@@ -4,7 +4,6 @@ import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
   BULLPEN,
   BULLPEN_HOLD,
-  ERROR_HOLD,
   GameRules,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
@@ -49,6 +48,9 @@ class FakeMachine implements Machine {
   }
   parkBullpen(): void {
     this.calls.push('park');
+  }
+  releaseSaucer(id: string): void {
+    this.calls.push(`release:${id}`);
   }
   ballsInPlay(): number {
     return this.balls;
@@ -838,25 +840,27 @@ describe('the Bullpen and DOUBLEHEADER', () => {
     expect(h.m.balls).toBe(1);
   });
 
-  it('a fielder drops the ball in DOUBLEHEADER: an error, no out, and the ball is thrown back', () => {
+  it('a fielder catch in DOUBLEHEADER costs no out: that ball is out of play, the other plays on', () => {
     const h = inDoubleheader().ev('saucer', 'saucer.LF');
-    expect(h.last('fieldingError')).toMatchObject({ position: 'LF' });
     expect(h.g.outs).toBe(0);
-    h.wait(ERROR_HOLD + 0.05);
-    expect(h.m.calls).toContain('eject:saucer.LF');
-    expect(h.m.balls).toBe(2);
+    expect(h.m.calls).toContain('release:saucer.LF');
+    expect(h.m.balls).toBe(1);
+    expect(h.g.doubleheader).toBe(false);
+    // Down to one ball: the next catch is an out.
+    h.ev('saucer', 'saucer.SS');
+    expect(h.g.outs).toBe(1);
   });
 
-  it('every run counts twice in DOUBLEHEADER', () => {
-    // A runner on third, then DOUBLEHEADER, then a single brings him home: 2 runs.
+  it('runs count once in DOUBLEHEADER: its reward is the second ball', () => {
+    // A runner on third, then DOUBLEHEADER, then a single brings him home: 1 run.
     const h = inInPlay();
     h.g.bases = [false, false, true];
     strike(h);
     const before = h.g.stats.runs;
     h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
-    expect(h.last('hit')).toMatchObject({ runs: 2 });
-    expect(h.g.stats.runs - before).toBe(2);
+    expect(h.last('hit')).toMatchObject({ runs: 1 });
+    expect(h.g.stats.runs - before).toBe(1);
     h.ev('drain', 'drain');
-    expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 2 });
+    expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 1 });
   });
 });

@@ -33,6 +33,10 @@ export class WorldMachine implements Machine {
     this.world.kickOutSaucer(id, SAUCER_KICK, 270);
   }
 
+  releaseSaucer(id: string): void {
+    this.world.releaseSaucer(id);
+  }
+
   parkBullpen(): void {
     this.world.parkBall(BULLPEN);
   }

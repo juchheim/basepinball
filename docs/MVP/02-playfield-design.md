@@ -121,13 +121,13 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
 | `saucer.LF` | Fielder saucer | (85, 736) | Between the left orbit and the left ramp |
 | `ramp.HR` | Left ramp, "Over the Wall" | entrance (142, 790), 52 mm wide | HR gate at the crest (75, 1010). Wireform to the left inlane. |
-| `saucer.SS` | Fielder saucer | (202, 750) | Between the left ramp and the Gap |
+| `saucer.SS` | Fielder saucer | (188, 722) | Between the left ramp and the Gap, wide of the Gap: 2B's mirror |
 | `gap.mouth` | The Gap entrance | x 240–310 at y = 805 | Funnel walls into the nest |
 | `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (105, 660) / (445, 660), 17 mm, a mirror pair | Score no hit; feed HUSTLE. Soft kick (0.8 m/s; the Gap pops' is 3.4). |
 | `hustle.1`-`.5` | HUSTLE meter lamps | (243 + 16 i, 612) | One lamp per three bumper hits after a hit |
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
-| `saucer.2B` | Fielder saucer | (348, 750) | Between the Gap and the right ramp (LF, SS, 2B and RF form a mirror-symmetric arc, SS and 2B at 750 and LF and RF at 736, low enough to clear the wider Steal ramp mouth) |
+| `saucer.2B` | Fielder saucer | (362, 722) | Between the Gap and the right ramp. LF, SS, 2B and RF are mirror-symmetric and staggered: LF and RF at 736, SS and 2B at 722, wide of the Gap and off the lines up the alleys to CF and the Bullpen |
 | `saucer.CF` | Fielder saucer, deep left-centre | (158, 940) | Up the alley between the HR ramp and the Gap. Its glove post is set into the Gap wall (above the dish, in an alley this narrow, it left a notch that held balls). |
 | `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out) where a reliever (a parked ball) waits on show, with a lamp below it | (392, 940); lamp at (392, 905) | Up the alley between the Steal ramp and the Gap. Touch the reliever to start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
@@ -476,4 +476,32 @@ was unnecessary. It is gone: the reliever is released and the player plays both 
 are lost. Sim bot, 500 games: 5.54 DOUBLEHEADERS a game (here, up the alley, the bot touches the
 reliever almost every inning) at **1.2 runs each** (5.8 with the save), runs per game 15.42, ball
 rescues 0.03 a game.
+
+### The outfield four, symmetric again
+
+Playtest feedback: balance the four fielders so they are symmetric without blocking anything. 2B had
+moved to (362, 722), off the line up the right alley; SS was still at (202, 750). SS now mirrors 2B
+at **(188, 722)** (glove post to its left), with LF and RF unchanged at 736: a stagger, the inner pair
+a little lower. The HOME RUN arrow insert moves to (158, 664), mirroring the STEAL arrow.
+
+Symmetric layouts swept over 494 flipper shots (home-run ramp / steal ramp / Gap / orbits):
+
+| Layout | HR | Steal | Gap | Orbits | To the reliever | Stuck balls |
+|---|---|---|---|---|---|---|
+| Before (SS at 202, 750) | 15 | 21 | 174 | 8 | 33 | 0 |
+| **Staggered: LF/RF 736, SS/2B 722** | **15** | **21** | **181** | **7** | **35** | **0** |
+| All four level at 736 | 18 | 23 | 163 | 8 | 33 | 0 |
+| All four at 722 | 15 | 21 | 174 | 7 | 35 | 1 (by RF's glove post) |
+| SS/2B at 728, nearer the Gap | 16 | 20 | 182 | 9 | 33 | 0 |
+
+The stagger blocks nothing (every shot as before, the Gap a little up). All four level costs the Gap
+about 6 % of its shots, and all at 722 left a notch by RF.
+
+**Playtest: the multiball scoring bug, and no bonuses.** In a DOUBLEHEADER one player scored 64 runs
+in seconds, runners streaming round the bases. A ball cradled on a held flipper stays in touch with
+it, and the flipper fired a swing every 50 ms; each swing armed the batter, so the other ball scored
+a hit off every Gap pop it touched (and runs counted twice). A swing is now one per touch (a cradled
+ball: 2 swings in 2 s, against 33 before). And DOUBLEHEADER's reward is now just the second ball: runs
+count once and a fielder's catch is not dropped (while another ball is in play it costs no out; the
+fielder keeps that ball).
 
