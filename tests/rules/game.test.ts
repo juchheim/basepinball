@@ -1,36 +1,66 @@
 import { describe, expect, it } from 'vitest';
-import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
+import { defaultParams } from '../../src/physics/params';
+import { World, type PhysicsEvent, type PhysicsEventType } from '../../src/physics/world';
 import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
+  BLEACHERS,
+  BLEACHERS_HOLD,
   GameRules,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
+  THROW_BACK_DELAY,
   SPIN_BONUS_HUSTLE,
   STRETCH_ALERT_DELAY,
 } from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
-import type { Machine, RulesEvent } from '../../src/rules/types';
+import type { HitType, Machine, RulesEvent } from '../../src/rules/types';
+import { WorldMachine } from '../../src/rules/worldMachine';
+import { v1Table } from '../../src/table/v1Table';
+import { classify, type Feed } from '../physics/shots';
 
 // Rules unit tests: every cell of the event-resolution table (docs/MVP/01 § 4.3), base running,
 // feature goals, innings and game over. A fake machine stands in for the physics.
 
 class FakeMachine implements Machine {
   calls: string[] = [];
-  inPlay = false;
+  /** Balls on the playfield. */
+  balls = 0;
+  get inPlay(): boolean {
+    return this.balls > 0;
+  }
+  set inPlay(on: boolean) {
+    this.balls = on ? Math.max(1, this.balls) : 0;
+  }
   speed = 1;
   flippers = true;
   kickback = false;
   magnet = 0;
   serveToPlunger(): void {
     this.calls.push('serve');
-    this.inPlay = true;
+    this.balls = 1;
   }
   pitch(spec: PitchSpec): void {
     this.calls.push(`pitch:${spec.type}`);
-    this.inPlay = true;
+    this.balls = 1;
   }
   holdBall(): void {
-    this.inPlay = false;
+    this.balls = 0;
+  }
+  ejectSaucer(id: string): void {
+    this.calls.push(`eject:${id}`);
+    this.balls++;
+  }
+  parkSouvenir(): void {
+    this.calls.push('park');
+  }
+  clearSouvenir(): void {
+    this.calls.push('clear');
+  }
+  releaseSaucer(id: string): void {
+    this.calls.push(`release:${id}`);
+  }
+  ballsInPlay(): number {
+    return this.balls;
   }
   setMagnet(p: number): void {
     this.magnet = p;
@@ -71,7 +101,7 @@ class Harness {
   }
   ev(type: PhysicsEventType, id = ''): this {
     this.t += 0.01;
-    if (type === 'drain' || type === 'saucer') this.m.inPlay = false;
+    if (type === 'drain' || type === 'saucer') this.m.balls = Math.max(0, this.m.balls - 1);
     this.g.onSwitch({ type, id, time: this.t } as PhysicsEvent);
     this.g.update(this.t);
     return this;
@@ -739,4 +769,205 @@ describe('feature goals', () => {
     }
     expect(pulsed).toBe(true);
   });
+});
+
+describe('the Bleachers and THROW IT BACK', () => {
+  /** A home run: a fan in the Bleachers catches the ball, a souvenir. */
+  const withSouvenir = (): Harness => {
+    const h = inInPlay().ev('sensor', 'gate.HR');
+    expect(h.g.souvenirReady).toBe(true);
+    return h;
+  };
+  /** The ball in play touches the souvenir in the Bleachers; the fan throws it back a moment later. */
+  const strike = (h: Harness): Harness =>
+    h.ev('parkedHit', BLEACHERS).wait(THROW_BACK_DELAY + 0.05);
+  const inThrowBack = (): Harness => {
+    const h = strike(withSouvenir());
+    expect(h.g.throwBack).toBe(true);
+    return h;
+  };
+
+  it('no souvenir at the start: a home run puts one in the Bleachers, its lamp lit', () => {
+    const h = inLeadoff();
+    expect(h.g.souvenirReady).toBe(false);
+    expect(h.m.calls).not.toContain('park');
+    expect(h.g.lamps()['lamp.bleachers']).toBe('off');
+    h.ev('plunger').ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
+    expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
+    expect(h.count('souvenirReady')).toBe(1);
+    expect(h.g.lamps()['lamp.bleachers']).toBe('on');
+    // Another home run while it waits: still one souvenir.
+    h.ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
+    expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
+  });
+
+  it('touching it starts THROW IT BACK: the fan throws it into play as the second ball', () => {
+    const h = withSouvenir().ev('parkedHit', BLEACHERS);
+    expect(h.count('throwBack')).toBe(1);
+    expect(h.g.throwBack).toBe(true);
+    expect(h.g.souvenirReady).toBe(false);
+    expect(h.g.stats.throwBacks).toBe(1);
+    expect(h.m.balls).toBe(1);
+    h.wait(THROW_BACK_DELAY + 0.05);
+    expect(h.m.calls).toContain(`eject:${BLEACHERS}`);
+    expect(h.m.balls).toBe(2);
+    expect(h.g.lamps()['lamp.bleachers']).toBe('blink');
+    // A second touch (it has gone) does nothing.
+    h.ev('parkedHit', BLEACHERS);
+    expect(h.count('throwBack')).toBe(1);
+  });
+
+  it('a touch when the ball is not live does nothing', () => {
+    const h = withSouvenir().ev('drain', 'drain').ev('parkedHit', BLEACHERS);
+    expect(h.count('throwBack')).toBe(0);
+    expect(h.g.souvenirReady).toBe(true);
+  });
+
+  it('a ball in the empty Bleachers is no out: it is kicked back out', () => {
+    const h = inInPlay().ev('saucer', BLEACHERS);
+    expect(h.g.outs).toBe(0);
+    h.wait(BLEACHERS_HOLD + 0.05);
+    expect(h.m.calls.filter((c) => c === `eject:${BLEACHERS}`)).toHaveLength(1);
+  });
+
+  it('a souvenir not thrown back by the end of the inning: the fan keeps it', () => {
+    const h = withSouvenir();
+    h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
+    expect(h.g.inning).toBe(2);
+    expect(h.g.souvenirReady).toBe(false);
+    expect(h.m.calls).toContain('clear');
+  });
+
+  it('no outs in THROW IT BACK: it ends when one ball is left, then outs count again', () => {
+    const h = inThrowBack().ev('drain', 'drain');
+    expect(h.g.outs).toBe(0);
+    expect(h.g.throwBack).toBe(false);
+    expect(h.last('throwBackEnd')).toMatchObject({ runs: 0 });
+    // Nothing is put back: the player plays on with the one ball that is left.
+    expect(h.m.balls).toBe(1);
+    h.ev('drain', 'drain');
+    expect(h.g.outs).toBe(1);
+  });
+
+  it('a drain before the souvenir is back in play is no out: it still comes back', () => {
+    const h = withSouvenir().ev('parkedHit', BLEACHERS).ev('drain', 'drain');
+    expect(h.g.outs).toBe(0);
+    expect(h.g.throwBack).toBe(false);
+    h.wait(THROW_BACK_DELAY + 0.05);
+    expect(h.m.calls).toContain(`eject:${BLEACHERS}`);
+    expect(h.m.balls).toBe(1);
+  });
+
+  it('a fielder catch in THROW IT BACK costs no out: that ball is out of play, the other plays on', () => {
+    const h = inThrowBack().ev('saucer', 'saucer.LF');
+    expect(h.g.outs).toBe(0);
+    expect(h.m.calls).toContain('release:saucer.LF');
+    expect(h.m.balls).toBe(1);
+    expect(h.g.throwBack).toBe(false);
+    // Down to one ball: the next catch is an out.
+    h.ev('saucer', 'saucer.SS');
+    expect(h.g.outs).toBe(1);
+  });
+
+  it('runs count once in THROW IT BACK: its reward is the second ball', () => {
+    // THROW IT BACK, a runner on third, then a single brings him home: 1 run.
+    const h = strike(withSouvenir());
+    h.g.bases = [false, false, true];
+    const before = h.g.stats.runs;
+    h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
+    expect(h.last('hit')).toMatchObject({ runs: 1 });
+    expect(h.g.stats.runs - before).toBe(1);
+    h.ev('drain', 'drain');
+    expect(h.last('throwBackEnd')).toMatchObject({ runs: 1 });
+  });
+});
+
+describe('hits off the real flippers (physics + rules)', () => {
+  /**
+   * The batter is up but has not swung (the leadoff ball, or a pitch). The ball comes to `side`'s
+   * flipper (down its inlane, as the plunged leadoff ball does, or pitched at it) and the player
+   * flips `delayMs` later. Reports the first decisive thing the shot hit and the hits the rules
+   * credited for it.
+   */
+  function flipAtBatter(
+    state: 'LEADOFF_LAUNCH' | 'PITCH',
+    side: 'L' | 'R',
+    feed: Feed,
+    delayMs: number,
+  ) {
+    const world = new World(v1Table, defaultParams());
+    const rules = new GameRules(new WorldMachine(world), { seed: 7 });
+    rules.start(0);
+    if (state === 'PITCH') {
+      // The leadoff ball drains (a strikeout) and the next batter gets a pitch.
+      rules.onSwitch({ type: 'drain', id: 'drain', time: 0 });
+      for (let t = 0; rules.state !== 'PITCH'; t += 0.01) rules.update(t);
+    }
+    expect(rules.state).toBe(state);
+    rules.events.length = 0;
+    // Feed the ball exactly as the shot-map sweep does (tests/physics/shots.ts).
+    const sign = side === 'L' ? 1 : -1;
+    const cx = side === 'L' ? 0 : 0.55;
+    if (feed === 'inlane') {
+      const b = world.ball();
+      b.place(cx + sign * 0.064, 0.395);
+      b.vy = -0.9;
+    } else world.pitchBall(cx + sign * 0.216, 0.19, 1.1);
+    const id = side === 'L' ? 'flipper.L' : 'flipper.R';
+    let result: string | null = null;
+    for (let i = 0; i < 3500 && !result; i++) {
+      if (i === delayMs) world.setFlipper(id, true);
+      if (i === delayMs + 160) world.setFlipper(id, false);
+      world.step();
+      for (const e of world.events) {
+        if (i >= delayMs && !result) result = hitDevice(e) ?? classify(e);
+        rules.onSwitch(e);
+      }
+      world.events.length = 0;
+    }
+    const hits = rules.events.flatMap((e) => (e.type === 'hit' ? [e.hit] : []));
+    return { result, hits };
+  }
+
+  /** The hit a device scores for a batter who has swung (the triple's corner kickers aside). */
+  function hitDevice(e: PhysicsEvent): HitType | null {
+    if (e.type === 'pop' && e.id.startsWith('pop.1B')) return '1B';
+    if (e.type === 'pop' && e.id.startsWith('pop.2B')) return '2B';
+    if (e.type === 'sensor' && e.id === 'gate.HR') return 'HR';
+    return null;
+  }
+  const HITS: (string | null)[] = ['1B', '2B', 'HR'];
+
+  it('a ball flipped off the resting bat is a swing: the hit counts', () => {
+    // The playtest bug: the ball came down onto the bat with the button up, and that passive touch
+    // used up its one swing, so the flip that followed was no swing and the hit went uncounted.
+    // Here the plunged leadoff ball rolls down the left inlane and is flipped up the HR ramp...
+    expect(flipAtBatter('LEADOFF_LAUNCH', 'L', 'inlane', 750)).toEqual({
+      result: 'HR',
+      hits: ['HR'],
+    });
+    // ...and a pitch bounces off the resting bat just before the flip sends it into the Gap.
+    expect(flipAtBatter('PITCH', 'R', 'pitch', 200)).toEqual({ result: '1B', hits: ['1B'] });
+  });
+
+  for (const state of ['LEADOFF_LAUNCH', 'PITCH'] as const) {
+    it(`every flipper shot into a hit device records that hit (${state})`, () => {
+      let checked = 0;
+      for (const side of ['L', 'R'] as const) {
+        const sweeps: [Feed, number, number][] = [
+          ['inlane', 700, 1000],
+          ['pitch', 100, 280],
+        ];
+        for (const [feed, from, to] of sweeps) {
+          for (let d = from; d <= to; d += 10) {
+            const { result, hits } = flipAtBatter(state, side, feed, d);
+            if (!HITS.includes(result)) continue;
+            checked++;
+            expect(hits[0], `${side} ${feed} @${d}ms`).toBe(result);
+          }
+        }
+      }
+      expect(checked).toBeGreaterThanOrEqual(15);
+    });
+  }
 });

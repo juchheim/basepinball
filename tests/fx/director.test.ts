@@ -55,6 +55,12 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'walk', runs: 1, moved: [0, 1, 2] },
   ],
   stealRamp: [{ type: 'stealRamp', result: 'noRunner' }],
+  souvenirReady: [{ type: 'souvenirReady' }],
+  throwBack: [{ type: 'throwBack' }],
+  throwBackEnd: [
+    { type: 'throwBackEnd', runs: 0 },
+    { type: 'throwBackEnd', runs: 6 },
+  ],
   spinBonus: [
     { type: 'spinBonus', gained: 3 },
     { type: 'spinBonus', gained: 0 },
@@ -159,9 +165,12 @@ describe('presentation director', () => {
   it('a fast ball skimming past a fielder makes him dive (once, then a cooldown)', () => {
     const { out, calls } = recorder();
     const d = new Director(v1Table, out);
-    // SS saucer at (202, 750) mm, radius 20: pass 30 mm to its right.
-    d.frame(0.016, { x: 0.232, y: 0.75, speed: 2 }, null);
-    d.frame(0.016, { x: 0.232, y: 0.75, speed: 2 }, null);
+    // Pass 30 mm to the right of the SS saucer (radius 20).
+    const ss = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.SS')!;
+    if (ss.type !== 'saucer') throw new Error('no SS');
+    const past = { x: (ss.x + 30) / 1000, y: ss.y / 1000, speed: 2 };
+    d.frame(0.016, past, null);
+    d.frame(0.016, past, null);
     expect(calls.filter((c) => c === 'figure')).toHaveLength(1);
   });
 });

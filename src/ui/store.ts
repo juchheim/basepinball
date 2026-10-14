@@ -69,16 +69,39 @@ export function pitchCueFor(e: RulesEvent): void {
 
 let calloutId = 0;
 let clearTimer: ReturnType<typeof setTimeout> | undefined;
+/** Callouts waiting for the outcome callout on screen to finish. */
+const waiting: { callout: Omit<Callout, 'id'>; ms: number }[] = [];
 
+/** The outcome of a plate appearance: it always plays in full (docs/MVP/05 § 9.1). */
+const isOutcome = (tone: Callout['tone']): boolean => tone === 'hit' || tone === 'out';
+
+/**
+ * Show a callout. An outcome replaces whatever is up; anything else (an award, an alert) waits
+ * for an outcome on screen to finish, so the 3rd rally hit reads "DOUBLE!" before its Rally Cap
+ * "HOT BAT LIT", rather than the award covering the hit in the same frame.
+ */
 export function showCallout(
   text: string,
   sub: string | undefined,
   tone: Callout['tone'],
   ms = 1400,
 ): void {
-  callout.value = { id: ++calloutId, text, ...(sub ? { sub } : {}), tone };
+  const next = { text, ...(sub ? { sub } : {}), tone };
+  if (!isOutcome(tone) && callout.value && isOutcome(callout.value.tone)) {
+    waiting.push({ callout: next, ms });
+    return;
+  }
+  display(next, ms);
+}
+
+function display(c: Omit<Callout, 'id'>, ms: number): void {
+  callout.value = { id: ++calloutId, ...c };
   clearTimeout(clearTimer);
-  clearTimer = setTimeout(() => (callout.value = null), ms);
+  clearTimer = setTimeout(() => {
+    const queued = waiting.shift();
+    if (queued) display(queued.callout, queued.ms);
+    else callout.value = null;
+  }, ms);
 }
 
 const HIT_NAMES = { '1B': 'SINGLE', '2B': 'DOUBLE', '3B': 'TRIPLE', HR: 'HOME RUN' } as const;
@@ -155,6 +178,27 @@ export function calloutFor(e: RulesEvent): void {
         'Runner on: ramp and bumper up on the mound',
         'big',
         2000,
+      );
+    case 'souvenirReady':
+      return showCallout(
+        'SOUVENIR!',
+        'A fan caught your home run. Go get it this inning',
+        'info',
+        2400,
+      );
+    case 'throwBack':
+      return showCallout(
+        'THROW IT BACK!',
+        'The fan tosses it onto the field: two balls in play',
+        'big',
+        3200,
+      );
+    case 'throwBackEnd':
+      return showCallout(
+        'BACK TO ONE BALL',
+        `${e.runs} run${e.runs === 1 ? '' : 's'} with two in play`,
+        'big',
+        2200,
       );
     case 'kickbackLit':
       return showCallout('KICKBACK LIT', undefined, 'info', 1000);

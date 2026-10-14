@@ -50,12 +50,11 @@ function render(table: TableDef): string {
         break;
       case 'saucer':
         out.push(
-          `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="#0a0a0a" stroke="#e6e6e6" stroke-width="2"/>`,
+          `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="#0a0a0a" stroke="${el.label ? '#e6e6e6' : '#ff9f1c'}" stroke-width="2"/>`,
         );
-        if (el.label)
-          out.push(
-            `<text x="${X(el.x)}" y="${Y(el.y) + 4}" text-anchor="middle" font-size="11" font-weight="700" fill="#fff">${el.label}</text>`,
-          );
+        out.push(
+          `<text x="${X(el.x)}" y="${Y(el.y) + 4}" text-anchor="middle" font-size="${el.label ? 11 : 7}" font-weight="700" fill="#fff">${el.label ?? 'BLEACHERS'}</text>`,
+        );
         break;
       case 'drop':
       case 'standup':
@@ -167,6 +166,7 @@ function render(table: TableDef): string {
     ['#2ec4b6', 'Steal ramp'],
     ['#f2b33d', 'B-A-T drop targets'],
     ['#9b5de5', 'W-A-L-K standups'],
+    ['#ff9f1c', 'Bleachers scoop (the souvenir: THROW IT BACK)'],
     ['#9aa6c4', 'Switch / sensor (dashed)'],
   ];
   const lx = PAD * 2 + W;

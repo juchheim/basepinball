@@ -28,6 +28,11 @@ export class Ball {
 
   /** False while captured, drained, or otherwise out of play. */
   active = true;
+  /**
+   * The saucer a ball is parked in, on show (the souvenir in the Bleachers), or null. A parked
+   * ball is not simulated but is drawn, and a ball in play bounces off it.
+   */
+  parkedIn: string | null = null;
   /** True if the ball touched the playfield floor during the last substep. */
   onFloor = false;
   /** Material of the last surface the ball rolled on (for the rolling sound). */
@@ -53,6 +58,7 @@ export class Ball {
     this.vx = this.vy = this.vz = 0;
     this.wx = this.wy = this.wz = 0;
     this.active = true;
+    this.parkedIn = null;
   }
 
   savePrevious(): void {

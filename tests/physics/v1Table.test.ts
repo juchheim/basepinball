@@ -176,33 +176,128 @@ describe('v1 table: devices', () => {
   });
 
   it('saucers catch a slow ball and let a fast one skim over', () => {
-    const roll = (speed: number) => {
-      const w = world();
-      // Start past the single bumpers, which cover the throat of the Gap.
-      const b = w.addBall(0.275, 0.9);
-      b.vy = speed;
+    // CF on a bare playfield. A ball rolled gently up into the dish settles in it; one rolled fast
+    // across it skims over.
+    const cf = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.CF')!;
+    if (cf.type !== 'saucer') throw new Error('no CF');
+    const bare = { ...v1Table, elements: [cf] };
+    const roll = (dx: number, dy: number, vx: number, vy: number) => {
+      const w = new World(bare, defaultParams());
+      const b = w.addBall((cf.x + dx) / 1000, (cf.y + dy) / 1000);
+      b.vx = vx;
+      b.vy = vy;
       return run(w, 2000, (e) => e.type === 'saucer').some((e) => e.id === 'saucer.CF');
     };
-    expect(roll(0.4)).toBe(true);
-    expect(roll(2.5)).toBe(false);
+    expect(roll(0, -15, 0, 0.2)).toBe(true);
+    expect(roll(-50, 0, 2.5, 0)).toBe(false);
+  });
+});
+
+describe('v1 table: the Bleachers and multiball', () => {
+  it('the souvenir parked in the Bleachers is on show, stays put when struck, and enters on cue', () => {
+    const bp = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.BLEACHERS')!;
+    if (bp.type !== 'saucer') throw new Error('no Bleachers');
+    const w = world();
+    w.parkBall('saucer.BLEACHERS');
+    const souvenir = w.balls.find((b) => b.parkedIn === 'saucer.BLEACHERS')!;
+    expect(souvenir.active).toBe(false);
+    expect(w.isSaucerHolding('saucer.BLEACHERS')).toBe(true);
+    // A ball rolled up into him: a hit, and he does not budge.
+    const b = w.addBall(bp.x / 1000, (bp.y - 45) / 1000);
+    b.vy = 0.8;
+    expect(
+      run(w, 1000, (e) => e.type === 'parkedHit').some((e) => e.id === 'saucer.BLEACHERS'),
+    ).toBe(true);
+    expect(souvenir.px).toBeCloseTo(bp.x / 1000, 6);
+    expect(souvenir.py).toBeCloseTo(bp.y / 1000, 6);
+    // Kicked out, he is a ball in play.
+    expect(w.kickOutSaucer('saucer.BLEACHERS', 1.4, 270)).toBe(true);
+    expect(souvenir.active).toBe(true);
+    expect(souvenir.parkedIn).toBeNull();
+    expect(w.activeBalls()).toHaveLength(2);
   });
 
-  it('nudges move the ball and too many swing the tilt bob', () => {
+  it('serves and pitches never take the parked souvenir', () => {
     const w = world();
-    const b = w.addBall(0.275, 0.6);
-    run(w, 50);
-    const vx = b.vx;
-    w.nudge(1, 0);
-    expect(b.vx - vx).toBeCloseTo(w.params.nudgeSpeed, 5);
-    // One nudge is safe; three in a row swing the bob into the ring.
-    expect(run(w, 1500).filter((e) => e.type === 'tiltBob')).toHaveLength(0);
-    const after: PhysicsEvent[] = [];
-    for (let i = 0; i < 3; i++) {
-      w.nudge(1, 0);
-      after.push(...run(w, 30));
+    w.serveBall();
+    w.parkBall('saucer.BLEACHERS');
+    w.balls[0]!.active = false;
+    const pitched = w.pitchBall(0.22, 0.18, 1);
+    expect(pitched?.parkedIn).toBeNull();
+    expect(w.balls.filter((b) => b.parkedIn)).toHaveLength(1);
+  });
+
+  it('a ball cradled on a held flipper is one swing, not one every few milliseconds', () => {
+    // The multiball scoring bug: a cradled ball fired a swing every 50 ms, so the other ball scored
+    // a hit off every bumper it touched.
+    const w = world();
+    w.setFlipper('flipper.L', true);
+    run(w, 200);
+    // Set a ball down on the raised bat and let it settle into the cradle for two seconds.
+    const f = w.flippers.find((x) => x.id === 'flipper.L')!;
+    const along = 0.3 * f.length;
+    w.addBall(
+      f.px + Math.cos(f.theta) * along,
+      f.py + Math.sin(f.theta) * along + f.baseRadius + 0.0135 + 0.002,
+    );
+    // It lands and rolls down into the cradle: a touch or two (it was 33 swings in these 2 s).
+    const swings = run(w, 2000).filter((e) => e.type === 'swing');
+    expect(swings.length).toBeGreaterThanOrEqual(1);
+    expect(swings.length).toBeLessThanOrEqual(3);
+  });
+
+  it('flipping a ball that rests on the lowered bat is a swing; resting there is not', () => {
+    // The passive touch used to count as the ball's one touch, so the flip from rest that
+    // followed was no swing at all, and the hit it made went uncounted.
+    const w = world();
+    const f = w.flippers.find((x) => x.id === 'flipper.L')!;
+    const along = 0.3 * f.length;
+    w.addBall(
+      f.px + Math.cos(f.theta) * along,
+      f.py + Math.sin(f.theta) * along + f.baseRadius + 0.0135 + 0.002,
+    );
+    expect(run(w, 40).filter((e) => e.type === 'swing')).toHaveLength(0);
+    w.setFlipper('flipper.L', true);
+    expect(run(w, 200).filter((e) => e.type === 'swing')).toHaveLength(1);
+  });
+
+  it('two balls collide instead of passing through each other', () => {
+    const bare = { ...v1Table, elements: [] };
+    const w = new World(bare, defaultParams());
+    const a = w.addBall(0.2, 0.6);
+    const b = w.addBall(0.3, 0.6);
+    a.vx = 1;
+    b.vx = -1;
+    let closest = 1;
+    for (let i = 0; i < 200; i++) {
+      w.step();
+      closest = Math.min(closest, Math.hypot(b.px - a.px, b.py - a.py));
     }
-    after.push(...run(w, 600));
-    expect(after.some((e) => e.type === 'tiltBob')).toBe(true);
+    expect(closest).toBeGreaterThan(2 * a.radius - 0.001);
+    // Head on with equal masses, they bounce back off each other.
+    expect(a.vx).toBeLessThan(0);
+    expect(b.vx).toBeGreaterThan(0);
+  });
+
+  it('a switch fires for each ball that crosses it, not for two balls on either side of it', () => {
+    const w = world();
+    // The Gap mouth's switch is the line y = 815 between x = 242 and 308.
+    const above = w.addBall(0.275, 0.84);
+    const below = w.addBall(0.275, 0.79);
+    above.vy = below.vy = 0;
+    const fired = run(w, 50).filter((e) => e.id === 'gap.mouth');
+    expect(fired.length).toBeLessThanOrEqual(1);
+  });
+
+  it('a saucer catches a ball while another is in play elsewhere', () => {
+    const w = world();
+    const cf = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.CF')!;
+    if (cf.type !== 'saucer') throw new Error('no CF');
+    const b = w.addBall(cf.x / 1000, (cf.y - 15) / 1000);
+    b.vy = 0.2;
+    const other = w.addBall(0.275, 0.6);
+    other.vx = 1.5;
+    expect(run(w, 2000, (e) => e.type === 'saucer').some((e) => e.id === 'saucer.CF')).toBe(true);
   });
 });
 

@@ -47,6 +47,12 @@ export type RulesEvent =
   | { type: 'spinBonus'; gained: number }
   /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
   | { type: 'stretch' }
+  /** A fan in the Bleachers caught the home-run ball: a souvenir (a parked ball), this inning. */
+  | { type: 'souvenirReady' }
+  /** The souvenir in the Bleachers was touched: THROW IT BACK, two-ball multiball, begins. */
+  | { type: 'throwBack' }
+  /** Down to one ball: THROW IT BACK is over. `runs` were scored while it lasted. */
+  | { type: 'throwBackEnd'; runs: number }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
   | { type: 'rally'; count: number }
@@ -76,6 +82,7 @@ export interface GameStats {
   steals: number;
   walks: number;
   hustles: number;
+  throwBacks: number;
   /** Simulation seconds from first pitch to final out. */
   duration: number;
 }
@@ -100,6 +107,7 @@ export function emptyStats(): GameStats {
     steals: 0,
     walks: 0,
     hustles: 0,
+    throwBacks: 0,
     duration: 0,
   };
 }
@@ -121,6 +129,10 @@ export interface GameSnapshot {
   /** The HUSTLE meter: bumper hits so far, and how many fill it. */
   hustle: number;
   hustleTarget: number;
+  /** A souvenir waits in the Bleachers: touch it to start THROW IT BACK. */
+  souvenirReady: boolean;
+  /** THROW IT BACK (two-ball multiball) is running. */
+  throwBack: boolean;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;
@@ -137,8 +149,18 @@ export interface Machine {
   serveToPlunger(): void;
   /** Ball comes up the mound VUK and is pitched (the ball may currently be held or in play). */
   pitch(spec: PitchSpec): void;
-  /** Take the ball off the playfield (it is in the subway or trough). */
+  /** Take every ball off the playfield (it is in the subway or trough). */
   holdBall(): void;
+  /** Kick the ball a saucer (the Bleachers scoop) holds back into play. */
+  ejectSaucer(id: string): void;
+  /** Let a saucer go of the ball it caught, leaving that ball out of play (multiball). */
+  releaseSaucer(id: string): void;
+  /** Park a ball on show in the Bleachers scoop (the souvenir). */
+  parkSouvenir(): void;
+  /** Take the souvenir out of the Bleachers scoop (the fan keeps it). */
+  clearSouvenir(): void;
+  /** How many balls are on the playfield. */
+  ballsInPlay(): number;
   setMagnet(power: number): void;
   setKickback(armed: boolean): void;
   /** Raise the bumper on the mound (a runner is on base) or lower it (the bases are empty). */
@@ -147,9 +169,9 @@ export interface Machine {
   setFlippersEnabled(enabled: boolean): void;
   /** Free a stuck ball (pulse coils / small kick). */
   ballSearch(): void;
-  /** Is the ball on the playfield (not drained, captured, or held)? */
+  /** Is a ball on the playfield (not drained, captured, or held)? */
   ballInPlay(): boolean;
-  /** Ball speed (m/s), for stuck-ball detection. */
+  /** Speed (m/s) of the fastest ball in play, for stuck-ball detection. */
   ballSpeed(): number;
 }
 

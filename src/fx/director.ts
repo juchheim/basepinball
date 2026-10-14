@@ -137,8 +137,12 @@ export class Director {
       case 'saucer': {
         const s = this.saucers.find((x) => x.id === e.id);
         this.out.sound('saucer', s ? this.place(s.x * MM, s.y * MM) : at);
+        // The Bleachers scoop has no fielder: its lamp flashes instead.
+        if (s && !s.label) {
+          this.out.flash('lamp.bleachers');
+        }
         if (s?.label) {
-          // CF sits in the grass of the Gap; the rest are on the dirt.
+          // The outfielders stand on the grass; the rest are on the dirt.
           this.out.figure({
             kind: 'catch',
             position: s.label,
@@ -152,6 +156,10 @@ export class Director {
       }
       case 'drain':
         this.out.sound('drain', { x: 0.5, y: 0 });
+        return;
+      case 'parkedHit':
+        // The ball in play touched the souvenir waiting in the Bleachers.
+        this.out.flash('lamp.bleachers');
         return;
       case 'kickback':
         this.out.sound('kickback', { x: 0.05, y: 0.15 });
@@ -313,6 +321,30 @@ export class Director {
         o.fire('pop.mound');
         o.crowd('ooh');
         o.scoreboard('FROM THE STRETCH', 'RUNNER ON', '#ff3b3b', 2);
+        return;
+      case 'souvenirReady':
+        // A fan in the Bleachers caught the home-run ball, on show in the scoop: THROW IT BACK is on.
+        o.sound('award');
+        o.show('souvenir');
+        o.scoreboard('SOUVENIR!', 'A FAN CAUGHT THE HOME RUN', '#ff9f1c', 2.4);
+        return;
+      case 'throwBack':
+        o.stinger('homeRun');
+        o.crowd('roar');
+        o.show('throwBack');
+        o.fireworks(this.reduced ? 1 : 4);
+        if (!this.reduced) o.giFlash();
+        o.scoreboard('THROW IT BACK!', 'TWO BALLS IN PLAY', '#ff9f1c', 4);
+        o.excite(1);
+        return;
+      case 'throwBackEnd':
+        o.crowd('cheer', e.runs > 0 ? 0.7 : 0.3);
+        o.scoreboard(
+          'BACK TO ONE BALL',
+          `${e.runs} RUN${e.runs === 1 ? '' : 'S'} WITH TWO`,
+          '#ff9f1c',
+          2.5,
+        );
         return;
       case 'kickbackLit':
         o.sound('award');

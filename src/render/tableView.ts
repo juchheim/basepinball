@@ -497,8 +497,9 @@ export class TableView {
     const qb = new THREE.Quaternion();
     this.ballMeshes.forEach((m, i) => {
       const b = balls[i];
-      m.visible = !!b && b.active;
-      if (!b || !b.active) return;
+      // A parked ball (the souvenir in the Bleachers) is on show too.
+      m.visible = !!b && (b.active || b.parkedIn !== null);
+      if (!b || !m.visible) return;
       m.position.set(
         b.prevPx + (b.px - b.prevPx) * alpha,
         b.prevPy + (b.py - b.prevPy) * alpha,
@@ -535,8 +536,10 @@ export class TableView {
       this.trail.frustumCulled = false;
       this.group.add(this.trail);
     }
-    const b = this.world.balls[0];
-    const mesh = this.ballMeshes[0];
+    // The streak follows one ball: the first in play.
+    const i = this.world.balls.findIndex((x) => x.active);
+    const b = i >= 0 ? this.world.balls[i] : undefined;
+    const mesh = i >= 0 ? this.ballMeshes[i] : undefined;
     const speed = b && b.active ? b.speed() : 0;
     const k = Math.min(1, Math.max(0, (speed - 1.2) / 2));
     this.trail.visible = k > 0 && !!mesh;
@@ -917,8 +920,8 @@ export class TableView {
         if (el.label) {
           this.standeeSpots.push({
             cell: el.label,
-            x: el.x + (el.radius + 16) * Math.cos(la),
-            y: el.y + (el.radius + 16) * Math.sin(la),
+            x: el.standee?.[0] ?? el.x + (el.radius + 16) * Math.cos(la),
+            y: el.standee?.[1] ?? el.y + (el.radius + 16) * Math.sin(la),
           });
         }
         break;

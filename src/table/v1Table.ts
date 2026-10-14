@@ -1,5 +1,5 @@
 import { dcos, dsin } from '../core/dmath';
-import type { ElementDef, TableDef, Vec2, Vec3 } from './schema';
+import type { ElementDef, SaucerDef, TableDef, Vec2, Vec3 } from './schema';
 
 /**
  * The BasePinball v1 table (docs/MVP/02-playfield-design.md), whitebox geometry for M1.
@@ -165,11 +165,32 @@ const RAMP_WIDTH = 52;
 /**
  * The Steal ramp's mouth is clearly wider than the home-run ramp's, so the cheaper award is the
  * easier shot (a ball must enter within roughly mouth - 44 mm of the centre line: 8 mm of play on
- * the HR ramp, about 26 mm here). The four outfield-line fielders sit in a mirror-symmetric arc, SS
- * and 2B at y = 750 and LF and RF at 736, low enough to make room: each mouth guard post then keeps
- * a ball-wide (>= 27.5 mm) gap to their glove posts, so no notch can hold a ball.
+ * the HR ramp, about 18 mm here). It was 70 mm; its left side was pulled in by 8 mm (the right edge
+ * stays put) to open the alley beside it, the way to the Bleachers. The four outfield-line fielders
+ * sit low enough to make room: each mouth guard post keeps a ball-wide (>= 27.5 mm) gap to their
+ * glove posts, so no notch can hold a ball.
  */
-const STEAL_RAMP_WIDTH = 70;
+const STEAL_RAMP_WIDTH = 62;
+/** How far right the Steal ramp's centre line moves at the mouth, fading to none at the top. */
+const STEAL_SHIFT = (70 - STEAL_RAMP_WIDTH) / 2;
+const STEAL_MOUTH_X = mx(hrRamp[0]![0]) + STEAL_SHIFT;
+const stealRamp: Vec3[] = hrRamp.map((p) => {
+  const [x, y, z] = m3(p);
+  const top = hrRamp[hrRamp.length - 1]![1];
+  return [round(x + (STEAL_SHIFT * (top - y)) / (top - hrRamp[0]![1])), y, z];
+});
+
+/**
+ * Fielder saucer (dish) radius (mm), 20 at first. Bigger dishes catch more, to bring runs per game
+ * down. 24 went too far: 1B's backstop bar, beyond its dish, reached into the shooter lane and
+ * blocked every plunge.
+ */
+const FIELDER_RADIUS = 22;
+/**
+ * 3B and 1B sit half in the side walls with a backstop bar beyond the dish. They move in as the dish
+ * grows, so their bars stay where they were (the 1B bar must stay out of the shooter lane).
+ */
+const SIDE_SAUCER_X = 25 + (FIELDER_RADIUS - 20);
 
 const fieldSaucer = (
   id: string,
@@ -179,13 +200,13 @@ const fieldSaucer = (
   lipAngle = 90,
   lip: 'bar' | 'post' | 'none' = 'bar',
   lipPost?: { dx: number; dy: number; radius: number },
-): ElementDef => ({
+): SaucerDef => ({
   type: 'saucer',
   id,
   label,
   x,
   y,
-  radius: 20,
+  radius: FIELDER_RADIUS,
   depth: 7,
   lipAngle,
   lip,
@@ -342,16 +363,18 @@ const elements: ElementDef[] = [
     radius: 5,
     material: 'rubberPost',
   },
-  // Close the dead space under each ramp from the top area.
+  // The deep corners above each ramp's far end are open to the top of the table, so a ball coming
+  // off the top can drop down the alleys either side of the Gap. A short wall in each corner,
+  // sloping down from the orbit guide to the ramp's end, rolls a ball out of the nook between them.
   {
     type: 'wall',
     points: [
-      [165, 1090],
-      [185, 1050],
+      [88, 1047],
+      [119, 1033],
     ],
     material: 'metal',
   },
-  { type: 'wall', points: [m2([165, 1090]), m2([185, 1050])], material: 'metal' },
+  { type: 'wall', points: [m2([88, 1047]), m2([119, 1033])], material: 'metal' },
   { type: 'spinner', id: 'spinner.L', a: [3, 800], b: [42, 800] },
   { type: 'spinner', id: 'spinner.R', a: [mx(42), 800], b: [mx(3), 800] },
   // More spinners down each orbit's straight run: a ball looping an orbit sets off a string of them.
@@ -402,8 +425,8 @@ const elements: ElementDef[] = [
   },
   { type: 'post', x: 240, y: 805, radius: 5, material: 'rubberPost' },
   { type: 'post', x: mx(240), y: 805, radius: 5, material: 'rubberPost' },
-  // "Hit it up the middle": two singles flank a 40 mm centre channel; a ball threading it skims
-  // over CF and meets a double at the back. A weak ball in the channel drops into CF instead.
+  // "Hit it up the middle": two singles flank a 40 mm centre channel; a ball threading it meets a
+  // double at the back.
   { type: 'pop', id: 'pop.1B.L', x: 233, y: 868, radius: 22, label: '1B', color: LAMP.ivory },
   { type: 'pop', id: 'pop.1B.R', x: 317, y: 868, radius: 22, label: '1B', color: LAMP.ivory },
   { type: 'pop', id: 'pop.2B.L', x: 247, y: 992, radius: 20, label: '2B', color: LAMP.blue },
@@ -437,13 +460,25 @@ const elements: ElementDef[] = [
   },
 
   // ---- fielders (7 saucers)
-  fieldSaucer('saucer.3B', '3B', 25, 478, 180),
+  // The corner infielders' lips face the side walls, so their standees' default spots (behind the
+  // lip) were off the field: 3B's under the left rail, out of sight, and 1B's in the shooter lane,
+  // where every plunge ran through him. They stand on the field instead, just inside their saucers.
+  { ...fieldSaucer('saucer.3B', '3B', SIDE_SAUCER_X, 478, 180), standee: [61, 478] },
   fieldSaucer('saucer.LF', 'LF', 85, 736, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
-  fieldSaucer('saucer.SS', 'SS', 202, 750, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
-  fieldSaucer('saucer.CF', 'CF', 275, 918, 90, 'none'),
-  fieldSaucer('saucer.2B', '2B', 348, 750, 90, 'post', { dx: -6, dy: 25, radius: 5 }),
+  // CF plays deep in left-centre, up the alley between the HR ramp and the Gap, below the open
+  // corner above the ramp's far end. In the throat of the Gap it caught 2 balls in 60 sim games:
+  // only a ball already dead slow could drop in, and the singles kept those away. Its glove post is
+  // set into the Gap wall (above it, in an alley this narrow, it left a notch that held balls).
+  fieldSaucer('saucer.CF', 'CF', 158, 940, 90, 'post', { dx: 23, dy: 22, radius: 4 }),
+  // LF, SS, 2B and RF are mirror images across the centre line, staggered: LF and RF at y = 736, SS
+  // and 2B a little lower at 722, wide of the Gap, so they sit off the lines from the flippers up
+  // the alleys either side of it (to CF and the Bleachers). Chosen by sweeping symmetric layouts for
+  // the one that blocks nothing: every ramp, orbit and target shot as before, the Gap a little up.
+  // (All four level at 736 cost the Gap about 6 % of its shots; all at 722 left a notch by RF.)
+  fieldSaucer('saucer.SS', 'SS', mx(362), 722, 90, 'post', { dx: -6, dy: 22, radius: 5 }),
+  fieldSaucer('saucer.2B', '2B', 362, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
-  fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
+  { ...fieldSaucer('saucer.1B', '1B', mx(SIDE_SAUCER_X), 478, 0), standee: [mx(61), 478] },
 
   // ---- ramps
   { type: 'ramp', id: 'ramp.HR', path: hrRamp, width: RAMP_WIDTH, endWidth: 32, wallHeight: 40 },
@@ -452,7 +487,7 @@ const elements: ElementDef[] = [
   {
     type: 'ramp',
     id: 'ramp.STEAL',
-    path: hrRamp.map(m3),
+    path: stealRamp,
     width: STEAL_RAMP_WIDTH,
     endWidth: 32,
     wallHeight: 40,
@@ -462,8 +497,25 @@ const elements: ElementDef[] = [
   // Posts guarding the ramp entrance corners.
   { type: 'post', x: 117, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 167, y: 798, radius: 4, material: 'metal' },
-  { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
-  { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
+  { type: 'post', x: STEAL_MOUTH_X + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
+  { type: 'post', x: STEAL_MOUTH_X - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
+
+  // ---- the Bleachers: a scoop deep in right-centre, up the alley between the Steal ramp and the Gap.
+  // A souvenir (a second ball a fan caught) waits in it, on show; touch it with the ball in play and
+  // the fan throws it back: THROW IT BACK, two-ball multiball (docs/MVP/01 § 4.8). (In the pocket on
+  // the other side of the Steal ramp, the sim reached it but a player could not see how.) No glove
+  // post: the souvenir is the target, and an empty scoop just kicks the ball back out. No standee:
+  // the fan is in the stands.
+  {
+    type: 'saucer',
+    id: 'saucer.BLEACHERS',
+    x: 392,
+    y: 940,
+    radius: 20,
+    depth: 7,
+    lipAngle: 90,
+    lip: 'none',
+  },
 
   // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (out in the open, lower right)
   ...BAT_BANK.centers.map(([x, y], i): ElementDef => {
@@ -575,13 +627,23 @@ const elements: ElementDef[] = [
 
   // ---- whitebox lamps (coloured discs standing in for printed inserts)
   { type: 'lamp', id: 'arrow.orbit.L', x: 24, y: 745, radius: 12, color: LAMP.amber, arrow: 90 },
-  { type: 'lamp', id: 'arrow.ramp.HR', x: 176, y: 676, radius: 12, color: LAMP.red, arrow: 100 },
-  { type: 'lamp', id: 'arrow.gap', x: 275, y: 665, radius: 12, color: LAMP.ivory, arrow: 90 },
+  // The two ramp arrows mirror each other, up between the OF bumpers and SS / 2B, close under
+  // their ramps' mouths; the Gap's arrow sits up between SS and 2B, under the nest.
+  {
+    type: 'lamp',
+    id: 'arrow.ramp.HR',
+    x: mx(400),
+    y: 700,
+    radius: 12,
+    color: LAMP.red,
+    arrow: 100,
+  },
+  { type: 'lamp', id: 'arrow.gap', x: 275, y: 740, radius: 12, color: LAMP.ivory, arrow: 90 },
   {
     type: 'lamp',
     id: 'arrow.ramp.STEAL',
-    x: mx(176),
-    y: 676,
+    x: 400,
+    y: 700,
     radius: 12,
     color: LAMP.teal,
     arrow: 80,
@@ -599,7 +661,7 @@ const elements: ElementDef[] = [
     type: 'lamp',
     id: `rally.${i + 1}`,
     x: 243 + i * 16,
-    y: 580,
+    y: 568,
     radius: 5,
     color: LAMP.gold,
   })),
@@ -608,7 +670,7 @@ const elements: ElementDef[] = [
     type: 'lamp',
     id: `hustle.${i + 1}`,
     x: 243 + i * 16,
-    y: 612,
+    y: 600,
     radius: 5,
     color: LAMP.mint,
   })),
@@ -640,6 +702,8 @@ const elements: ElementDef[] = [
     color: LAMP.violet,
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
+  // The Bleachers lamp, below the scoop: lit while a souvenir waits there.
+  { type: 'lamp', id: 'lamp.bleachers', x: 392, y: 905, radius: 7, color: LAMP.amber },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
 

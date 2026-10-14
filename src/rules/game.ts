@@ -49,6 +49,16 @@ export const SPIN_BONUS_PLATES = 4;
 export const SPIN_BONUS_HUSTLE = HUSTLE_TARGET / 5;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
+/**
+ * The Bleachers scoop (docs/MVP/01 § 4.8): a souvenir, a ball a fan caught (a parked ball), waits in
+ * it on show. Touch it and the fan throws it back: THROW IT BACK, two balls in play.
+ */
+export const BLEACHERS = 'saucer.BLEACHERS';
+/** Seconds the empty scoop holds a ball before kicking it back out. */
+export const BLEACHERS_HOLD = 1.2;
+/** Seconds from touching the souvenir to the fan throwing it back (the scoop kicks it into play). */
+export const THROW_BACK_DELAY = 0.6;
+
 export interface GameOptions {
   seed?: number;
   innings?: number;
@@ -104,6 +114,13 @@ export class GameRules {
   private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
   hustle = 0;
+  /** A souvenir (a parked ball) waits in the Bleachers. Touch it to start THROW IT BACK. */
+  souvenirReady = false;
+  /** Two-ball multiball is running, and the runs scored in it so far. */
+  throwBack = false;
+  private throwBackRuns = 0;
+  /** The souvenir has been touched and is about to be thrown back (it counts as a ball in play). */
+  private souvenirPending = false;
   /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
   private readonly walkLetters = new Set<string>();
   private readonly buttons = { L: false, R: false };
@@ -215,6 +232,9 @@ export class GameRules {
       case 'saucer':
         this.saucer(e.id);
         return;
+      case 'parkedHit':
+        if (e.id === BLEACHERS) this.souvenirTouched();
+        return;
       case 'drain':
         this.drain();
         return;
@@ -282,6 +302,8 @@ export class GameRules {
     else if (hit === '2B') this.stats.doubles++;
     else if (hit === '3B') this.stats.triples++;
     else this.stats.homeRuns++;
+    // A fan in the Bleachers catches the home-run ball: a souvenir, on show, for this inning.
+    if (hit === 'HR') this.handOutSouvenir();
     if (useHotBat) {
       this.hotBat = false;
       this.bat.clear();
@@ -298,15 +320,92 @@ export class GameRules {
   }
 
   private saucer(id: string): void {
+    if (id === BLEACHERS) {
+      this.bleachersCatch();
+      return;
+    }
+    if (!LIVE.includes(this.state)) return;
+    const position = id.slice('saucer.'.length) as Position;
+    if (this.extraBallLost()) {
+      // The fielder keeps it: that ball is out of play, but it costs no out.
+      this.machine.releaseSaucer(id);
+      return;
+    }
     // Like a drain, a catch is an out in every live state, swing or not: after a hit it charges
     // the next batter (docs/MVP/01 § 4.3).
-    if (!LIVE.includes(this.state)) return;
-    this.out('fielder', id.slice('saucer.'.length) as Position);
+    this.out('fielder', position);
     this.afterOut(this.timing.routeFromSaucer);
+  }
+
+  /**
+   * THROW IT BACK (docs/MVP/01 § 4.8). A souvenir, a second ball, sits in the Bleachers scoop where
+   * the player can see it. Touch it with the ball in play and the fan throws it back: the scoop kicks
+   * it into play. (Any touch counts: in the narrow alley a ball that only rested against it would be
+   * stuck.) A souvenir appears when the batter hits a home run, and lasts the rest of that inning.
+   */
+  private souvenirTouched(): void {
+    if (!this.souvenirReady || this.throwBack || !LIVE.includes(this.state)) return;
+    this.souvenirReady = false;
+    this.throwBack = true;
+    this.throwBackRuns = 0;
+    this.stats.throwBacks++;
+    this.souvenirPending = true;
+    this.emit({ type: 'throwBack' });
+    this.after(THROW_BACK_DELAY, () => {
+      // If THROW IT BACK was cut short (a tilt, a rescue, the inning over), the fan keeps the ball.
+      if (!this.souvenirPending) return;
+      this.souvenirPending = false;
+      this.machine.ejectSaucer(BLEACHERS);
+    });
+  }
+
+  /** A ball in the empty scoop (no souvenir waiting) is held a moment and kicked back out. */
+  private bleachersCatch(): void {
+    this.after(BLEACHERS_HOLD, () => this.machine.ejectSaucer(BLEACHERS));
+  }
+
+  /**
+   * A fan in the Bleachers catches a home-run ball: a souvenir (a parked ball), if there is not one
+   * there already. It is there for the rest of the inning.
+   */
+  private handOutSouvenir(): void {
+    if (this.souvenirReady) return;
+    this.souvenirReady = true;
+    this.machine.parkSouvenir();
+    this.emit({ type: 'souvenirReady' });
+  }
+
+  /**
+   * Down to one ball (or none): normal play resumes with whatever ball is left, the souvenir too if
+   * it is on its way back. Cut short (a tilt, a rescue, the inning over), a souvenir that was never
+   * thrown back stays in the Bleachers.
+   */
+  private endThrowBack(cutShort: boolean): void {
+    if (!this.throwBack) return;
+    this.throwBack = false;
+    if (cutShort && this.souvenirPending) {
+      // It was never thrown back: the fan still has it.
+      this.souvenirPending = false;
+      this.souvenirReady = true;
+    }
+    this.emit({ type: 'throwBackEnd', runs: this.throwBackRuns });
+  }
+
+  /**
+   * A ball has left play (drained or caught) in THROW IT BACK. Its reward is the second ball, so
+   * while another is still in play (a souvenir on its way back counts) losing one costs no
+   * out: it just leaves play. Down to one ball, normal play resumes. True if the loss costs nothing.
+   */
+  private extraBallLost(): boolean {
+    if (!this.throwBack) return false;
+    const left = this.machine.ballsInPlay() + (this.souvenirPending ? 1 : 0);
+    if (left <= 1) this.endThrowBack(false);
+    return left >= 1;
   }
 
   private drain(): void {
     if (!LIVE.includes(this.state)) return;
+    if (this.extraBallLost()) return;
     // Every drain is an out (docs/MVP/01 § 4.2): down an outlane is a foul out, else a strikeout.
     const foul =
       this.now - this.lastOutlane < this.timing.outlaneWindow &&
@@ -344,6 +443,7 @@ export class GameRules {
   }
 
   private score(runs: number): void {
+    if (this.throwBack) this.throwBackRuns += runs;
     this.stats.runs += runs;
     this.stats.runsByInning[this.inning - 1] =
       (this.stats.runsByInning[this.inning - 1] ?? 0) + runs;
@@ -353,6 +453,7 @@ export class GameRules {
   // ---------------------------------------------------------------- pitching
 
   private schedulePitch(delay: number): void {
+    this.endThrowBack(true);
     this.state = 'DEAD';
     this.machine.holdBall();
     const spec = choosePitch(this.inning, this.rng);
@@ -407,6 +508,11 @@ export class GameRules {
   }
 
   private endInning(): void {
+    // A souvenir not thrown back by the end of the inning: the fan keeps it.
+    if (this.souvenirReady) {
+      this.souvenirReady = false;
+      this.machine.clearSouvenir();
+    }
     const lob = runnersOn(this.bases);
     this.stats.leftOnBase += lob;
     this.emit({
@@ -416,6 +522,7 @@ export class GameRules {
       lob,
     });
     this.bases = EMPTY;
+    this.endThrowBack(true);
     this.endRally();
     this.clearPitch();
     this.skillLane = null;
@@ -497,10 +604,11 @@ export class GameRules {
     this.walkLetters.clear();
     if (!LIVE.includes(this.state)) return;
     const result = walk(this.bases);
+    const { runs } = result;
     this.bases = result.bases;
     this.stats.walks++;
-    this.emit({ type: 'walk', runs: result.runs, moved: result.moved });
-    if (result.runs > 0) this.score(result.runs);
+    this.emit({ type: 'walk', runs, moved: result.moved });
+    if (runs > 0) this.score(runs);
   }
 
   /**
@@ -520,11 +628,12 @@ export class GameRules {
     if (this.hustle < HUSTLE_TARGET) return;
     const result = advanceAll(this.bases);
     if (!result) return;
+    const { runs } = result;
     this.hustle = 0;
     this.bases = result.bases;
     this.stats.hustles++;
-    this.emit({ type: 'hustle', runs: result.runs, moved: result.moved });
-    if (result.runs > 0) this.score(result.runs);
+    this.emit({ type: 'hustle', runs, moved: result.moved });
+    if (runs > 0) this.score(runs);
   }
 
   /** A runner can steal whenever one is on base (the right ramp is always armed for them). */
@@ -543,10 +652,11 @@ export class GameRules {
       this.emit({ type: 'stealRamp', result: 'noRunner' });
       return;
     }
+    const { runs } = result;
     this.bases = result.bases;
     this.stats.steals++;
-    this.emit({ type: 'steal', from: result.from, runs: result.runs });
-    if (result.runs > 0) this.score(result.runs);
+    this.emit({ type: 'steal', from: result.from, runs });
+    if (runs > 0) this.score(runs);
   }
 
   // ---------------------------------------------------------------- tilt & stuck balls
@@ -560,6 +670,7 @@ export class GameRules {
     }
     // TILT: flippers die, the PA is an out, the ball drains normally (docs/MVP/01 § 4.9).
     this.tilted = true;
+    this.endThrowBack(true);
     this.machine.setFlippersEnabled(false);
     this.emit({ type: 'tilt' });
     this.out('tilt');
@@ -623,6 +734,8 @@ export class GameRules {
       walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
       hustle: this.hustle,
       hustleTarget: HUSTLE_TARGET,
+      souvenirReady: this.souvenirReady,
+      throwBack: this.throwBack,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,
@@ -658,6 +771,8 @@ export class GameRules {
     for (const l of WALK_LETTERS)
       out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
     for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
+    // The Bleachers: lit while a souvenir waits there; blinking through THROW IT BACK.
+    out['lamp.bleachers'] = this.throwBack ? 'blink' : on(this.souvenirReady);
     // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
     const full = this.hustle >= HUSTLE_TARGET;
     for (let i = 1; i <= 5; i++) {

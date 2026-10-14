@@ -34,6 +34,8 @@ export type PhysicsEventType =
   | 'spinner'
   | 'kickback'
   | 'plunger'
+  /** A ball in play touched a ball parked in a saucer (id: the saucer). */
+  | 'parkedHit'
   | 'tiltBob';
 
 /**
@@ -92,7 +94,11 @@ interface Saucer {
   bowlR: number;
   bowlZ: number;
   settle: number;
+  /** The ball settling in the dish (multiball: only that ball's time counts). */
+  settling: Ball | null;
   holding: boolean;
+  /** The ball the saucer is holding, so it can kick that one back out. */
+  ball: Ball | null;
 }
 
 /** A smooth hump: z = height · (1 − (h/a)²)², flat-tangent at its rim so balls roll over it. */
@@ -113,8 +119,8 @@ interface Sensor {
   zMin: number;
   zMax: number;
   spinner: boolean;
-  /** Ball side of the line at the last substep (NaN until seen). */
-  side: number;
+  /** Each ball's side of the line at the last substep (by index in `balls`; unset until seen). */
+  sides: number[];
 }
 
 export interface SpinnerState {
@@ -165,6 +171,12 @@ interface DropTarget {
 }
 
 const MM = 0.001;
+
+/** A ball out of touch with a flipper this long (s) touches it afresh (a new swing). */
+const SWING_GAP = 0.05;
+
+/** Restitution of one steel ball striking another. */
+const BALL_RESTITUTION = 0.9;
 
 /** Seconds a retractable device takes to rise and to sink. */
 const POP_RISE_TIME = 0.15;
@@ -226,6 +238,8 @@ export class World {
   flippersEnabled = true;
 
   private readonly cooldowns = new Map<string, number>();
+  /** Last sim time each ball touched each flipper, so a swing is counted once per touch. */
+  private readonly flipperTouch = new WeakMap<Ball, Map<string, number>>();
   private readonly rng: Rng;
   private grid: Grid;
   private gx = 0;
@@ -275,9 +289,20 @@ export class World {
     return b;
   }
 
-  /** The single ball in play, created on demand (MVP has one ball). */
+  /** The main ball, created on demand: serves and pitches use it. Never a parked ball. */
   ball(): Ball {
-    return this.balls[0] ?? this.addBall(0, 0);
+    return this.balls.find((b) => !b.parkedIn) ?? this.addBall(0, 0);
+  }
+
+  /** The balls on the playfield (multiball can have more than one). */
+  activeBalls(): Ball[] {
+    return this.balls.filter((b) => b.active);
+  }
+
+  /** A ball that is neither in play nor held in a saucer, created if every ball is busy. */
+  spareBall(): Ball {
+    const held = new Set(this.saucers.map((s) => s.ball));
+    return this.balls.find((b) => !b.active && !held.has(b)) ?? this.addBall(0, 0);
   }
 
   setFlipper(id: string, pressed: boolean): void {
@@ -374,6 +399,8 @@ export class World {
     if (!s) return;
     s.holding = false;
     s.settle = 0;
+    s.settling = null;
+    s.ball = null;
     ball.place(s.cx, s.cy, this.params.ballRadius);
     const a = angleDeg * DEG;
     ball.vx = speed * dcos(a);
@@ -387,7 +414,12 @@ export class World {
     this.events.length = 0;
     this.impacts.length = 0;
     this.resetDropTargets();
-    this.releaseSaucers();
+    for (const s of this.saucers) {
+      s.holding = false;
+      s.settle = 0;
+      s.settling = null;
+      s.ball = null;
+    }
     for (const r of this.retractables) {
       r.raised = false;
       this.setLift(r, 0);
@@ -403,11 +435,64 @@ export class World {
     this.bob.x = this.bob.y = this.bob.vx = this.bob.vy = 0;
   }
 
-  /** Clears saucer holds (the ball was routed elsewhere). */
+  /**
+   * Kicks the ball a saucer is holding back into play (a scoop's eject, or a fielder's throw back
+   * during multiball). Nothing happens if the saucer is empty.
+   */
+  kickOutSaucer(saucerId: string, speed: number, angleDeg: number): boolean {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s?.holding || !s.ball) return false;
+    this.ejectFromSaucer(s.ball, saucerId, speed, angleDeg);
+    return true;
+  }
+
+  /**
+   * Parks a ball on show in a saucer (the souvenir in the Bleachers): it sits in the dish, drawn but not
+   * simulated, and a ball in play that strikes it fires `parkedHit`. Kick it out to put it in play.
+   */
+  parkBall(saucerId: string): void {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s || s.holding) return;
+    const b = this.spareBall();
+    // Resting at the bottom of the dish.
+    b.place(s.cx, s.cy, s.bowlZ - (s.bowlR - b.radius));
+    b.active = false;
+    b.parkedIn = saucerId;
+    s.holding = true;
+    s.settle = 0;
+    s.settling = null;
+    s.ball = b;
+  }
+
+  /** Takes the parked ball out of a saucer: off show, and free to be used as a spare. */
+  unparkBall(saucerId: string): void {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s?.ball?.parkedIn) return;
+    s.ball.parkedIn = null;
+    s.holding = false;
+    s.settle = 0;
+    s.settling = null;
+    s.ball = null;
+  }
+
+  /** Lets one saucer go of the ball it holds; the ball stays out of play. */
+  releaseSaucer(saucerId: string): void {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s || s.ball?.parkedIn) return;
+    s.holding = false;
+    s.settle = 0;
+    s.settling = null;
+    s.ball = null;
+  }
+
+  /** Clears saucer holds (the ball was routed elsewhere). A parked ball stays where it is. */
   releaseSaucers(): void {
     for (const s of this.saucers) {
+      if (s.ball?.parkedIn) continue;
       s.holding = false;
       s.settle = 0;
+      s.settling = null;
+      s.ball = null;
     }
   }
 
@@ -484,7 +569,8 @@ export class World {
       if (f.eos && !wasEos) this.emit('eos', f.id);
     }
 
-    for (const b of this.balls) {
+    for (let bi = 0; bi < this.balls.length; bi++) {
+      const b = this.balls[bi]!;
       if (!b.active) continue;
       b.vx += this.gx * h;
       b.vy += this.gy * h;
@@ -514,12 +600,74 @@ export class World {
         b.vz *= k;
       }
 
-      this.updateSensors(b);
+      this.updateSensors(b, bi);
       this.updateKickbacks(b);
       this.updateSaucers(b, h);
       if (b.active && b.py < this.drainY && b.pz < 0.05) {
         b.active = false;
         this.emit('drain', 'drain');
+      }
+    }
+    if (this.balls.length > 1) this.collideBalls();
+  }
+
+  /**
+   * Multiball: steel on steel. Equal masses, so overlapping balls are pushed apart equally and
+   * swap the approaching part of their velocities (less a little for restitution).
+   */
+  private collideBalls(): void {
+    const balls = this.balls;
+    for (let i = 0; i < balls.length; i++) {
+      const a = balls[i]!;
+      if (!a.active && !a.parkedIn) continue;
+      for (let j = i + 1; j < balls.length; j++) {
+        const b = balls[j]!;
+        if (!b.active && !b.parkedIn) continue;
+        if (!a.active && !b.active) continue;
+        const dx = b.px - a.px;
+        const dy = b.py - a.py;
+        const dz = b.pz - a.pz;
+        const min = a.radius + b.radius;
+        const d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 >= min * min || d2 < 1e-12) continue;
+        const d = Math.sqrt(d2);
+        const nx = dx / d;
+        const ny = dy / d;
+        const nz = dz / d;
+        // A parked ball does not move: the ball in play takes the whole push and bounce.
+        const wa = !a.active ? 0 : !b.active ? 1 : 0.5;
+        const wb = 1 - wa;
+        const push = min - d;
+        a.px -= nx * push * wa;
+        a.py -= ny * push * wa;
+        a.pz -= nz * push * wa;
+        b.px += nx * push * wb;
+        b.py += ny * push * wb;
+        b.pz += nz * push * wb;
+        const vn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny + (a.vz - b.vz) * nz;
+        if (vn <= 0) continue;
+        if (vn > 0.12 && this.impacts.length < 64) {
+          this.impacts.push({
+            speed: vn,
+            material: 'metal',
+            x: a.px + nx * a.radius,
+            y: a.py + ny * a.radius,
+            z: a.pz,
+          });
+        }
+        const parked = !a.active ? a : !b.active ? b : null;
+        if (parked?.parkedIn) {
+          const ready = this.cooldowns.get(parked.parkedIn) ?? -1;
+          if (this.time >= ready) this.emit('parkedHit', parked.parkedIn);
+          this.cooldowns.set(parked.parkedIn, this.time + 0.3);
+        }
+        const k = (1 + BALL_RESTITUTION) * vn;
+        a.vx -= nx * k * wa;
+        a.vy -= ny * k * wa;
+        a.vz -= nz * k * wa;
+        b.vx += nx * k * wb;
+        b.vy += ny * k * wb;
+        b.vz += nz * k * wb;
       }
     }
   }
@@ -849,7 +997,19 @@ export class World {
       const ux = -f.omega * ry;
       const uy = f.omega * rx;
       this.resolve(b, nx, ny, 0, depth, 'rubberFlipper', ux, uy, 0, f, rx, ry);
-      if (f.pressed && this.ready(`swing:${f.id}`, 0.05)) this.emit('swing', f.id);
+      // A swing is a ball meeting a held-up flipper: once per touch. A ball cradled on the bat stays
+      // in touch, so it swings once, not over and over (in multiball a run of swings would let the
+      // other ball score a hit off every bumper it touched). Only contact with the button held
+      // counts as the touch: a ball rolling down the resting bat is flipped from rest by the press,
+      // and that is a swing too (counting the passive roll as the touch used to swallow it).
+      if (!f.pressed) continue;
+      const touch = this.flipperTouch.get(b) ?? new Map<string, number>();
+      this.flipperTouch.set(b, touch);
+      const last = touch.get(f.id) ?? -Infinity;
+      touch.set(f.id, this.time);
+      if (this.time - last > SWING_GAP && this.ready(`swing:${f.id}`, 0.05)) {
+        this.emit('swing', f.id);
+      }
     }
   }
 
@@ -972,13 +1132,13 @@ export class World {
 
   // ---------------------------------------------------------------- sensors & devices
 
-  private updateSensors(b: Ball): void {
+  private updateSensors(b: Ball, bi: number): void {
     for (const s of this.sensors) {
       const sx = s.bx - s.ax;
       const sy = s.by - s.ay;
       const side = sx * (b.py - s.ay) - sy * (b.px - s.ax);
-      const prev = s.side;
-      s.side = side;
+      const prev = s.sides[bi] ?? NaN;
+      s.sides[bi] = side;
       if (Number.isNaN(prev) || prev < 0 === side < 0) continue;
       if (b.pz < s.zMin || b.pz > s.zMax) continue;
       const len2 = sx * sx + sy * sy;
@@ -1019,16 +1179,22 @@ export class World {
       const dy = b.py - s.cy;
       const inside = dx * dx + dy * dy < s.a * 0.6 * (s.a * 0.6) && b.pz < b.radius;
       if (inside && b.speed() < p.saucerCaptureSpeed) {
+        if (s.settling !== b) {
+          s.settling = b;
+          s.settle = 0;
+        }
         s.settle += h;
         if (s.settle >= p.saucerCaptureTime) {
           s.holding = true;
           s.settle = 0;
+          s.ball = b;
           b.active = false;
           b.vx = b.vy = b.vz = 0;
           this.emit('saucer', s.id);
         }
-      } else {
+      } else if (s.settling === b) {
         s.settle = 0;
+        s.settling = null;
       }
     }
   }
@@ -1139,7 +1305,7 @@ export class World {
         zMin: zMin * MM,
         zMax: zMax * MM,
         spinner,
-        side: NaN,
+        sides: [],
       });
     };
 
@@ -1317,7 +1483,9 @@ export class World {
             bowlR,
             bowlZ: bowlR - d,
             settle: 0,
+            settling: null,
             holding: false,
+            ball: null,
           });
           // Rubber-faced back lip (the fielder standee base).
           const la = el.lipAngle * DEG;

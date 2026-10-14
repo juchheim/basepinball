@@ -92,6 +92,12 @@ export function playfieldSvg(table: TableDef): string {
     els.find((e): e is LampDef => e.type === 'lamp' && e.id === id);
   const saucers = els.filter((e): e is SaucerDef => e.type === 'saucer');
   const out: string[] = [];
+  /**
+   * A printed label anchored at (x, y) (y is the baseline). Every label carries a dark outline so
+   * it reads against the mowing checker. Labels are big on purpose: seen from the player's end of
+   * the cabinet, 1 mm of playfield is under 1 px of screen, so anything below about 14 mm is a
+   * smudge (playtest: "none of it is legible").
+   */
   const text = (
     x: number,
     y: number,
@@ -99,9 +105,10 @@ export function playfieldSvg(table: TableDef): string {
     size: number,
     fill = C.chalk,
     extra = '',
+    anchor: 'start' | 'middle' | 'end' = 'middle',
   ): void => {
     out.push(
-      `<text x="${x.toFixed(1)}" y="${Y(y).toFixed(1)}" font-size="${size}" fill="${fill}" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" ${extra}>${s}</text>`,
+      `<text x="${x.toFixed(1)}" y="${Y(y).toFixed(1)}" font-size="${size}" fill="${fill}" stroke="${C.ink}" stroke-width="${(size * 0.14).toFixed(2)}" stroke-linejoin="round" paint-order="stroke" text-anchor="${anchor}" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="${(size * 0.06).toFixed(2)}" ${extra}>${s}</text>`,
     );
   };
 
@@ -124,20 +131,11 @@ export function playfieldSvg(table: TableDef): string {
   out.push(
     `<path d="${arcPath(30)}" fill="none" stroke="${C.gold}" stroke-width="1.6" opacity="0.9"/>`,
   );
-  out.push(`<path id="arcText" d="${arcPath(9)}" fill="none"/>`);
-  out.push(
-    `<text font-size="11" fill="${C.chalk}" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="3" opacity="0.85"><textPath href="#arcText" startOffset="50%" text-anchor="middle">PLUNGER PARK · HOME OF THE TILT CITY SILVERBALLS</textPath></text>`,
-  );
-  // Distance markers on the warning track.
-  text(70, 1030, '330', 9, C.chalk, 'opacity="0.8"');
-  text(295, 1150, '400', 9, C.chalk, 'opacity="0.8"');
-  text(520, 1030, '330', 9, C.chalk, 'opacity="0.8"');
 
   // ---- the Gap: dark "batter's eye" behind the pop nest
   out.push(
     `<polygon points="${[pt(240, 805), pt(185, 880), pt(185, 1050), pt(218, 1018), pt(332, 1018), pt(365, 1050), pt(365, 880), pt(310, 805)].join(' ')}" fill="#0f2a17"/>`,
   );
-  text(275, 1000, 'THE GAP', 8, C.gold, 'opacity="0.7"');
 
   // ---- infield
   const home = { x: 275, y: 230 };
@@ -196,25 +194,28 @@ export function playfieldSvg(table: TableDef): string {
   out.push(
     `<polygon points="${[pt(268, 236), pt(282, 236), pt(282, 229), pt(275, 222), pt(268, 229)].join(' ')}" fill="${C.chalk}"/>`,
   );
-  text(275, 302, 'FB · CH · CB', 6, C.chalk, 'opacity="0.75"');
 
-  // ---- fielders: leather "glove" rings with stitching, position and scorebook number
-  const POS: Record<string, number> = { '1B': 3, '2B': 4, '3B': 5, SS: 6, LF: 7, CF: 8, RF: 9 };
+  // ---- fielders: leather "glove" rings with stitching. No printed names: the standees say who
+  // they are, and their labels were too small to read anyway.
   for (const s of saucers) {
+    if (!s.label) {
+      // The Bleachers scoop: an amber-ringed dish (its sign goes with the labels below).
+      out.push(
+        `<circle cx="${s.x}" cy="${Y(s.y)}" r="${s.radius + 7}" fill="${C.ink}" opacity="0.85"/>`,
+      );
+      out.push(
+        `<circle cx="${s.x}" cy="${Y(s.y)}" r="${s.radius + 4.5}" fill="none" stroke="${C.amber}" stroke-width="1.6"/>`,
+      );
+      continue;
+    }
     out.push(`<circle cx="${s.x}" cy="${Y(s.y)}" r="${s.radius + 7}" fill="#5a3a22"/>`);
     out.push(
       `<circle cx="${s.x}" cy="${Y(s.y)}" r="${s.radius + 4.5}" fill="none" stroke="${C.chalk}" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>`,
     );
-    const label = s.label ?? '';
-    // Put the label on the playfield side (opposite the lip).
-    const a = ((s.lipAngle + 180) * Math.PI) / 180;
-    const lx = s.x + Math.cos(a) * (s.radius + 15);
-    const ly = s.y + Math.sin(a) * (s.radius + 15) - 3;
-    text(lx, ly, `${label} ${POS[label] ?? ''}`, 9, C.chalk);
   }
 
-  // ---- shot arrows and labels (the arrow lamps sit on top)
-  const shot = (id: string, label: string, color: string): void => {
+  // ---- shot arrows (the arrow lamps sit on top)
+  const arrow = (id: string, color: string): void => {
     const l = lamp(id);
     if (!l || l.arrow === undefined) return;
     const a = (l.arrow * Math.PI) / 180;
@@ -226,48 +227,67 @@ export function playfieldSvg(table: TableDef): string {
     out.push(
       `<polygon points="${[pt(tip.x, tip.y), pt(back.x + nx, back.y + ny), pt(back.x + nx * 0.25 + Math.cos(a) * 9, back.y + ny * 0.25 + Math.sin(a) * 9), pt(back.x - nx * 0.25 + Math.cos(a) * 9, back.y - ny * 0.25 + Math.sin(a) * 9), pt(back.x - nx, back.y - ny)].join(' ')}" fill="${color}" opacity="0.28" stroke="${color}" stroke-width="1.2"/>`,
     );
-    text(back.x - Math.cos(a) * 6, back.y - Math.sin(a) * 6 - 12, label, 8.5, color);
   };
-  shot('arrow.orbit.L', 'TRIPLE', C.amber);
-  shot('arrow.ramp.HR', 'HOME RUN', C.red);
-  shot('arrow.gap', '1B · 2B', C.chalk);
-  shot('arrow.ramp.STEAL', 'STEAL', C.teal);
-  shot('arrow.orbit.R', 'TRIPLE', C.amber);
-  // Ramp signage near the entrances.
-  text(142, 772, 'OVER THE WALL', 7, C.red);
-  text(408, 772, 'STEAL', 7, C.teal);
+  arrow('arrow.orbit.L', C.amber);
+  arrow('arrow.ramp.HR', C.red);
+  arrow('arrow.gap', C.chalk);
+  arrow('arrow.ramp.STEAL', C.teal);
+  arrow('arrow.orbit.R', C.amber);
 
-  // ---- rally meter, feature inserts, banks, lanes
-  text(275, 566, 'RALLY', 7, C.gold);
-  text(275, 598, 'HUSTLE', 7, '#7bd88f');
+  // ---- labels: one short, big word per shot, under its arrow, saying what the shot does. Status
+  // meters and banks get their name once; everything decorative went (the player reads the
+  // distances and the park's name off the backbox).
+  text(176, 650, 'HOME RUN', 24, C.red);
+  text(275, 698, 'HITS', 18, C.chalk);
+  text(395, 650, 'STEAL', 24, C.teal);
+  // The orbit arrows are hidden under the wireforms, so TRIPLE goes just inside each orbit's
+  // funnel, where the shot is aimed from.
+  text(72, 622, 'TRIPLE', 15, C.amber);
+  text(486, 638, 'TRIPLE', 15, C.amber);
+  // The two meters' names sit to the right of their lamp rows.
+  text(322, 564, 'RALLY', 13, C.gold, '', 'start');
+  text(322, 596, 'HUSTLE', 13, '#7bd88f', '', 'start');
+  // THROW IT BACK: the Bleachers' alley is too narrow for a sign across it, so it runs up the
+  // alley, below the scoop's lamp.
+  text(382, 856, 'MULTIBALL', 12, C.amber, `transform="rotate(-90 382 ${Y(856)})"`);
   const hot = lamp('lamp.hotbat');
-  if (hot) text(hot.x, hot.y - 18, 'HOT BAT', 8, C.red);
-  // The W-A-L-K bank's sign, behind its lamps.
-  const wa = lamp('lamp.standup.A');
-  const wl = lamp('lamp.standup.L');
-  if (wa && wl) text((wa.x + wl.x) / 2 + 10, (wa.y + wl.y) / 2 + 9, 'WALK', 8, C.violet);
-  for (const l of els.filter(
-    (e): e is LampDef => e.type === 'lamp' && /^lamp\.(drop|standup)\./.test(e.id),
-  )) {
-    text(l.x, l.y - 3, l.id.slice(-1), 6.5, C.ink);
-  }
+  if (hot) text(hot.x, hot.y - 26, 'HOT BAT', 16, C.red);
+  const wa = lamp('lamp.standup.W');
+  if (wa) text(wa.x + 30, wa.y + 14, 'WALK', 16, C.violet);
   for (const l of els.filter(
     (e): e is LampDef => e.type === 'lamp' && e.id.startsWith('lamp.lane.'),
   )) {
-    text(l.x, l.y + 14, l.id.slice(-1), 11, C.gold);
+    // The lanes are at the far end, squashed by the perspective and half hidden behind the 2B
+    // bumpers, so each letter fills its lane and is stretched tall to read square from the bat.
+    const by = Y(l.y + 18);
+    text(
+      l.x,
+      l.y + 18,
+      l.id.slice(-1),
+      34,
+      C.gold,
+      `transform="translate(0 ${by}) scale(1 1.6) translate(0 ${-by})"`,
+    );
   }
   const kb = lamp('lamp.kickback');
-  if (kb) text(kb.x + 2, kb.y + 14, 'KICKBACK', 5.5, C.gold);
+  if (kb)
+    text(
+      kb.x,
+      kb.y + 50,
+      'KICKBACK',
+      12,
+      C.gold,
+      `transform="rotate(-90 ${kb.x} ${Y(kb.y + 50)})"`,
+    );
 
-  // ---- lower playfield: foul territory, dugout signage, catcher
-  text(20, 260, 'FOUL', 8, C.chalk, `transform="rotate(-90 20 ${Y(260)})" opacity="0.8"`);
-  text(530, 260, 'FOUL', 8, C.chalk, `transform="rotate(90 530 ${Y(260)})" opacity="0.8"`);
+  // ---- lower playfield: foul territory (the outlanes), catcher
+  text(26, 290, 'FOUL', 16, C.chalk, `transform="rotate(-90 26 ${Y(290)})"`);
+  text(524, 290, 'FOUL', 16, C.chalk, `transform="rotate(90 524 ${Y(290)})"`);
   out.push(`<ellipse cx="275" cy="${Y(70)}" rx="44" ry="30" fill="#6b4426"/>`);
   out.push(`<ellipse cx="275" cy="${Y(74)}" rx="26" ry="16" fill="#3e2614"/>`);
   out.push(
     `<ellipse cx="275" cy="${Y(70)}" rx="44" ry="30" fill="none" stroke="${C.chalk}" stroke-width="1" stroke-dasharray="3 2" opacity="0.6"/>`,
   );
-  text(275, 32, 'CATCHER', 8, C.chalk, 'opacity="0.8"');
 
   // ---- lamp sockets: a dark ring under every insert so lamps read as inserts
   for (const l of els.filter((e): e is LampDef => e.type === 'lamp' && e.arrow === undefined)) {

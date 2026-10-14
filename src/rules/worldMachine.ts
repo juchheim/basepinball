@@ -1,6 +1,10 @@
 import type { World } from '../physics/world';
+import { BLEACHERS } from './game';
 import type { PitchSpec } from './pitching';
 import type { Machine } from './types';
+
+/** A saucer's eject kick (m/s). */
+const SAUCER_KICK = 1.4;
 
 /** Connects the rules to the physics world, like a table's coil and switch drivers. */
 export class WorldMachine implements Machine {
@@ -20,8 +24,29 @@ export class WorldMachine implements Machine {
   }
 
   holdBall(): void {
-    const b = this.world.balls[0];
-    if (b) b.active = false;
+    for (const b of this.world.balls) b.active = false;
+    this.world.releaseSaucers();
+  }
+
+  ejectSaucer(id: string): void {
+    // Straight back down the table, with a little hop out of the dish.
+    this.world.kickOutSaucer(id, SAUCER_KICK, 270);
+  }
+
+  releaseSaucer(id: string): void {
+    this.world.releaseSaucer(id);
+  }
+
+  parkSouvenir(): void {
+    this.world.parkBall(BLEACHERS);
+  }
+
+  clearSouvenir(): void {
+    this.world.unparkBall(BLEACHERS);
+  }
+
+  ballsInPlay(): number {
+    return this.world.activeBalls().length;
   }
 
   setMagnet(power: number): void {
@@ -47,20 +72,21 @@ export class WorldMachine implements Machine {
 
   ballSearch(): void {
     // A real ball search pulses every coil; a small alternating kick frees a wedged ball.
-    const b = this.world.balls[0];
-    if (!b || !b.active) return;
     this.searchFlip = -this.searchFlip;
-    b.vx += 0.25 * this.searchFlip;
-    b.vy += 0.35;
-    b.vz += 0.3;
+    for (const b of this.world.activeBalls()) {
+      b.vx += 0.25 * this.searchFlip;
+      b.vy += 0.35;
+      b.vz += 0.3;
+    }
   }
 
   ballInPlay(): boolean {
-    return this.world.balls[0]?.active ?? false;
+    return this.world.activeBalls().length > 0;
   }
 
   ballSpeed(): number {
-    const b = this.world.balls[0];
-    return b && b.active ? b.speed() : 0;
+    let max = 0;
+    for (const b of this.world.activeBalls()) max = Math.max(max, b.speed());
+    return max;
   }
 }
