@@ -480,17 +480,16 @@ const elements: ElementDef[] = [
   { type: 'post', x: STEAL_MOUTH_X + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: STEAL_MOUTH_X - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
-  // ---- the Bullpen: a scoop deep in right field, in the pocket between the Steal ramp and the right
-  // orbit's guide. A reliever (a second ball) waits in it, on show; touch him with the ball in play
-  // and DOUBLEHEADER, two-ball multiball, begins (docs/MVP/01 § 4.8). Up the alley beside the Gap
-  // it was touched almost every inning (5 DOUBLEHEADERS a game in the sim, wherever it sat in the
-  // alley); here a ball reaches it about once every two games. No glove post: the reliever is the
-  // target, and an empty scoop just kicks the ball back out. No standee: the dish is the mound.
+  // ---- the Bullpen: a scoop deep in right-centre, up the alley between the Steal ramp and the Gap.
+  // A reliever (a second ball) waits in it, on show; touch him with the ball in play and
+  // DOUBLEHEADER, two-ball multiball, begins (docs/MVP/01 § 4.8). (In the pocket on the other side of
+  // the Steal ramp, the sim reached it but a player could not see how.) No glove post: the reliever is
+  // the target, and an empty scoop just kicks the ball back out. No standee: the dish is the mound.
   {
     type: 'saucer',
     id: 'saucer.BULLPEN',
-    x: 480,
-    y: 890,
+    x: 392,
+    y: 940,
     radius: 20,
     depth: 7,
     lipAngle: 90,
@@ -674,7 +673,7 @@ const elements: ElementDef[] = [
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
   // The Bullpen's lamp, below the scoop: lit while a reliever waits there.
-  { type: 'lamp', id: 'lamp.bullpen', x: 480, y: 855, radius: 7, color: LAMP.amber },
+  { type: 'lamp', id: 'lamp.bullpen', x: 392, y: 905, radius: 7, color: LAMP.amber },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
 

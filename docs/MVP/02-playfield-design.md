@@ -68,8 +68,8 @@ regular pinball.
 7. **Shot fan** (y ≈ 680–810): left orbit, LF, left ramp, SS, **the Gap** mouth, 2B, right ramp,
    RF, right orbit.
 8. **The Gap** (y ≈ 805–1030): the center pop-bumper nest (singles in front, doubles behind).
-   Up the alley between it and the HR ramp: **CF**. Deep in right field, between the Steal ramp
-   and the right orbit: **the Bullpen** scoop.
+   Up the alleys either side of it, between the Gap and the ramps: **CF** (left) and **the
+   Bullpen** scoop (right).
 9. **Top** (y > 1030): R-B-I rollover lanes, the orbit arch, corner kicker bumpers (triples),
    ramp crests, the shooter lane exit.
 
@@ -129,7 +129,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
 | `saucer.2B` | Fielder saucer | (348, 750) | Between the Gap and the right ramp (LF, SS, 2B and RF form a mirror-symmetric arc, SS and 2B at 750 and LF and RF at 736, low enough to clear the wider Steal ramp mouth) |
 | `saucer.CF` | Fielder saucer, deep left-centre | (158, 940) | Up the alley between the HR ramp and the Gap. Its glove post is set into the Gap wall (above the dish, in an alley this narrow, it left a notch that held balls). |
-| `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out) where a reliever (a parked ball) waits on show, with a lamp below it | (480, 890); lamp at (480, 855) | In the pocket between the Steal ramp and the right orbit's guide. Touch the reliever to start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
+| `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out) where a reliever (a parked ball) waits on show, with a lamp below it | (392, 940); lamp at (392, 905) | Up the alley between the Steal ramp and the Gap. Touch the reliever to start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
 | `saucer.RF` | Fielder saucer | (465, 736) | Between the right ramp and the right orbit (level with LF) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
@@ -467,3 +467,6 @@ move 2B out of the way of balls hit toward the Bullpen.
 **Result (sim bot, 500 games):** runs per game 9.93 (8.24 with the two-lock Bullpen up the alley,
 7.06 before DOUBLEHEADER), 0.34 DOUBLEHEADERS a game at 5.8 runs each, ball rescues 0.02 a game.
 
+**Playtest:** in the pocket between the Steal ramp and the right orbit the Bullpen could not be
+found in play (the sim reached it, a player could not see how), so it went back up the alley
+between the Steal ramp and the Gap, at (392, 940).
