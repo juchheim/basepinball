@@ -627,22 +627,23 @@ const elements: ElementDef[] = [
 
   // ---- whitebox lamps (coloured discs standing in for printed inserts)
   { type: 'lamp', id: 'arrow.orbit.L', x: 24, y: 745, radius: 12, color: LAMP.amber, arrow: 90 },
-  // The two ramp arrows mirror each other, up and outside of SS and 2B.
+  // The two ramp arrows mirror each other, up between the OF bumpers and SS / 2B, close under
+  // their ramps' mouths; the Gap's arrow sits up between SS and 2B, under the nest.
   {
     type: 'lamp',
     id: 'arrow.ramp.HR',
-    x: mx(392),
-    y: 664,
+    x: mx(400),
+    y: 700,
     radius: 12,
     color: LAMP.red,
     arrow: 100,
   },
-  { type: 'lamp', id: 'arrow.gap', x: 275, y: 665, radius: 12, color: LAMP.ivory, arrow: 90 },
+  { type: 'lamp', id: 'arrow.gap', x: 275, y: 740, radius: 12, color: LAMP.ivory, arrow: 90 },
   {
     type: 'lamp',
     id: 'arrow.ramp.STEAL',
-    x: 392,
-    y: 664,
+    x: 400,
+    y: 700,
     radius: 12,
     color: LAMP.teal,
     arrow: 80,
@@ -660,7 +661,7 @@ const elements: ElementDef[] = [
     type: 'lamp',
     id: `rally.${i + 1}`,
     x: 243 + i * 16,
-    y: 580,
+    y: 568,
     radius: 5,
     color: LAMP.gold,
   })),
@@ -669,7 +670,7 @@ const elements: ElementDef[] = [
     type: 'lamp',
     id: `hustle.${i + 1}`,
     x: 243 + i * 16,
-    y: 612,
+    y: 600,
     radius: 5,
     color: LAMP.mint,
   })),

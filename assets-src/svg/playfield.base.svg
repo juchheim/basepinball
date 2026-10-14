@@ -74,17 +74,17 @@
 <circle cx="392" cy="230" r="27" fill="#0b1020" opacity="0.85"/>
 <circle cx="392" cy="230" r="24.5" fill="none" stroke="#ff9f1c" stroke-width="1.6"/>
 <polygon points="24.00,404.6 9.00,448.8 20.25,439.8 27.75,439.8 39.00,448.8" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
-<polygon points="154.46,485.91 147.36,532.04 156.88,521.23 164.26,519.92 176.90,526.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>
-<polygon points="275.00,484.6 260.00,528.8 271.25,519.8 278.75,519.8 290.00,528.8" fill="#f7f4ec" opacity="0.28" stroke="#f7f4ec" stroke-width="1.2"/>
-<polygon points="395.54,485.91 373.10,526.83 385.74,519.92 393.12,521.23 402.64,532.04" fill="#2ec4b6" opacity="0.28" stroke="#2ec4b6" stroke-width="1.2"/>
+<polygon points="146.46,449.91 139.36,496.04 148.88,485.23 156.26,483.92 168.90,490.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>
+<polygon points="275.00,409.6 260.00,453.8 271.25,444.8 278.75,444.8 290.00,453.8" fill="#f7f4ec" opacity="0.28" stroke="#f7f4ec" stroke-width="1.2"/>
+<polygon points="403.54,449.91 381.10,490.83 393.74,483.92 401.12,485.23 410.64,496.04" fill="#2ec4b6" opacity="0.28" stroke="#2ec4b6" stroke-width="1.2"/>
 <polygon points="526.00,404.6 511.00,448.8 522.25,439.8 529.75,439.8 541.00,448.8" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
-<text x="150.0" y="576.0" font-size="24" fill="#ff3b3b" stroke="#0b1020" stroke-width="3.36" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="1.44" >HOME RUN</text>
-<text x="275.0" y="549.0" font-size="16" fill="#f7f4ec" stroke="#0b1020" stroke-width="2.24" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.96" >HITS</text>
-<text x="414.0" y="576.0" font-size="24" fill="#2ec4b6" stroke="#0b1020" stroke-width="3.36" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="1.44" >STEAL</text>
+<text x="176.0" y="520.0" font-size="24" fill="#ff3b3b" stroke="#0b1020" stroke-width="3.36" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="1.44" >HOME RUN</text>
+<text x="275.0" y="472.0" font-size="18" fill="#f7f4ec" stroke="#0b1020" stroke-width="2.52" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="1.08" >HITS</text>
+<text x="395.0" y="520.0" font-size="24" fill="#2ec4b6" stroke="#0b1020" stroke-width="3.36" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="1.44" >STEAL</text>
 <text x="72.0" y="548.0" font-size="15" fill="#ff9f1c" stroke="#0b1020" stroke-width="2.10" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.90" >TRIPLE</text>
 <text x="486.0" y="532.0" font-size="15" fill="#ff9f1c" stroke="#0b1020" stroke-width="2.10" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.90" >TRIPLE</text>
-<text x="322.0" y="594.0" font-size="13" fill="#f2b33d" stroke="#0b1020" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" text-anchor="start" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.78" >RALLY</text>
-<text x="322.0" y="562.0" font-size="13" fill="#7bd88f" stroke="#0b1020" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" text-anchor="start" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.78" >HUSTLE</text>
+<text x="322.0" y="606.0" font-size="13" fill="#f2b33d" stroke="#0b1020" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" text-anchor="start" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.78" >RALLY</text>
+<text x="322.0" y="574.0" font-size="13" fill="#7bd88f" stroke="#0b1020" stroke-width="1.82" stroke-linejoin="round" paint-order="stroke" text-anchor="start" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.78" >HUSTLE</text>
 <text x="382.0" y="314.0" font-size="12" fill="#ff9f1c" stroke="#0b1020" stroke-width="1.68" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.72" transform="rotate(-90 382 314)">MULTIBALL</text>
 <text x="95.0" y="676.0" font-size="16" fill="#ff3b3b" stroke="#0b1020" stroke-width="2.24" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.96" >HOT BAT</text>
 <text x="464.7" y="631.5" font-size="16" fill="#9b5de5" stroke="#0b1020" stroke-width="2.24" stroke-linejoin="round" paint-order="stroke" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.96" >WALK</text>
@@ -97,16 +97,16 @@
 <ellipse cx="275" cy="1100" rx="44" ry="30" fill="#6b4426"/>
 <ellipse cx="275" cy="1096" rx="26" ry="16" fill="#3e2614"/>
 <ellipse cx="275" cy="1100" rx="44" ry="30" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="3 2" opacity="0.6"/>
-<circle cx="243" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="259" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="275" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="291" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="307" cy="590" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="243" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="259" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="275" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="291" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
-<circle cx="307" cy="558" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="243" cy="602" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="259" cy="602" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="275" cy="602" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="291" cy="602" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="307" cy="602" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="243" cy="570" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="259" cy="570" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="275" cy="570" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="291" cy="570" r="6.6" fill="#0b1020" opacity="0.85"/>
+<circle cx="307" cy="570" r="6.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="400" cy="815" r="10.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="275" cy="690" r="10.6" fill="#0b1020" opacity="0.85"/>
 <circle cx="150" cy="815" r="10.6" fill="#0b1020" opacity="0.85"/>

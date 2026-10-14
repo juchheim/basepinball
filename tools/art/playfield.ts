@@ -237,16 +237,16 @@ export function playfieldSvg(table: TableDef): string {
   // ---- labels: one short, big word per shot, under its arrow, saying what the shot does. Status
   // meters and banks get their name once; everything decorative went (the player reads the
   // distances and the park's name off the backbox).
-  text(150, 594, 'HOME RUN', 24, C.red);
-  text(275, 621, 'HITS', 16, C.chalk);
-  text(414, 594, 'STEAL', 24, C.teal);
+  text(176, 650, 'HOME RUN', 24, C.red);
+  text(275, 698, 'HITS', 18, C.chalk);
+  text(395, 650, 'STEAL', 24, C.teal);
   // The orbit arrows are hidden under the wireforms, so TRIPLE goes just inside each orbit's
   // funnel, where the shot is aimed from.
   text(72, 622, 'TRIPLE', 15, C.amber);
   text(486, 638, 'TRIPLE', 15, C.amber);
   // The two meters' names sit to the right of their lamp rows.
-  text(322, 576, 'RALLY', 13, C.gold, '', 'start');
-  text(322, 608, 'HUSTLE', 13, '#7bd88f', '', 'start');
+  text(322, 564, 'RALLY', 13, C.gold, '', 'start');
+  text(322, 596, 'HUSTLE', 13, '#7bd88f', '', 'start');
   // THROW IT BACK: the Bleachers' alley is too narrow for a sign across it, so it runs up the
   // alley, below the scoop's lamp.
   text(382, 856, 'MULTIBALL', 12, C.amber, `transform="rotate(-90 382 ${Y(856)})"`);
