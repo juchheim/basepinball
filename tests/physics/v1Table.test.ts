@@ -246,6 +246,21 @@ describe('v1 table: the Bleachers and multiball', () => {
     expect(swings.length).toBeLessThanOrEqual(3);
   });
 
+  it('flipping a ball that rests on the lowered bat is a swing; resting there is not', () => {
+    // The passive touch used to count as the ball's one touch, so the flip from rest that
+    // followed was no swing at all, and the hit it made went uncounted.
+    const w = world();
+    const f = w.flippers.find((x) => x.id === 'flipper.L')!;
+    const along = 0.3 * f.length;
+    w.addBall(
+      f.px + Math.cos(f.theta) * along,
+      f.py + Math.sin(f.theta) * along + f.baseRadius + 0.0135 + 0.002,
+    );
+    expect(run(w, 40).filter((e) => e.type === 'swing')).toHaveLength(0);
+    w.setFlipper('flipper.L', true);
+    expect(run(w, 200).filter((e) => e.type === 'swing')).toHaveLength(1);
+  });
+
   it('two balls collide instead of passing through each other', () => {
     const bare = { ...v1Table, elements: [] };
     const w = new World(bare, defaultParams());

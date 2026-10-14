@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
+import { defaultParams } from '../../src/physics/params';
+import { World, type PhysicsEvent, type PhysicsEventType } from '../../src/physics/world';
 import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
   BLEACHERS,
@@ -12,7 +13,10 @@ import {
   STRETCH_ALERT_DELAY,
 } from '../../src/rules/game';
 import type { PitchSpec } from '../../src/rules/pitching';
-import type { Machine, RulesEvent } from '../../src/rules/types';
+import type { HitType, Machine, RulesEvent } from '../../src/rules/types';
+import { WorldMachine } from '../../src/rules/worldMachine';
+import { v1Table } from '../../src/table/v1Table';
+import { classify, type Feed } from '../physics/shots';
 
 // Rules unit tests: every cell of the event-resolution table (docs/MVP/01 § 4.3), base running,
 // feature goals, innings and game over. A fake machine stands in for the physics.
@@ -876,4 +880,94 @@ describe('the Bleachers and THROW IT BACK', () => {
     h.ev('drain', 'drain');
     expect(h.last('throwBackEnd')).toMatchObject({ runs: 1 });
   });
+});
+
+describe('hits off the real flippers (physics + rules)', () => {
+  /**
+   * The batter is up but has not swung (the leadoff ball, or a pitch). The ball comes to `side`'s
+   * flipper (down its inlane, as the plunged leadoff ball does, or pitched at it) and the player
+   * flips `delayMs` later. Reports the first decisive thing the shot hit and the hits the rules
+   * credited for it.
+   */
+  function flipAtBatter(
+    state: 'LEADOFF_LAUNCH' | 'PITCH',
+    side: 'L' | 'R',
+    feed: Feed,
+    delayMs: number,
+  ) {
+    const world = new World(v1Table, defaultParams());
+    const rules = new GameRules(new WorldMachine(world), { seed: 7 });
+    rules.start(0);
+    if (state === 'PITCH') {
+      // The leadoff ball drains (a strikeout) and the next batter gets a pitch.
+      rules.onSwitch({ type: 'drain', id: 'drain', time: 0 });
+      for (let t = 0; rules.state !== 'PITCH'; t += 0.01) rules.update(t);
+    }
+    expect(rules.state).toBe(state);
+    rules.events.length = 0;
+    // Feed the ball exactly as the shot-map sweep does (tests/physics/shots.ts).
+    const sign = side === 'L' ? 1 : -1;
+    const cx = side === 'L' ? 0 : 0.55;
+    if (feed === 'inlane') {
+      const b = world.ball();
+      b.place(cx + sign * 0.064, 0.395);
+      b.vy = -0.9;
+    } else world.pitchBall(cx + sign * 0.216, 0.19, 1.1);
+    const id = side === 'L' ? 'flipper.L' : 'flipper.R';
+    let result: string | null = null;
+    for (let i = 0; i < 3500 && !result; i++) {
+      if (i === delayMs) world.setFlipper(id, true);
+      if (i === delayMs + 160) world.setFlipper(id, false);
+      world.step();
+      for (const e of world.events) {
+        if (i >= delayMs && !result) result = hitDevice(e) ?? classify(e);
+        rules.onSwitch(e);
+      }
+      world.events.length = 0;
+    }
+    const hits = rules.events.flatMap((e) => (e.type === 'hit' ? [e.hit] : []));
+    return { result, hits };
+  }
+
+  /** The hit a device scores for a batter who has swung (the triple's corner kickers aside). */
+  function hitDevice(e: PhysicsEvent): HitType | null {
+    if (e.type === 'pop' && e.id.startsWith('pop.1B')) return '1B';
+    if (e.type === 'pop' && e.id.startsWith('pop.2B')) return '2B';
+    if (e.type === 'sensor' && e.id === 'gate.HR') return 'HR';
+    return null;
+  }
+  const HITS: (string | null)[] = ['1B', '2B', 'HR'];
+
+  it('a ball flipped off the resting bat is a swing: the hit counts', () => {
+    // The playtest bug: the ball came down onto the bat with the button up, and that passive touch
+    // used up its one swing, so the flip that followed was no swing and the hit went uncounted.
+    // Here the plunged leadoff ball rolls down the left inlane and is flipped up the HR ramp...
+    expect(flipAtBatter('LEADOFF_LAUNCH', 'L', 'inlane', 750)).toEqual({
+      result: 'HR',
+      hits: ['HR'],
+    });
+    // ...and a pitch bounces off the resting bat just before the flip sends it into the Gap.
+    expect(flipAtBatter('PITCH', 'R', 'pitch', 200)).toEqual({ result: '1B', hits: ['1B'] });
+  });
+
+  for (const state of ['LEADOFF_LAUNCH', 'PITCH'] as const) {
+    it(`every flipper shot into a hit device records that hit (${state})`, () => {
+      let checked = 0;
+      for (const side of ['L', 'R'] as const) {
+        const sweeps: [Feed, number, number][] = [
+          ['inlane', 700, 1000],
+          ['pitch', 100, 280],
+        ];
+        for (const [feed, from, to] of sweeps) {
+          for (let d = from; d <= to; d += 10) {
+            const { result, hits } = flipAtBatter(state, side, feed, d);
+            if (!HITS.includes(result)) continue;
+            checked++;
+            expect(hits[0], `${side} ${feed} @${d}ms`).toBe(result);
+          }
+        }
+      }
+      expect(checked).toBeGreaterThanOrEqual(15);
+    });
+  }
 });

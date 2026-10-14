@@ -999,12 +999,15 @@ export class World {
       this.resolve(b, nx, ny, 0, depth, 'rubberFlipper', ux, uy, 0, f, rx, ry);
       // A swing is a ball meeting a held-up flipper: once per touch. A ball cradled on the bat stays
       // in touch, so it swings once, not over and over (in multiball a run of swings would let the
-      // other ball score a hit off every bumper it touched).
+      // other ball score a hit off every bumper it touched). Only contact with the button held
+      // counts as the touch: a ball rolling down the resting bat is flipped from rest by the press,
+      // and that is a swing too (counting the passive roll as the touch used to swallow it).
+      if (!f.pressed) continue;
       const touch = this.flipperTouch.get(b) ?? new Map<string, number>();
       this.flipperTouch.set(b, touch);
       const last = touch.get(f.id) ?? -Infinity;
       touch.set(f.id, this.time);
-      if (f.pressed && this.time - last > SWING_GAP && this.ready(`swing:${f.id}`, 0.05)) {
+      if (this.time - last > SWING_GAP && this.ready(`swing:${f.id}`, 0.05)) {
         this.emit('swing', f.id);
       }
     }
