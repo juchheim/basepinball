@@ -255,6 +255,23 @@ function sideBank(
 }
 const BAT_BANK = sideBank([5.5, 520], rightFlipperPivot);
 /**
+ * The pocket behind B-A-T, walled in by the cabinet, the backstop, and the left funnel and its post,
+ * is filled in. A ball thrown off the mound's ramp could drop into it over the 25 mm walls, and with
+ * no way out downhill it sat wedged in the corner by the backstop until the ball rescue. (Taller
+ * walls cannot shut it: the HR wireform runs over it at x = 22 with a ball's underside 38 mm up.)
+ * The top is 34 mm up, under the wireform's ball and over the drop targets' 30 mm, and runs out
+ * to the backstop's face: a ball that lands on it rolls down the table and off over the bank, past
+ * the targets' tops before it drops below them.
+ */
+const BAT_FILLER: Vec2[] = (() => {
+  const [a, b] = BAT_BANK.backstop.map(([x, y]): Vec2 => [
+    x - BAT_BANK.behind[0] * 2,
+    y - BAT_BANK.behind[1] * 2,
+  ]) as [Vec2, Vec2];
+  const atWall: Vec2 = [0, round(a[1] - (a[0] * (b[1] - a[1])) / (b[0] - a[0]))];
+  return [atWall, [round(b[0]), round(b[1])], leftFunnel[1]!, leftFunnel[0]!];
+})();
+/**
  * W-A-L-K: four full-size standups standing out in the open at the lower right, facing the left
  * flipper. On the wall (first beside the right funnel, then flush from y = 520) the middle letters
  * were almost unreachable from the paddles: a sweep of flip timings reached the bank 8 % of the
@@ -337,8 +354,17 @@ const elements: ElementDef[] = [
   { type: 'sensor', id: 'sw.shooter', a: [W + 2, 900], b: [FULL_W - 2, 900] },
 
   // ---- orbits
-  { type: 'wall', points: leftInnerGuide, material: 'metal' },
-  { type: 'wall', points: leftInnerGuide.map(m2), material: 'metal' },
+  // Where each inner guide curves in to its ramp's far end (y 945-1030) it closes the alley beside
+  // the ramp to a slot narrower than a ball. A ball thrown up the alley off the mound's ramp flew in
+  // over the 25 mm guide and came down in the slot, wedged between the guide and the ramp's side
+  // until the ball rescue. That stretch is as tall as the lower walls, so a ball in the air meets it
+  // as a rolling ball does and comes back down the alley. (The guide beyond it runs under the
+  // wireform's U-turn, a ball's underside about 50 mm up, and stays low.)
+  ...[leftInnerGuide, leftInnerGuide.map(m2)].flatMap((guide): ElementDef[] => [
+    { type: 'wall', points: guide.slice(0, 3), material: 'metal' },
+    { type: 'wall', points: guide.slice(2, 6), material: 'metal', height: LOW_WALL },
+    { type: 'wall', points: guide.slice(5), material: 'metal' },
+  ]),
   { type: 'post', x: 45, y: ORBIT_MOUTH, radius: 4, material: 'rubberPost' },
   { type: 'post', x: mx(45), y: ORBIT_MOUTH, radius: 4, material: 'rubberPost' },
   { type: 'wall', points: leftFunnel, material: 'metal' },
@@ -502,6 +528,7 @@ const elements: ElementDef[] = [
     return { type: 'drop', id: `drop.${bat[i]}`, a, b, label: bat[i]! };
   }),
   { type: 'wall', points: BAT_BANK.backstop, material: 'rubberPost', radius: 2 },
+  { type: 'filler', points: BAT_FILLER, height: 34 },
   ...WALK_CENTERS.map(([x, y], i): ElementDef => {
     const [a, b] = plate(x, y, leftFlipperPivot);
     return { type: 'standup', id: `standup.${walk[i]}`, a, b, label: walk[i]! };

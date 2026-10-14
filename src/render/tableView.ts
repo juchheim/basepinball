@@ -866,6 +866,14 @@ export class TableView {
         }
         break;
       }
+      case 'filler': {
+        const shape = new THREE.Shape(el.points.map(([x, y]) => new THREE.Vector2(x * MM, y * MM)));
+        this.addStatic(
+          new THREE.ExtrudeGeometry(shape, { depth: el.height * MM, bevelEnabled: false }),
+          mats.plastic,
+        );
+        break;
+      }
       case 'dome': {
         // Low mound with a pitcher standee behind it (both visual only in M1).
         const g = new THREE.SphereGeometry(el.radius * MM, 32, 8, 0, Math.PI * 2, 0, Math.PI / 2);

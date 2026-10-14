@@ -97,6 +97,9 @@ function render(table: TableDef): string {
           );
         }
         break;
+      case 'filler':
+        out.push(`<polygon points="${pts(el.points)}" fill="#e9e2cf" fill-opacity="0.6"/>`);
+        break;
       case 'dome':
         out.push(
           `<circle cx="${X(el.x)}" cy="${Y(el.y)}" r="${el.radius}" fill="#b4683c" opacity="0.8"/>`,
@@ -141,6 +144,7 @@ function render(table: TableDef): string {
     'dome',
     'sensor',
     'saucer',
+    'filler',
     'wall',
     'post',
     'sling',

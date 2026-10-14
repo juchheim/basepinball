@@ -1391,6 +1391,18 @@ export class World {
           }
           break;
         }
+        case 'filler': {
+          // The top as a fan of triangles, and skirts down each side to the playfield.
+          const top = el.points.map(([x, y]): Vec3 => [x, y, el.height]);
+          for (let i = 1; i + 1 < top.length; i++) tri(top[0]!, top[i]!, top[i + 1]!, 'plastic');
+          for (let i = 0; i < top.length; i++) {
+            const a = top[i]!;
+            const b = top[(i + 1) % top.length]!;
+            tri(a, b, [b[0], b[1], 0], 'plastic');
+            tri(a, [b[0], b[1], 0], [a[0], a[1], 0], 'plastic');
+          }
+          break;
+        }
         case 'dome':
           if (el.solid === false) break;
           this.domes.push({

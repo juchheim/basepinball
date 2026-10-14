@@ -171,6 +171,18 @@ export interface WireformDef {
   path: readonly Vec3[];
 }
 
+/**
+ * A solid plastic block filling a pocket walled in on every side (behind a target bank), so a ball
+ * that drops in over the walls cannot sit wedged in its floor. Its top is flat at `height`, above
+ * the surrounding walls and targets: the playfield's slope rolls a ball that lands on it off the
+ * low side and back into play. `points` is a convex polygon.
+ */
+export interface FillerDef {
+  type: 'filler';
+  points: readonly Vec2[];
+  height: number;
+}
+
 /** A raised hump in the playfield (the pitcher's mound). */
 export interface DomeDef {
   type: 'dome';
@@ -256,6 +268,7 @@ export type ElementDef =
   | SensorDef
   | RampDef
   | WireformDef
+  | FillerDef
   | DomeDef
   | MagnetDef
   | KickbackDef
