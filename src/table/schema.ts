@@ -98,6 +98,11 @@ export interface SaucerDef {
    */
   lipPost?: { dx: number; dy: number; radius: number };
   label?: string;
+  /**
+   * Where the fielder standee stands (mm). Default: just behind the lip. Set it where that spot is
+   * somewhere the ball goes (1B's lip faces the shooter lane, so its default spot is in the lane).
+   */
+  standee?: Vec2;
 }
 
 export interface DropTargetDef {

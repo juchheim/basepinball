@@ -47,12 +47,12 @@ export type RulesEvent =
   | { type: 'spinBonus'; gained: number }
   /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
   | { type: 'stretch' }
-  /** A new reliever (a parked ball) is warming up in the Bullpen, after a DOUBLEHEADER. */
-  | { type: 'bullpenReady' }
-  /** The reliever in the Bullpen was struck: DOUBLEHEADER, two-ball multiball, begins. */
-  | { type: 'doubleheader' }
-  /** Down to one ball: DOUBLEHEADER is over. `runs` were scored during it (already doubled). */
-  | { type: 'doubleheaderEnd'; runs: number }
+  /** A fan in the Bleachers has caught a new souvenir (a parked ball), after a THROW IT BACK. */
+  | { type: 'souvenirReady' }
+  /** The souvenir in the Bleachers was touched: THROW IT BACK, two-ball multiball, begins. */
+  | { type: 'throwBack' }
+  /** Down to one ball: THROW IT BACK is over. `runs` were scored while it lasted. */
+  | { type: 'throwBackEnd'; runs: number }
   | { type: 'kickbackLit' }
   | { type: 'skillShot' }
   | { type: 'rally'; count: number }
@@ -82,7 +82,7 @@ export interface GameStats {
   steals: number;
   walks: number;
   hustles: number;
-  doubleheaders: number;
+  throwBacks: number;
   /** Simulation seconds from first pitch to final out. */
   duration: number;
 }
@@ -107,7 +107,7 @@ export function emptyStats(): GameStats {
     steals: 0,
     walks: 0,
     hustles: 0,
-    doubleheaders: 0,
+    throwBacks: 0,
     duration: 0,
   };
 }
@@ -129,10 +129,10 @@ export interface GameSnapshot {
   /** The HUSTLE meter: bumper hits so far, and how many fill it. */
   hustle: number;
   hustleTarget: number;
-  /** A reliever waits in the Bullpen: strike him to start DOUBLEHEADER. */
-  bullpenReady: boolean;
-  /** Two-ball multiball is running. */
-  doubleheader: boolean;
+  /** A souvenir waits in the Bleachers: touch it to start THROW IT BACK. */
+  souvenirReady: boolean;
+  /** THROW IT BACK (two-ball multiball) is running. */
+  throwBack: boolean;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;
@@ -151,12 +151,12 @@ export interface Machine {
   pitch(spec: PitchSpec): void;
   /** Take every ball off the playfield (it is in the subway or trough). */
   holdBall(): void;
-  /** Kick the ball a saucer (the Bullpen scoop) holds back into play. */
+  /** Kick the ball a saucer (the Bleachers scoop) holds back into play. */
   ejectSaucer(id: string): void;
   /** Let a saucer go of the ball it caught, leaving that ball out of play (multiball). */
   releaseSaucer(id: string): void;
-  /** Park a ball on show in the Bullpen scoop (the waiting reliever). */
-  parkBullpen(): void;
+  /** Park a ball on show in the Bleachers scoop (the souvenir). */
+  parkSouvenir(): void;
   /** How many balls are on the playfield. */
   ballsInPlay(): number;
   setMagnet(power: number): void;

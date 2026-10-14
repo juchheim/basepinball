@@ -156,14 +156,19 @@ export function calloutFor(e: RulesEvent): void {
         'big',
         2000,
       );
-    case 'bullpenReady':
-      return showCallout('BULLPEN', 'A new reliever is warming up', 'info', 1800);
-    case 'doubleheader':
-      return showCallout('DOUBLEHEADER!', 'The reliever is in: two balls in play', 'big', 3200);
-    case 'doubleheaderEnd':
+    case 'souvenirReady':
+      return showCallout('SOUVENIR!', 'A fan in the bleachers caught one. Go get it', 'info', 2000);
+    case 'throwBack':
       return showCallout(
-        'DOUBLEHEADER OVER',
-        `${e.runs} run${e.runs === 1 ? '' : 's'} scored`,
+        'THROW IT BACK!',
+        'The fan tosses it onto the field: two balls in play',
+        'big',
+        3200,
+      );
+    case 'throwBackEnd':
+      return showCallout(
+        'BACK TO ONE BALL',
+        `${e.runs} run${e.runs === 1 ? '' : 's'} with two in play`,
         'big',
         2200,
       );

@@ -69,7 +69,7 @@ regular pinball.
    RF, right orbit.
 8. **The Gap** (y ≈ 805–1030): the center pop-bumper nest (singles in front, doubles behind).
    Up the alleys either side of it, between the Gap and the ramps: **CF** (left) and **the
-   Bullpen** scoop (right).
+   Bleachers** scoop (right).
 9. **Top** (y > 1030): R-B-I rollover lanes, the orbit arch, corner kicker bumpers (triples),
    ramp crests, the shooter lane exit.
 
@@ -117,7 +117,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `drops.BAT` | 3-bank drop targets | left wall, y = 440 / 475 / 510 | Stay down while Hot Bat is lit and reset when it is used. A partly completed bank resets at the inning change. |
 | `standups.WALK` | 4 standup targets, 26 mm each, end to end on a diagonal facing the left flipper (104 mm long) with a backstop | from (482, 445) up and left to about (413, 523). **W is the left-most plate and K the right-most**, so it reads W-A-L-K left to right as the player sees it. | Spelling WALK walks the batter. Its lamps sit behind it. |
 | `saucer.3B` | Fielder saucer, half recessed into the left wall | (40, 600) | Sits in the left orbit approach. A strong orbit shot skims it. |
-| `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B |
+| `saucer.1B` | Fielder saucer, half recessed into the right wall | (510, 600) | Mirror of 3B. Both corner infielders' standees stand on the field just inside their saucers (behind the lip, 1B's stood in the shooter lane, where every plunge ran through him, and 3B's was out of sight under the left rail). |
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
 | `saucer.LF` | Fielder saucer | (85, 736) | Between the left orbit and the left ramp |
 | `ramp.HR` | Left ramp, "Over the Wall" | entrance (142, 790), 52 mm wide | HR gate at the crest (75, 1010). Wireform to the left inlane. |
@@ -129,7 +129,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
 | `saucer.2B` | Fielder saucer | (362, 722) | Between the Gap and the right ramp. LF, SS, 2B and RF are mirror-symmetric and staggered: LF and RF at 736, SS and 2B at 722, wide of the Gap and off the lines up the alleys to CF and the Bullpen |
 | `saucer.CF` | Fielder saucer, deep left-centre | (158, 940) | Up the alley between the HR ramp and the Gap. Its glove post is set into the Gap wall (above the dish, in an alley this narrow, it left a notch that held balls). |
-| `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out) where a reliever (a parked ball) waits on show, with a lamp below it | (392, 940); lamp at (392, 905) | Up the alley between the Steal ramp and the Gap. Touch the reliever to start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
+| `saucer.BLEACHERS` | **The Bleachers**: a scoop (a saucer that kicks the ball back out) where a souvenir (a parked ball) waits on show, with a lamp below it | (392, 940); lamp at (392, 905) | Up the alley between the Steal ramp and the Gap. Touch the souvenir and the fan throws it back: THROW IT BACK multiball ([01 § 4.8.2](01-game-design.md#482-throw-it-back-in-detail)). Never an out. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
 | `saucer.RF` | Fielder saucer | (465, 736) | Between the right ramp and the right orbit (level with LF) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
@@ -436,7 +436,7 @@ rides for about 20 % fewer CF catches, so none was kept.
 ### DOUBLEHEADER: the Bullpen replaces the Twister
 
 Playtest feedback: the Twister was underwhelming. In its place, something with a big payoff
-precisely because it rarely triggers: two-ball multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)).
+precisely because it rarely triggers: two-ball multiball ([01 § 4.8.2](01-game-design.md#482-throw-it-back-in-detail)).
 
 | Area | Change | Result |
 |---|---|---|
@@ -504,4 +504,17 @@ a hit off every Gap pop it touched (and runs counted twice). A swing is now one 
 ball: 2 swings in 2 s, against 33 before). And DOUBLEHEADER's reward is now just the second ball: runs
 count once and a fielder's catch is not dropped (while another ball is in play it costs no out; the
 fielder keeps that ball).
+
+### Renamed: THROW IT BACK
+
+Playtest feedback: new flavour for the multiball. DOUBLEHEADER is now **THROW IT BACK**, the Bullpen is
+**the Bleachers**, and the waiting reliever is **a souvenir**: a home-run ball a fan caught, on show
+in the scoop. Touch it and the fan throws it back onto the field, the second ball (ballpark custom:
+fans throw back the other team's home runs). Callouts: "SOUVENIR!" when a fan catches a new one,
+"THROW IT BACK!" when it comes onto the field, "BACK TO ONE BALL" when one is left; the HUD shows
+"TWO BALLS" while it lasts. The sections above keep the names they had at the time.
+
+Also: 1B's standee stood in the shooter lane (his lip faces the right wall, and behind it is the
+lane), so every plunge ran through him; 3B's mirror spot was out of sight under the left rail. Both
+corner infielders now stand on the field, just inside their saucers.
 

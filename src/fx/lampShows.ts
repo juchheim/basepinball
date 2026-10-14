@@ -111,28 +111,28 @@ export const SHOWS = {
       },
     ],
   },
-  /** A reliever warms up: the Bullpen's lamp pulses. */
-  bullpen: {
+  /** A fan catches a souvenir: the Bleachers lamp pulses. */
+  souvenir: {
     priority: 3,
     duration: 1.6,
     tracks: [
       {
-        lamps: ['lamp.bullpen'],
+        lamps: ['lamp.bleachers'],
         from: 0,
         to: 1.6,
         pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 },
       },
     ],
   },
-  /** DOUBLEHEADER: a fast chase round the table with the bases and the Bullpen pulsing. */
-  doubleheader: {
+  /** THROW IT BACK: a fast chase round the table with the bases and the Bleachers pulsing. */
+  throwBack: {
     priority: 4,
     duration: 4,
     tracks: [
       { lamps: '@ring', from: 0, to: 4, pattern: { kind: 'chase', period: 0.6, width: 0.3 } },
       { lamps: '@bases', from: 0, to: 4, pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 } },
       {
-        lamps: ['lamp.bullpen'],
+        lamps: ['lamp.bleachers'],
         from: 0,
         to: 4,
         pattern: { kind: 'pulse', rate: 2.5, duty: 0.5 },

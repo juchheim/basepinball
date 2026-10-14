@@ -29,7 +29,7 @@ export class Ball {
   /** False while captured, drained, or otherwise out of play. */
   active = true;
   /**
-   * The saucer a ball is parked in, on show (the Bullpen's waiting reliever), or null. A parked
+   * The saucer a ball is parked in, on show (the souvenir in the Bleachers), or null. A parked
    * ball is not simulated but is drawn, and a ball in play bounces off it.
    */
   parkedIn: string | null = null;

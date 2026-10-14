@@ -22,7 +22,7 @@ import { createOutput } from './fx/output';
 import { loadParams } from './debug/params';
 import { Input, vibrate, type InputEvent } from './input/input';
 import { World } from './physics/world';
-import { BULLPEN, GameRules } from './rules/game';
+import { BLEACHERS, GameRules } from './rules/game';
 import type { RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
 import { AdaptiveQuality, initialTier, TIERS, type Quality } from './render/quality';
@@ -68,7 +68,7 @@ import {
  * Steel Diamond: the v1 table with the baseball rules, HUD, game flow, and (M4) the presentation:
  * sound, lamp shows, figure animation, particles and stadium reactions.
  * `?debug` adds the physics tuning panel, perf overlay and debug keys (B serve, K pitch,
- * C colliders, J drop the ball in the Bullpen, [ ] slow motion). `?table=m0` loads the M0 physics test table in free play.
+ * C colliders, J drop the ball in the Bleachers, [ ] slow motion). `?table=m0` loads the M0 physics test table in free play.
  */
 
 async function main(): Promise<void> {
@@ -506,9 +506,9 @@ async function main(): Promise<void> {
     if (e.action === 'pitch') at(() => world.pitchBall(0.221, 0.175, 1.2));
     if (e.action === 'resetTargets') world.resetDropTargets();
     if (e.action === 'toggleColliders') view.showColliders = !view.showColliders;
-    if (e.action === 'bullpen') {
-      // Set the ball in play down in the Bullpen scoop (to try the locks and DOUBLEHEADER).
-      const s = world.table.elements.find((el) => el.type === 'saucer' && el.id === BULLPEN);
+    if (e.action === 'bleachers') {
+      // Set the ball in play down by the Bleachers scoop, to try THROW IT BACK.
+      const s = world.table.elements.find((el) => el.type === 'saucer' && el.id === BLEACHERS);
       const b = world.balls.find((x) => x.active);
       if (s?.type === 'saucer' && b) at(() => b.place(s.x / 1000, s.y / 1000));
     }

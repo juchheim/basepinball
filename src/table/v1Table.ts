@@ -1,5 +1,5 @@
 import { dcos, dsin } from '../core/dmath';
-import type { ElementDef, TableDef, Vec2, Vec3 } from './schema';
+import type { ElementDef, SaucerDef, TableDef, Vec2, Vec3 } from './schema';
 
 /**
  * The BasePinball v1 table (docs/MVP/02-playfield-design.md), whitebox geometry for M1.
@@ -166,7 +166,7 @@ const RAMP_WIDTH = 52;
  * The Steal ramp's mouth is clearly wider than the home-run ramp's, so the cheaper award is the
  * easier shot (a ball must enter within roughly mouth - 44 mm of the centre line: 8 mm of play on
  * the HR ramp, about 18 mm here). It was 70 mm; its left side was pulled in by 8 mm (the right edge
- * stays put) to open the alley beside it, the way to the Bullpen. The four outfield-line fielders
+ * stays put) to open the alley beside it, the way to the Bleachers. The four outfield-line fielders
  * sit low enough to make room: each mouth guard post keeps a ball-wide (>= 27.5 mm) gap to their
  * glove posts, so no notch can hold a ball.
  */
@@ -188,7 +188,7 @@ const fieldSaucer = (
   lipAngle = 90,
   lip: 'bar' | 'post' | 'none' = 'bar',
   lipPost?: { dx: number; dy: number; radius: number },
-): ElementDef => ({
+): SaucerDef => ({
   type: 'saucer',
   id,
   label,
@@ -448,7 +448,10 @@ const elements: ElementDef[] = [
   },
 
   // ---- fielders (7 saucers)
-  fieldSaucer('saucer.3B', '3B', 25, 478, 180),
+  // The corner infielders' lips face the side walls, so their standees' default spots (behind the
+  // lip) were off the field: 3B's under the left rail, out of sight, and 1B's in the shooter lane,
+  // where every plunge ran through him. They stand on the field instead, just inside their saucers.
+  { ...fieldSaucer('saucer.3B', '3B', 25, 478, 180), standee: [61, 478] },
   fieldSaucer('saucer.LF', 'LF', 85, 736, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
   // CF plays deep in left-centre, up the alley between the HR ramp and the Gap, below the open
   // corner above the ramp's far end. In the throat of the Gap it caught 2 balls in 60 sim games:
@@ -457,13 +460,13 @@ const elements: ElementDef[] = [
   fieldSaucer('saucer.CF', 'CF', 158, 940, 90, 'post', { dx: 23, dy: 22, radius: 4 }),
   // LF, SS, 2B and RF are mirror images across the centre line, staggered: LF and RF at y = 736, SS
   // and 2B a little lower at 722, wide of the Gap, so they sit off the lines from the flippers up
-  // the alleys either side of it (to CF and the Bullpen). Chosen by sweeping symmetric layouts for
+  // the alleys either side of it (to CF and the Bleachers). Chosen by sweeping symmetric layouts for
   // the one that blocks nothing: every ramp, orbit and target shot as before, the Gap a little up.
   // (All four level at 736 cost the Gap about 6 % of its shots; all at 722 left a notch by RF.)
   fieldSaucer('saucer.SS', 'SS', mx(362), 722, 90, 'post', { dx: -6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.2B', '2B', 362, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
-  fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
+  { ...fieldSaucer('saucer.1B', '1B', mx(25), 478, 0), standee: [mx(61), 478] },
 
   // ---- ramps
   { type: 'ramp', id: 'ramp.HR', path: hrRamp, width: RAMP_WIDTH, endWidth: 32, wallHeight: 40 },
@@ -485,14 +488,15 @@ const elements: ElementDef[] = [
   { type: 'post', x: STEAL_MOUTH_X + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: STEAL_MOUTH_X - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
-  // ---- the Bullpen: a scoop deep in right-centre, up the alley between the Steal ramp and the Gap.
-  // A reliever (a second ball) waits in it, on show; touch him with the ball in play and
-  // DOUBLEHEADER, two-ball multiball, begins (docs/MVP/01 § 4.8). (In the pocket on the other side of
-  // the Steal ramp, the sim reached it but a player could not see how.) No glove post: the reliever is
-  // the target, and an empty scoop just kicks the ball back out. No standee: the dish is the mound.
+  // ---- the Bleachers: a scoop deep in right-centre, up the alley between the Steal ramp and the Gap.
+  // A souvenir (a second ball a fan caught) waits in it, on show; touch it with the ball in play and
+  // the fan throws it back: THROW IT BACK, two-ball multiball (docs/MVP/01 § 4.8). (In the pocket on
+  // the other side of the Steal ramp, the sim reached it but a player could not see how.) No glove
+  // post: the souvenir is the target, and an empty scoop just kicks the ball back out. No standee:
+  // the fan is in the stands.
   {
     type: 'saucer',
-    id: 'saucer.BULLPEN',
+    id: 'saucer.BLEACHERS',
     x: 392,
     y: 940,
     radius: 20,
@@ -685,8 +689,8 @@ const elements: ElementDef[] = [
     color: LAMP.violet,
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
-  // The Bullpen's lamp, below the scoop: lit while a reliever waits there.
-  { type: 'lamp', id: 'lamp.bullpen', x: 392, y: 905, radius: 7, color: LAMP.amber },
+  // The Bleachers lamp, below the scoop: lit while a souvenir waits there.
+  { type: 'lamp', id: 'lamp.bleachers', x: 392, y: 905, radius: 7, color: LAMP.amber },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
 

@@ -447,7 +447,7 @@ export class World {
   }
 
   /**
-   * Parks a ball on show in a saucer (the Bullpen's reliever): it sits in the dish, drawn but not
+   * Parks a ball on show in a saucer (the souvenir in the Bleachers): it sits in the dish, drawn but not
    * simulated, and a ball in play that strikes it fires `parkedHit`. Kick it out to put it in play.
    */
   parkBall(saucerId: string): void {

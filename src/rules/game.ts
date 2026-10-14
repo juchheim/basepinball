@@ -49,12 +49,15 @@ export const SPIN_BONUS_PLATES = 4;
 export const SPIN_BONUS_HUSTLE = HUSTLE_TARGET / 5;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
-/** The Bullpen scoop (docs/MVP/01 § 4.8): a reliever (a parked ball) waits in it, on show. */
-export const BULLPEN = 'saucer.BULLPEN';
+/**
+ * The Bleachers scoop (docs/MVP/01 § 4.8): a souvenir, a ball a fan caught (a parked ball), waits in
+ * it on show. Touch it and the fan throws it back: THROW IT BACK, two balls in play.
+ */
+export const BLEACHERS = 'saucer.BLEACHERS';
 /** Seconds the empty scoop holds a ball before kicking it back out. */
-export const BULLPEN_HOLD = 1.2;
-/** Seconds from striking the reliever to his entrance (the scoop kicks him into play). */
-export const RELIEVER_ENTRANCE = 0.6;
+export const BLEACHERS_HOLD = 1.2;
+/** Seconds from touching the souvenir to the fan throwing it back (the scoop kicks it into play). */
+export const THROW_BACK_DELAY = 0.6;
 
 export interface GameOptions {
   seed?: number;
@@ -111,13 +114,13 @@ export class GameRules {
   private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
   hustle = 0;
-  /** A reliever (a parked ball) waits in the Bullpen. Strike him to start DOUBLEHEADER. */
-  bullpenReady = false;
+  /** A souvenir (a parked ball) waits in the Bleachers. Touch it to start THROW IT BACK. */
+  souvenirReady = false;
   /** Two-ball multiball is running, and the runs scored in it so far. */
-  doubleheader = false;
-  private doubleheaderRuns = 0;
-  /** The reliever has been touched and is about to enter (he counts as a ball in play). */
-  private relieverPending = false;
+  throwBack = false;
+  private throwBackRuns = 0;
+  /** The souvenir has been touched and is about to be thrown back (it counts as a ball in play). */
+  private souvenirPending = false;
   /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
   private readonly walkLetters = new Set<string>();
   private readonly buttons = { L: false, R: false };
@@ -230,7 +233,7 @@ export class GameRules {
         this.saucer(e.id);
         return;
       case 'parkedHit':
-        if (e.id === BULLPEN) this.relieverStruck();
+        if (e.id === BLEACHERS) this.souvenirTouched();
         return;
       case 'drain':
         this.drain();
@@ -315,8 +318,8 @@ export class GameRules {
   }
 
   private saucer(id: string): void {
-    if (id === BULLPEN) {
-      this.bullpenCatch();
+    if (id === BLEACHERS) {
+      this.bleachersCatch();
       return;
     }
     if (!LIVE.includes(this.state)) return;
@@ -333,65 +336,65 @@ export class GameRules {
   }
 
   /**
-   * The Bullpen (docs/MVP/01 § 4.8). A reliever, a second ball, waits in the scoop where the player
-   * can see him. Touch him with the ball in play and DOUBLEHEADER begins: the scoop kicks him into
-   * play. (Any touch counts: in the narrow alley a ball that only rested against him would be stuck.)
-   * The next reliever warms up at the start of the next inning.
+   * THROW IT BACK (docs/MVP/01 § 4.8). A souvenir, a second ball, sits in the Bleachers scoop where
+   * the player can see it. Touch it with the ball in play and the fan throws it back: the scoop kicks
+   * it into play. (Any touch counts: in the narrow alley a ball that only rested against it would be
+   * stuck.) A fan catches the next souvenir at the start of the next inning.
    */
-  private relieverStruck(): void {
-    if (!this.bullpenReady || this.doubleheader || !LIVE.includes(this.state)) return;
-    this.bullpenReady = false;
-    this.doubleheader = true;
-    this.doubleheaderRuns = 0;
-    this.stats.doubleheaders++;
-    this.relieverPending = true;
-    this.emit({ type: 'doubleheader' });
-    this.after(RELIEVER_ENTRANCE, () => {
-      // If DOUBLEHEADER was cut short (a tilt, a rescue, the inning over), he stays in the Bullpen.
-      if (!this.relieverPending) return;
-      this.relieverPending = false;
-      this.machine.ejectSaucer(BULLPEN);
+  private souvenirTouched(): void {
+    if (!this.souvenirReady || this.throwBack || !LIVE.includes(this.state)) return;
+    this.souvenirReady = false;
+    this.throwBack = true;
+    this.throwBackRuns = 0;
+    this.stats.throwBacks++;
+    this.souvenirPending = true;
+    this.emit({ type: 'throwBack' });
+    this.after(THROW_BACK_DELAY, () => {
+      // If THROW IT BACK was cut short (a tilt, a rescue, the inning over), the fan keeps the ball.
+      if (!this.souvenirPending) return;
+      this.souvenirPending = false;
+      this.machine.ejectSaucer(BLEACHERS);
     });
   }
 
-  /** A ball in the empty scoop (no reliever waiting) is held a moment and kicked back out. */
-  private bullpenCatch(): void {
-    this.after(BULLPEN_HOLD, () => this.machine.ejectSaucer(BULLPEN));
+  /** A ball in the empty scoop (no souvenir waiting) is held a moment and kicked back out. */
+  private bleachersCatch(): void {
+    this.after(BLEACHERS_HOLD, () => this.machine.ejectSaucer(BLEACHERS));
   }
 
-  /** Park a reliever in the Bullpen, if he is not there already. */
-  private warmUpReliever(announce: boolean): void {
-    if (this.bullpenReady) return;
-    this.bullpenReady = true;
-    this.machine.parkBullpen();
-    if (announce) this.emit({ type: 'bullpenReady' });
+  /** A fan in the Bleachers catches a souvenir (a parked ball), if there is not one there already. */
+  private handOutSouvenir(announce: boolean): void {
+    if (this.souvenirReady) return;
+    this.souvenirReady = true;
+    this.machine.parkSouvenir();
+    if (announce) this.emit({ type: 'souvenirReady' });
   }
 
   /**
-   * Down to one ball (or none): normal play resumes with whatever ball is left, the reliever too if
-   * he is on his way in. Cut short (a tilt, a rescue, the inning over), a reliever who never got in
-   * stays warm in the Bullpen.
+   * Down to one ball (or none): normal play resumes with whatever ball is left, the souvenir too if
+   * it is on its way back. Cut short (a tilt, a rescue, the inning over), a souvenir that was never
+   * thrown back stays in the Bleachers.
    */
-  private endDoubleheader(cutShort: boolean): void {
-    if (!this.doubleheader) return;
-    this.doubleheader = false;
-    if (cutShort && this.relieverPending) {
-      // He never got in: he is still warm, waiting in the Bullpen.
-      this.relieverPending = false;
-      this.bullpenReady = true;
+  private endThrowBack(cutShort: boolean): void {
+    if (!this.throwBack) return;
+    this.throwBack = false;
+    if (cutShort && this.souvenirPending) {
+      // It was never thrown back: the fan still has it.
+      this.souvenirPending = false;
+      this.souvenirReady = true;
     }
-    this.emit({ type: 'doubleheaderEnd', runs: this.doubleheaderRuns });
+    this.emit({ type: 'throwBackEnd', runs: this.throwBackRuns });
   }
 
   /**
-   * A ball has left play (drained or caught) in DOUBLEHEADER. DOUBLEHEADER's reward is the second
-   * ball, so while another is still in play (a reliever on his way in counts) losing one costs no
+   * A ball has left play (drained or caught) in THROW IT BACK. Its reward is the second ball, so
+   * while another is still in play (a souvenir on its way back counts) losing one costs no
    * out: it just leaves play. Down to one ball, normal play resumes. True if the loss costs nothing.
    */
   private extraBallLost(): boolean {
-    if (!this.doubleheader) return false;
-    const left = this.machine.ballsInPlay() + (this.relieverPending ? 1 : 0);
-    if (left <= 1) this.endDoubleheader(false);
+    if (!this.throwBack) return false;
+    const left = this.machine.ballsInPlay() + (this.souvenirPending ? 1 : 0);
+    if (left <= 1) this.endThrowBack(false);
     return left >= 1;
   }
 
@@ -435,7 +438,7 @@ export class GameRules {
   }
 
   private score(runs: number): void {
-    if (this.doubleheader) this.doubleheaderRuns += runs;
+    if (this.throwBack) this.throwBackRuns += runs;
     this.stats.runs += runs;
     this.stats.runsByInning[this.inning - 1] =
       (this.stats.runsByInning[this.inning - 1] ?? 0) + runs;
@@ -445,7 +448,7 @@ export class GameRules {
   // ---------------------------------------------------------------- pitching
 
   private schedulePitch(delay: number): void {
-    this.endDoubleheader(true);
+    this.endThrowBack(true);
     this.state = 'DEAD';
     this.machine.holdBall();
     const spec = choosePitch(this.inning, this.rng);
@@ -497,8 +500,8 @@ export class GameRules {
     this.lastActivity = this.now;
     this.machine.serveToPlunger();
     this.emit({ type: 'inningStart', inning: n });
-    // After a DOUBLEHEADER a new reliever warms up (announced; the first is there from the start).
-    this.warmUpReliever(n > 1);
+    // After a THROW IT BACK a fan catches a new souvenir (announced; the first is there from the start).
+    this.handOutSouvenir(n > 1);
   }
 
   private endInning(): void {
@@ -511,7 +514,7 @@ export class GameRules {
       lob,
     });
     this.bases = EMPTY;
-    this.endDoubleheader(true);
+    this.endThrowBack(true);
     this.endRally();
     this.clearPitch();
     this.skillLane = null;
@@ -659,7 +662,7 @@ export class GameRules {
     }
     // TILT: flippers die, the PA is an out, the ball drains normally (docs/MVP/01 § 4.9).
     this.tilted = true;
-    this.endDoubleheader(true);
+    this.endThrowBack(true);
     this.machine.setFlippersEnabled(false);
     this.emit({ type: 'tilt' });
     this.out('tilt');
@@ -723,8 +726,8 @@ export class GameRules {
       walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
       hustle: this.hustle,
       hustleTarget: HUSTLE_TARGET,
-      bullpenReady: this.bullpenReady,
-      doubleheader: this.doubleheader,
+      souvenirReady: this.souvenirReady,
+      throwBack: this.throwBack,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,
@@ -760,8 +763,8 @@ export class GameRules {
     for (const l of WALK_LETTERS)
       out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
     for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
-    // The Bullpen: lit while a reliever waits; blinking through DOUBLEHEADER.
-    out['lamp.bullpen'] = this.doubleheader ? 'blink' : on(this.bullpenReady);
+    // The Bleachers: lit while a souvenir waits there; blinking through THROW IT BACK.
+    out['lamp.bleachers'] = this.throwBack ? 'blink' : on(this.souvenirReady);
     // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
     const full = this.hustle >= HUSTLE_TARGET;
     for (let i = 1; i <= 5; i++) {

@@ -193,34 +193,34 @@ describe('v1 table: devices', () => {
   });
 });
 
-describe('v1 table: the Bullpen and multiball', () => {
-  it('the reliever parked in the Bullpen is on show, stays put when struck, and enters on cue', () => {
-    const bp = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.BULLPEN')!;
-    if (bp.type !== 'saucer') throw new Error('no Bullpen');
+describe('v1 table: the Bleachers and multiball', () => {
+  it('the souvenir parked in the Bleachers is on show, stays put when struck, and enters on cue', () => {
+    const bp = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.BLEACHERS')!;
+    if (bp.type !== 'saucer') throw new Error('no Bleachers');
     const w = world();
-    w.parkBall('saucer.BULLPEN');
-    const reliever = w.balls.find((b) => b.parkedIn === 'saucer.BULLPEN')!;
-    expect(reliever.active).toBe(false);
-    expect(w.isSaucerHolding('saucer.BULLPEN')).toBe(true);
+    w.parkBall('saucer.BLEACHERS');
+    const souvenir = w.balls.find((b) => b.parkedIn === 'saucer.BLEACHERS')!;
+    expect(souvenir.active).toBe(false);
+    expect(w.isSaucerHolding('saucer.BLEACHERS')).toBe(true);
     // A ball rolled up into him: a hit, and he does not budge.
     const b = w.addBall(bp.x / 1000, (bp.y - 45) / 1000);
     b.vy = 0.8;
-    expect(run(w, 1000, (e) => e.type === 'parkedHit').some((e) => e.id === 'saucer.BULLPEN')).toBe(
-      true,
-    );
-    expect(reliever.px).toBeCloseTo(bp.x / 1000, 6);
-    expect(reliever.py).toBeCloseTo(bp.y / 1000, 6);
+    expect(
+      run(w, 1000, (e) => e.type === 'parkedHit').some((e) => e.id === 'saucer.BLEACHERS'),
+    ).toBe(true);
+    expect(souvenir.px).toBeCloseTo(bp.x / 1000, 6);
+    expect(souvenir.py).toBeCloseTo(bp.y / 1000, 6);
     // Kicked out, he is a ball in play.
-    expect(w.kickOutSaucer('saucer.BULLPEN', 1.4, 270)).toBe(true);
-    expect(reliever.active).toBe(true);
-    expect(reliever.parkedIn).toBeNull();
+    expect(w.kickOutSaucer('saucer.BLEACHERS', 1.4, 270)).toBe(true);
+    expect(souvenir.active).toBe(true);
+    expect(souvenir.parkedIn).toBeNull();
     expect(w.activeBalls()).toHaveLength(2);
   });
 
-  it('serves and pitches never take the parked reliever', () => {
+  it('serves and pitches never take the parked souvenir', () => {
     const w = world();
     w.serveBall();
-    w.parkBall('saucer.BULLPEN');
+    w.parkBall('saucer.BLEACHERS');
     w.balls[0]!.active = false;
     const pitched = w.pitchBall(0.22, 0.18, 1);
     expect(pitched?.parkedIn).toBeNull();

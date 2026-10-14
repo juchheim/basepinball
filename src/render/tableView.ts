@@ -497,7 +497,7 @@ export class TableView {
     const qb = new THREE.Quaternion();
     this.ballMeshes.forEach((m, i) => {
       const b = balls[i];
-      // A parked ball (the Bullpen's reliever) is on show too.
+      // A parked ball (the souvenir in the Bleachers) is on show too.
       m.visible = !!b && (b.active || b.parkedIn !== null);
       if (!b || !m.visible) return;
       m.position.set(
@@ -920,8 +920,8 @@ export class TableView {
         if (el.label) {
           this.standeeSpots.push({
             cell: el.label,
-            x: el.x + (el.radius + 16) * Math.cos(la),
-            y: el.y + (el.radius + 16) * Math.sin(la),
+            x: el.standee?.[0] ?? el.x + (el.radius + 16) * Math.cos(la),
+            y: el.standee?.[1] ?? el.y + (el.radius + 16) * Math.sin(la),
           });
         }
         break;

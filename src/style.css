@@ -261,7 +261,7 @@ canvas {
 .chip.hustle.ready {
   animation: pulse 0.4s ease-in-out infinite alternate;
 }
-.chip.doubleheader {
+.chip.throwback {
   background: linear-gradient(180deg, #ffc061, #ff8a00);
   border-color: #ffd08a;
   color: #1a0d00;
@@ -624,7 +624,7 @@ canvas {
 }
 .ui.reduced .cta,
 .ui.reduced .chip.hot,
-.ui.reduced .chip.doubleheader,
+.ui.reduced .chip.throwback,
 .ui.reduced .chip.hustle.ready {
   animation: none;
 }

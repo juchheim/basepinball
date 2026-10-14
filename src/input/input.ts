@@ -11,7 +11,7 @@ export type Action =
   | 'pitch'
   | 'resetTargets'
   | 'toggleColliders'
-  | 'bullpen'
+  | 'bleachers'
   | 'slower'
   | 'faster';
 
@@ -29,7 +29,7 @@ const DEBUG_KEYS: Record<string, Action> = {
   KeyK: 'pitch',
   KeyR: 'resetTargets',
   KeyC: 'toggleColliders',
-  KeyJ: 'bullpen',
+  KeyJ: 'bleachers',
   BracketLeft: 'slower',
   BracketRight: 'faster',
 };

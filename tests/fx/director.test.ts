@@ -55,11 +55,11 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'walk', runs: 1, moved: [0, 1, 2] },
   ],
   stealRamp: [{ type: 'stealRamp', result: 'noRunner' }],
-  bullpenReady: [{ type: 'bullpenReady' }],
-  doubleheader: [{ type: 'doubleheader' }],
-  doubleheaderEnd: [
-    { type: 'doubleheaderEnd', runs: 0 },
-    { type: 'doubleheaderEnd', runs: 6 },
+  souvenirReady: [{ type: 'souvenirReady' }],
+  throwBack: [{ type: 'throwBack' }],
+  throwBackEnd: [
+    { type: 'throwBackEnd', runs: 0 },
+    { type: 'throwBackEnd', runs: 6 },
   ],
   spinBonus: [
     { type: 'spinBonus', gained: 3 },

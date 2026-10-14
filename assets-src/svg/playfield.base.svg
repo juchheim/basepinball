@@ -87,7 +87,7 @@
 <text x="490.0" y="695.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >1B 3</text>
 <circle cx="392" cy="230" r="27" fill="#0b1020" opacity="0.85"/>
 <circle cx="392" cy="230" r="24.5" fill="none" stroke="#ff9f1c" stroke-width="1.6"/>
-<text x="392.0" y="288.0" font-size="8" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >BULLPEN</text>
+<text x="392.0" y="288.0" font-size="8" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >BLEACHERS</text>
 <polygon points="24.00,404.6 9.00,448.8 20.25,439.8 27.75,439.8 39.00,448.8" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
 <text x="24.0" y="466.8" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
 <polygon points="154.46,485.91 147.36,532.04 156.88,521.23 164.26,519.92 176.90,526.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>

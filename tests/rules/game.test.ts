@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { PhysicsEvent, PhysicsEventType } from '../../src/physics/world';
 import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
-  BULLPEN,
-  BULLPEN_HOLD,
+  BLEACHERS,
+  BLEACHERS_HOLD,
   GameRules,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
-  RELIEVER_ENTRANCE,
+  THROW_BACK_DELAY,
   SPIN_BONUS_HUSTLE,
   STRETCH_ALERT_DELAY,
 } from '../../src/rules/game';
@@ -46,7 +46,7 @@ class FakeMachine implements Machine {
     this.calls.push(`eject:${id}`);
     this.balls++;
   }
-  parkBullpen(): void {
+  parkSouvenir(): void {
     this.calls.push('park');
   }
   releaseSaucer(id: string): void {
@@ -764,95 +764,96 @@ describe('feature goals', () => {
   });
 });
 
-describe('the Bullpen and DOUBLEHEADER', () => {
-  /** The ball in play touches the reliever waiting in the Bullpen; he enters a moment later. */
-  const strike = (h: Harness): Harness => h.ev('parkedHit', BULLPEN).wait(RELIEVER_ENTRANCE + 0.05);
-  const inDoubleheader = (): Harness => {
+describe('the Bleachers and THROW IT BACK', () => {
+  /** The ball in play touches the souvenir in the Bleachers; the fan throws it back a moment later. */
+  const strike = (h: Harness): Harness =>
+    h.ev('parkedHit', BLEACHERS).wait(THROW_BACK_DELAY + 0.05);
+  const inThrowBack = (): Harness => {
     const h = strike(inInPlay());
-    expect(h.g.doubleheader).toBe(true);
+    expect(h.g.throwBack).toBe(true);
     return h;
   };
 
-  it('a reliever waits in the Bullpen from the start, lamps lit', () => {
+  it('a souvenir waits in the Bleachers from the start, its lamp lit', () => {
     const h = inLeadoff();
     expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
-    expect(h.g.bullpenReady).toBe(true);
-    expect(h.g.lamps()['lamp.bullpen']).toBe('on');
+    expect(h.g.souvenirReady).toBe(true);
+    expect(h.g.lamps()['lamp.bleachers']).toBe('on');
   });
 
-  it('touching him starts DOUBLEHEADER: he is kicked into play as the second ball', () => {
-    const h = inInPlay().ev('parkedHit', BULLPEN);
-    expect(h.count('doubleheader')).toBe(1);
-    expect(h.g.doubleheader).toBe(true);
-    expect(h.g.bullpenReady).toBe(false);
-    expect(h.g.stats.doubleheaders).toBe(1);
+  it('touching it starts THROW IT BACK: the fan throws it into play as the second ball', () => {
+    const h = inInPlay().ev('parkedHit', BLEACHERS);
+    expect(h.count('throwBack')).toBe(1);
+    expect(h.g.throwBack).toBe(true);
+    expect(h.g.souvenirReady).toBe(false);
+    expect(h.g.stats.throwBacks).toBe(1);
     expect(h.m.balls).toBe(1);
-    h.wait(RELIEVER_ENTRANCE + 0.05);
-    expect(h.m.calls).toContain(`eject:${BULLPEN}`);
+    h.wait(THROW_BACK_DELAY + 0.05);
+    expect(h.m.calls).toContain(`eject:${BLEACHERS}`);
     expect(h.m.balls).toBe(2);
-    expect(h.g.lamps()['lamp.bullpen']).toBe('blink');
-    // A second touch (he has gone) does nothing.
-    h.ev('parkedHit', BULLPEN);
-    expect(h.count('doubleheader')).toBe(1);
+    expect(h.g.lamps()['lamp.bleachers']).toBe('blink');
+    // A second touch (it has gone) does nothing.
+    h.ev('parkedHit', BLEACHERS);
+    expect(h.count('throwBack')).toBe(1);
   });
 
   it('a touch when the ball is not live does nothing', () => {
-    const h = inInPlay().ev('drain', 'drain').ev('parkedHit', BULLPEN);
-    expect(h.count('doubleheader')).toBe(0);
-    expect(h.g.bullpenReady).toBe(true);
+    const h = inInPlay().ev('drain', 'drain').ev('parkedHit', BLEACHERS);
+    expect(h.count('throwBack')).toBe(0);
+    expect(h.g.souvenirReady).toBe(true);
   });
 
-  it('a ball in the empty Bullpen is no out: it is kicked back out', () => {
+  it('a ball in the empty Bleachers is no out: it is kicked back out', () => {
     const h = strike(inInPlay()).ev('drain', 'drain');
-    expect(h.g.doubleheader).toBe(false);
-    h.ev('saucer', BULLPEN);
+    expect(h.g.throwBack).toBe(false);
+    h.ev('saucer', BLEACHERS);
     expect(h.g.outs).toBe(0);
-    h.wait(BULLPEN_HOLD + 0.05);
-    expect(h.m.calls.filter((c) => c === `eject:${BULLPEN}`)).toHaveLength(2);
+    h.wait(BLEACHERS_HOLD + 0.05);
+    expect(h.m.calls.filter((c) => c === `eject:${BLEACHERS}`)).toHaveLength(2);
   });
 
-  it('a new reliever warms up at the start of the next inning', () => {
+  it('a fan catches a new souvenir at the start of the next inning', () => {
     const h = strike(inInPlay()).ev('drain', 'drain');
     h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
     expect(h.g.inning).toBe(2);
-    expect(h.g.bullpenReady).toBe(true);
-    expect(h.count('bullpenReady')).toBe(1);
+    expect(h.g.souvenirReady).toBe(true);
+    expect(h.count('souvenirReady')).toBe(1);
     expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(2);
   });
 
-  it('no outs in DOUBLEHEADER: it ends when one ball is left, then outs count again', () => {
-    const h = inDoubleheader().ev('drain', 'drain');
+  it('no outs in THROW IT BACK: it ends when one ball is left, then outs count again', () => {
+    const h = inThrowBack().ev('drain', 'drain');
     expect(h.g.outs).toBe(0);
-    expect(h.g.doubleheader).toBe(false);
-    expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 0 });
+    expect(h.g.throwBack).toBe(false);
+    expect(h.last('throwBackEnd')).toMatchObject({ runs: 0 });
     // Nothing is put back: the player plays on with the one ball that is left.
     expect(h.m.balls).toBe(1);
     h.ev('drain', 'drain');
     expect(h.g.outs).toBe(1);
   });
 
-  it('a drain before the reliever is in play is no out: he still comes in', () => {
-    const h = inInPlay().ev('parkedHit', BULLPEN).ev('drain', 'drain');
+  it('a drain before the souvenir is back in play is no out: it still comes back', () => {
+    const h = inInPlay().ev('parkedHit', BLEACHERS).ev('drain', 'drain');
     expect(h.g.outs).toBe(0);
-    expect(h.g.doubleheader).toBe(false);
-    h.wait(RELIEVER_ENTRANCE + 0.05);
-    expect(h.m.calls).toContain(`eject:${BULLPEN}`);
+    expect(h.g.throwBack).toBe(false);
+    h.wait(THROW_BACK_DELAY + 0.05);
+    expect(h.m.calls).toContain(`eject:${BLEACHERS}`);
     expect(h.m.balls).toBe(1);
   });
 
-  it('a fielder catch in DOUBLEHEADER costs no out: that ball is out of play, the other plays on', () => {
-    const h = inDoubleheader().ev('saucer', 'saucer.LF');
+  it('a fielder catch in THROW IT BACK costs no out: that ball is out of play, the other plays on', () => {
+    const h = inThrowBack().ev('saucer', 'saucer.LF');
     expect(h.g.outs).toBe(0);
     expect(h.m.calls).toContain('release:saucer.LF');
     expect(h.m.balls).toBe(1);
-    expect(h.g.doubleheader).toBe(false);
+    expect(h.g.throwBack).toBe(false);
     // Down to one ball: the next catch is an out.
     h.ev('saucer', 'saucer.SS');
     expect(h.g.outs).toBe(1);
   });
 
-  it('runs count once in DOUBLEHEADER: its reward is the second ball', () => {
-    // A runner on third, then DOUBLEHEADER, then a single brings him home: 1 run.
+  it('runs count once in THROW IT BACK: its reward is the second ball', () => {
+    // A runner on third, then THROW IT BACK, then a single brings him home: 1 run.
     const h = inInPlay();
     h.g.bases = [false, false, true];
     strike(h);
@@ -861,6 +862,6 @@ describe('the Bullpen and DOUBLEHEADER', () => {
     expect(h.last('hit')).toMatchObject({ runs: 1 });
     expect(h.g.stats.runs - before).toBe(1);
     h.ev('drain', 'drain');
-    expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 1 });
+    expect(h.last('throwBackEnd')).toMatchObject({ runs: 1 });
   });
 });

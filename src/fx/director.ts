@@ -137,9 +137,9 @@ export class Director {
       case 'saucer': {
         const s = this.saucers.find((x) => x.id === e.id);
         this.out.sound('saucer', s ? this.place(s.x * MM, s.y * MM) : at);
-        // The Bullpen scoop has no fielder: its lamp flashes instead.
+        // The Bleachers scoop has no fielder: its lamp flashes instead.
         if (s && !s.label) {
-          this.out.flash('lamp.bullpen');
+          this.out.flash('lamp.bleachers');
         }
         if (s?.label) {
           // The outfielders stand on the grass; the rest are on the dirt.
@@ -158,8 +158,8 @@ export class Director {
         this.out.sound('drain', { x: 0.5, y: 0 });
         return;
       case 'parkedHit':
-        // The ball in play struck the reliever waiting in the Bullpen.
-        this.out.flash('lamp.bullpen');
+        // The ball in play touched the souvenir waiting in the Bleachers.
+        this.out.flash('lamp.bleachers');
         return;
       case 'kickback':
         this.out.sound('kickback', { x: 0.05, y: 0.15 });
@@ -322,26 +322,26 @@ export class Director {
         o.crowd('ooh');
         o.scoreboard('FROM THE STRETCH', 'RUNNER ON', '#ff3b3b', 2);
         return;
-      case 'bullpenReady':
-        // A new reliever is parked in the scoop, on show: the next DOUBLEHEADER is there to win.
+      case 'souvenirReady':
+        // A fan in the bleachers has caught a ball, on show in the scoop: the next THROW IT BACK.
         o.sound('award');
-        o.show('bullpen');
-        o.scoreboard('BULLPEN', 'A RELIEVER IS WARMING UP', '#ff9f1c', 2);
+        o.show('souvenir');
+        o.scoreboard('SOUVENIR!', 'A FAN IN THE BLEACHERS HAS ONE', '#ff9f1c', 2);
         return;
-      case 'doubleheader':
+      case 'throwBack':
         o.stinger('homeRun');
         o.crowd('roar');
-        o.show('doubleheader');
+        o.show('throwBack');
         o.fireworks(this.reduced ? 1 : 4);
         if (!this.reduced) o.giFlash();
-        o.scoreboard('DOUBLEHEADER!', 'THE RELIEVER IS IN · TWO BALLS', '#ff9f1c', 4);
+        o.scoreboard('THROW IT BACK!', 'TWO BALLS IN PLAY', '#ff9f1c', 4);
         o.excite(1);
         return;
-      case 'doubleheaderEnd':
+      case 'throwBackEnd':
         o.crowd('cheer', e.runs > 0 ? 0.7 : 0.3);
         o.scoreboard(
-          'DOUBLEHEADER OVER',
-          `${e.runs} RUN${e.runs === 1 ? '' : 'S'}`,
+          'BACK TO ONE BALL',
+          `${e.runs} RUN${e.runs === 1 ? '' : 'S'} WITH TWO`,
           '#ff9f1c',
           2.5,
         );

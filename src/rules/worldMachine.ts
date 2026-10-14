@@ -1,5 +1,5 @@
 import type { World } from '../physics/world';
-import { BULLPEN } from './game';
+import { BLEACHERS } from './game';
 import type { PitchSpec } from './pitching';
 import type { Machine } from './types';
 
@@ -37,8 +37,8 @@ export class WorldMachine implements Machine {
     this.world.releaseSaucer(id);
   }
 
-  parkBullpen(): void {
-    this.world.parkBall(BULLPEN);
+  parkSouvenir(): void {
+    this.world.parkBall(BLEACHERS);
   }
 
   ballsInPlay(): number {
