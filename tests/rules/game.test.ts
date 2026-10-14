@@ -49,6 +49,9 @@ class FakeMachine implements Machine {
   parkSouvenir(): void {
     this.calls.push('park');
   }
+  clearSouvenir(): void {
+    this.calls.push('clear');
+  }
   releaseSaucer(id: string): void {
     this.calls.push(`release:${id}`);
   }
@@ -765,24 +768,37 @@ describe('feature goals', () => {
 });
 
 describe('the Bleachers and THROW IT BACK', () => {
+  /** A home run: a fan in the Bleachers catches the ball, a souvenir. */
+  const withSouvenir = (): Harness => {
+    const h = inInPlay().ev('sensor', 'gate.HR');
+    expect(h.g.souvenirReady).toBe(true);
+    return h;
+  };
   /** The ball in play touches the souvenir in the Bleachers; the fan throws it back a moment later. */
   const strike = (h: Harness): Harness =>
     h.ev('parkedHit', BLEACHERS).wait(THROW_BACK_DELAY + 0.05);
   const inThrowBack = (): Harness => {
-    const h = strike(inInPlay());
+    const h = strike(withSouvenir());
     expect(h.g.throwBack).toBe(true);
     return h;
   };
 
-  it('a souvenir waits in the Bleachers from the start, its lamp lit', () => {
+  it('no souvenir at the start: a home run puts one in the Bleachers, its lamp lit', () => {
     const h = inLeadoff();
+    expect(h.g.souvenirReady).toBe(false);
+    expect(h.m.calls).not.toContain('park');
+    expect(h.g.lamps()['lamp.bleachers']).toBe('off');
+    h.ev('plunger').ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
     expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
-    expect(h.g.souvenirReady).toBe(true);
+    expect(h.count('souvenirReady')).toBe(1);
     expect(h.g.lamps()['lamp.bleachers']).toBe('on');
+    // Another home run while it waits: still one souvenir.
+    h.ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
+    expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
   });
 
   it('touching it starts THROW IT BACK: the fan throws it into play as the second ball', () => {
-    const h = inInPlay().ev('parkedHit', BLEACHERS);
+    const h = withSouvenir().ev('parkedHit', BLEACHERS);
     expect(h.count('throwBack')).toBe(1);
     expect(h.g.throwBack).toBe(true);
     expect(h.g.souvenirReady).toBe(false);
@@ -798,27 +814,24 @@ describe('the Bleachers and THROW IT BACK', () => {
   });
 
   it('a touch when the ball is not live does nothing', () => {
-    const h = inInPlay().ev('drain', 'drain').ev('parkedHit', BLEACHERS);
+    const h = withSouvenir().ev('drain', 'drain').ev('parkedHit', BLEACHERS);
     expect(h.count('throwBack')).toBe(0);
     expect(h.g.souvenirReady).toBe(true);
   });
 
   it('a ball in the empty Bleachers is no out: it is kicked back out', () => {
-    const h = strike(inInPlay()).ev('drain', 'drain');
-    expect(h.g.throwBack).toBe(false);
-    h.ev('saucer', BLEACHERS);
+    const h = inInPlay().ev('saucer', BLEACHERS);
     expect(h.g.outs).toBe(0);
     h.wait(BLEACHERS_HOLD + 0.05);
-    expect(h.m.calls.filter((c) => c === `eject:${BLEACHERS}`)).toHaveLength(2);
+    expect(h.m.calls.filter((c) => c === `eject:${BLEACHERS}`)).toHaveLength(1);
   });
 
-  it('a fan catches a new souvenir at the start of the next inning', () => {
-    const h = strike(inInPlay()).ev('drain', 'drain');
+  it('a souvenir not thrown back by the end of the inning: the fan keeps it', () => {
+    const h = withSouvenir();
     h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
     expect(h.g.inning).toBe(2);
-    expect(h.g.souvenirReady).toBe(true);
-    expect(h.count('souvenirReady')).toBe(1);
-    expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(2);
+    expect(h.g.souvenirReady).toBe(false);
+    expect(h.m.calls).toContain('clear');
   });
 
   it('no outs in THROW IT BACK: it ends when one ball is left, then outs count again', () => {
@@ -833,7 +846,7 @@ describe('the Bleachers and THROW IT BACK', () => {
   });
 
   it('a drain before the souvenir is back in play is no out: it still comes back', () => {
-    const h = inInPlay().ev('parkedHit', BLEACHERS).ev('drain', 'drain');
+    const h = withSouvenir().ev('parkedHit', BLEACHERS).ev('drain', 'drain');
     expect(h.g.outs).toBe(0);
     expect(h.g.throwBack).toBe(false);
     h.wait(THROW_BACK_DELAY + 0.05);
@@ -853,10 +866,9 @@ describe('the Bleachers and THROW IT BACK', () => {
   });
 
   it('runs count once in THROW IT BACK: its reward is the second ball', () => {
-    // A runner on third, then THROW IT BACK, then a single brings him home: 1 run.
-    const h = inInPlay();
+    // THROW IT BACK, a runner on third, then a single brings him home: 1 run.
+    const h = strike(withSouvenir());
     h.g.bases = [false, false, true];
-    strike(h);
     const before = h.g.stats.runs;
     h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
     expect(h.last('hit')).toMatchObject({ runs: 1 });

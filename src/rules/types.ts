@@ -47,7 +47,7 @@ export type RulesEvent =
   | { type: 'spinBonus'; gained: number }
   /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
   | { type: 'stretch' }
-  /** A fan in the Bleachers has caught a new souvenir (a parked ball), after a THROW IT BACK. */
+  /** A fan in the Bleachers caught the home-run ball: a souvenir (a parked ball), this inning. */
   | { type: 'souvenirReady' }
   /** The souvenir in the Bleachers was touched: THROW IT BACK, two-ball multiball, begins. */
   | { type: 'throwBack' }
@@ -157,6 +157,8 @@ export interface Machine {
   releaseSaucer(id: string): void;
   /** Park a ball on show in the Bleachers scoop (the souvenir). */
   parkSouvenir(): void;
+  /** Take the souvenir out of the Bleachers scoop (the fan keeps it). */
+  clearSouvenir(): void;
   /** How many balls are on the playfield. */
   ballsInPlay(): number;
   setMagnet(power: number): void;

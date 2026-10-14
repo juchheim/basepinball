@@ -41,6 +41,10 @@ export class WorldMachine implements Machine {
     this.world.parkBall(BLEACHERS);
   }
 
+  clearSouvenir(): void {
+    this.world.unparkBall(BLEACHERS);
+  }
+
   ballsInPlay(): number {
     return this.world.activeBalls().length;
   }

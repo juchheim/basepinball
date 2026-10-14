@@ -323,10 +323,10 @@ export class Director {
         o.scoreboard('FROM THE STRETCH', 'RUNNER ON', '#ff3b3b', 2);
         return;
       case 'souvenirReady':
-        // A fan in the bleachers has caught a ball, on show in the scoop: the next THROW IT BACK.
+        // A fan in the Bleachers caught the home-run ball, on show in the scoop: THROW IT BACK is on.
         o.sound('award');
         o.show('souvenir');
-        o.scoreboard('SOUVENIR!', 'A FAN IN THE BLEACHERS HAS ONE', '#ff9f1c', 2);
+        o.scoreboard('SOUVENIR!', 'A FAN CAUGHT THE HOME RUN', '#ff9f1c', 2.4);
         return;
       case 'throwBack':
         o.stinger('homeRun');

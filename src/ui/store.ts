@@ -157,7 +157,12 @@ export function calloutFor(e: RulesEvent): void {
         2000,
       );
     case 'souvenirReady':
-      return showCallout('SOUVENIR!', 'A fan in the bleachers caught one. Go get it', 'info', 2000);
+      return showCallout(
+        'SOUVENIR!',
+        'A fan caught your home run. Go get it this inning',
+        'info',
+        2400,
+      );
     case 'throwBack':
       return showCallout(
         'THROW IT BACK!',

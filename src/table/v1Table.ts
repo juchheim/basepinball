@@ -180,6 +180,18 @@ const stealRamp: Vec3[] = hrRamp.map((p) => {
   return [round(x + (STEAL_SHIFT * (top - y)) / (top - hrRamp[0]![1])), y, z];
 });
 
+/**
+ * Fielder saucer (dish) radius (mm), 20 at first. Bigger dishes catch more, to bring runs per game
+ * down. 24 went too far: 1B's backstop bar, beyond its dish, reached into the shooter lane and
+ * blocked every plunge.
+ */
+const FIELDER_RADIUS = 22;
+/**
+ * 3B and 1B sit half in the side walls with a backstop bar beyond the dish. They move in as the dish
+ * grows, so their bars stay where they were (the 1B bar must stay out of the shooter lane).
+ */
+const SIDE_SAUCER_X = 25 + (FIELDER_RADIUS - 20);
+
 const fieldSaucer = (
   id: string,
   label: string,
@@ -194,7 +206,7 @@ const fieldSaucer = (
   label,
   x,
   y,
-  radius: 20,
+  radius: FIELDER_RADIUS,
   depth: 7,
   lipAngle,
   lip,
@@ -451,7 +463,7 @@ const elements: ElementDef[] = [
   // The corner infielders' lips face the side walls, so their standees' default spots (behind the
   // lip) were off the field: 3B's under the left rail, out of sight, and 1B's in the shooter lane,
   // where every plunge ran through him. They stand on the field instead, just inside their saucers.
-  { ...fieldSaucer('saucer.3B', '3B', 25, 478, 180), standee: [61, 478] },
+  { ...fieldSaucer('saucer.3B', '3B', SIDE_SAUCER_X, 478, 180), standee: [61, 478] },
   fieldSaucer('saucer.LF', 'LF', 85, 736, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
   // CF plays deep in left-centre, up the alley between the HR ramp and the Gap, below the open
   // corner above the ramp's far end. In the throat of the Gap it caught 2 balls in 60 sim games:
@@ -466,7 +478,7 @@ const elements: ElementDef[] = [
   fieldSaucer('saucer.SS', 'SS', mx(362), 722, 90, 'post', { dx: -6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.2B', '2B', 362, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
-  { ...fieldSaucer('saucer.1B', '1B', mx(25), 478, 0), standee: [mx(61), 478] },
+  { ...fieldSaucer('saucer.1B', '1B', mx(SIDE_SAUCER_X), 478, 0), standee: [mx(61), 478] },
 
   // ---- ramps
   { type: 'ramp', id: 'ramp.HR', path: hrRamp, width: RAMP_WIDTH, endWidth: 32, wallHeight: 40 },

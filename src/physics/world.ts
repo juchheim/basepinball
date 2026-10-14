@@ -464,6 +464,17 @@ export class World {
     s.ball = b;
   }
 
+  /** Takes the parked ball out of a saucer: off show, and free to be used as a spare. */
+  unparkBall(saucerId: string): void {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s?.ball?.parkedIn) return;
+    s.ball.parkedIn = null;
+    s.holding = false;
+    s.settle = 0;
+    s.settling = null;
+    s.ball = null;
+  }
+
   /** Lets one saucer go of the ball it holds; the ball stays out of play. */
   releaseSaucer(saucerId: string): void {
     const s = this.saucers.find((x) => x.id === saucerId);

@@ -302,6 +302,8 @@ export class GameRules {
     else if (hit === '2B') this.stats.doubles++;
     else if (hit === '3B') this.stats.triples++;
     else this.stats.homeRuns++;
+    // A fan in the Bleachers catches the home-run ball: a souvenir, on show, for this inning.
+    if (hit === 'HR') this.handOutSouvenir();
     if (useHotBat) {
       this.hotBat = false;
       this.bat.clear();
@@ -339,7 +341,7 @@ export class GameRules {
    * THROW IT BACK (docs/MVP/01 § 4.8). A souvenir, a second ball, sits in the Bleachers scoop where
    * the player can see it. Touch it with the ball in play and the fan throws it back: the scoop kicks
    * it into play. (Any touch counts: in the narrow alley a ball that only rested against it would be
-   * stuck.) A fan catches the next souvenir at the start of the next inning.
+   * stuck.) A souvenir appears when the batter hits a home run, and lasts the rest of that inning.
    */
   private souvenirTouched(): void {
     if (!this.souvenirReady || this.throwBack || !LIVE.includes(this.state)) return;
@@ -362,12 +364,15 @@ export class GameRules {
     this.after(BLEACHERS_HOLD, () => this.machine.ejectSaucer(BLEACHERS));
   }
 
-  /** A fan in the Bleachers catches a souvenir (a parked ball), if there is not one there already. */
-  private handOutSouvenir(announce: boolean): void {
+  /**
+   * A fan in the Bleachers catches a home-run ball: a souvenir (a parked ball), if there is not one
+   * there already. It is there for the rest of the inning.
+   */
+  private handOutSouvenir(): void {
     if (this.souvenirReady) return;
     this.souvenirReady = true;
     this.machine.parkSouvenir();
-    if (announce) this.emit({ type: 'souvenirReady' });
+    this.emit({ type: 'souvenirReady' });
   }
 
   /**
@@ -500,11 +505,14 @@ export class GameRules {
     this.lastActivity = this.now;
     this.machine.serveToPlunger();
     this.emit({ type: 'inningStart', inning: n });
-    // After a THROW IT BACK a fan catches a new souvenir (announced; the first is there from the start).
-    this.handOutSouvenir(n > 1);
   }
 
   private endInning(): void {
+    // A souvenir not thrown back by the end of the inning: the fan keeps it.
+    if (this.souvenirReady) {
+      this.souvenirReady = false;
+      this.machine.clearSouvenir();
+    }
     const lob = runnersOn(this.bases);
     this.stats.leftOnBase += lob;
     this.emit({

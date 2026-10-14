@@ -518,3 +518,24 @@ Also: 1B's standee stood in the shooter lane (his lip faces the right wall, and 
 lane), so every plunge ran through him; 3B's mirror spot was out of sight under the left rail. Both
 corner infielders now stand on the field, just inside their saucers.
 
+### Bringing runs down: the home-run souvenir, and 22 mm fielder holes
+
+Runs per game were 10.6-10.9 for the sim bot (target 5-7). THROW IT BACK was most of it: with a
+souvenir parked every inning the bot touched it about 5.6 times a game, and with two balls in play
+and no outs for a lost ball, every kind of scoring went up (without the souvenir: 6.65 runs a game).
+
+- **The souvenir now comes from a home run:** a fan in the Bleachers catches the ball, and it sits in
+  the scoop for the rest of that inning; not thrown back by the end of the inning, the fan keeps it.
+  Variants simulated (300 games each): a souvenir every inning 10.89 runs a game (5.63 THROW IT BACKs),
+  after a home run and kept until touched 8.61 (1.58), **after a home run, this inning only 8.05
+  (0.77)**.
+- **Fielder holes 20 → 22 mm** (`FIELDER_RADIUS`). They make no measurable difference to runs
+  (10.89 over 300 games, against 10.6-10.75 at 20 mm): a ball that reaches a fielder is caught anyway.
+  At 24 mm 1B's backstop bar reached into the shooter lane and blocked every plunge (that was the
+  only reason a first 24 mm trial showed fewer runs). 3B and 1B move in as their dishes grow, so
+  their bars stay where they were.
+
+**Result (sim bot, 300 games):** runs per game 8.05 (median 8), 0.77 THROW IT BACKs a game, hit rate
+33.0 %, ball rescues 0.03 a game. Still about a run above the target; the next levers are the
+HUSTLE target (15 bumper hits) and the Gap's back pops (doubles are 35 % of hits).
+
