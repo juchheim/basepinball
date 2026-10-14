@@ -87,6 +87,8 @@ export interface PhysicsParams {
   spinnerDecay: number;
   /** Magnet pull (m/s² at the centre, fading to 0 at its reach). */
   magnetStrength: number;
+  /** Turntable: its grip on a ball at the rim (m/s²), fading to nothing at the hub. */
+  discGrip: number;
   kickbackSpeed: number;
   plungerMaxSpeed: number;
   /** Seconds to pull the plunger all the way back. */
@@ -144,6 +146,7 @@ export function defaultParams(): PhysicsParams {
     spinnerGain: 40,
     spinnerDecay: 1.6,
     magnetStrength: 6,
+    discGrip: 14,
     kickbackSpeed: 3.6,
     plungerMaxSpeed: 4.6,
     plungerPullTime: 0.9,

@@ -202,6 +202,54 @@ function popCapTexture(color: number, label: string): THREE.Texture {
 }
 
 /**
+ * The Twister's face: a pinwheel of curved arms in its colour on ivory, with a dark hub, so its
+ * spin reads at a glance from the flippers.
+ */
+function discTexture(color: number): THREE.Texture {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d')!;
+  const col = `#${color.toString(16).padStart(6, '0')}`;
+  ctx.fillStyle = '#f4efe1';
+  ctx.beginPath();
+  ctx.arc(128, 128, 128, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = col;
+  const arms = 6;
+  for (let i = 0; i < arms; i++) {
+    // Each arm trails behind the spin (counter-clockwise), curving out from the hub to the rim.
+    const a0 = (i / arms) * Math.PI * 2;
+    ctx.beginPath();
+    for (let k = 0; k <= 16; k++) {
+      const t = k / 16;
+      const r = 22 + t * 106;
+      const a = a0 - t * 1.4;
+      ctx.lineTo(128 + r * Math.cos(a), 128 + r * Math.sin(a));
+    }
+    for (let k = 16; k >= 0; k--) {
+      const t = k / 16;
+      const r = 22 + t * 106;
+      const a = a0 - t * 1.4 + 0.5 + t * 0.15;
+      ctx.lineTo(128 + r * Math.cos(a), 128 + r * Math.sin(a));
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = 'rgba(11,16,32,0.9)';
+  ctx.beginPath();
+  ctx.arc(128, 128, 124, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#15151a';
+  ctx.beginPath();
+  ctx.arc(128, 128, 24, 0, Math.PI * 2);
+  ctx.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/**
  * Light spilling from a lit insert onto the clear coat round it (docs/MVP/05 § 6: glow decals):
  * an additive disc whose strength follows the lamp.
  */
@@ -290,6 +338,7 @@ export class TableView {
   readonly particles = new Particles(300);
   readonly figures: Figures;
   private readonly spinnerMeshes = new Map<string, THREE.Object3D>();
+  private readonly discMeshes = new Map<string, THREE.Object3D>();
   private plungerRod: THREE.Object3D | null = null;
   private readonly lights = new Map<string, Light[]>();
   private readonly ballMeshes: THREE.Mesh[] = [];
@@ -469,6 +518,10 @@ export class TableView {
     for (const [id, mesh] of this.spinnerMeshes) {
       const s = this.world.spinners.get(id);
       if (s) mesh.rotation.x = s.angle;
+    }
+    for (const d of this.world.discs) {
+      const mesh = this.discMeshes.get(d.id);
+      if (mesh) mesh.rotation.z = d.angle;
     }
     const pl = this.world.plunger;
     if (this.plungerRod && pl) this.plungerRod.position.y = -pl.pull * 0.05;
@@ -957,6 +1010,40 @@ export class TableView {
         const m = new THREE.Mesh(geom, mat);
         m.position.set(el.x * MM, el.y * MM, 0.0004);
         this.group.add(m);
+        break;
+      }
+      case 'disc': {
+        const color = el.color ?? 0xff9f1c;
+        const face = glowMaterial(0xffffff, 0.15);
+        face.map = face.emissiveMap = discTexture(color);
+        face.roughness = 0.3;
+        const halo = haloMaterial(color);
+        const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), halo);
+        pool.scale.setScalar(el.radius * MM * 4);
+        pool.position.set(el.x * MM, el.y * MM, 0.0006);
+        pool.renderOrder = 1;
+        this.group.add(pool);
+        this.addLight(el.id, {
+          material: face,
+          base: 0.15,
+          level: 0,
+          mode: 'off',
+          boost: 0.8,
+          halo,
+          haloMax: 0.5,
+        });
+        const disc = new THREE.Mesh(new THREE.CircleGeometry(el.radius * MM, 48), face);
+        disc.position.set(el.x * MM, el.y * MM, 0.0005);
+        disc.receiveShadow = true;
+        this.group.add(disc);
+        this.discMeshes.set(el.id, disc);
+        // A thin steel trim ring round the turntable.
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(el.radius * MM, (el.radius + 2.5) * MM, 48),
+          mats.metal,
+        );
+        ring.position.set(el.x * MM, el.y * MM, 0.0005);
+        this.group.add(ring);
         break;
       }
       case 'magnet':

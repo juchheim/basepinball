@@ -153,6 +153,22 @@ export const saucerCatch: Recipe = (a, out, t, rnd) => {
   return 0.16;
 };
 
+/** The ball rolling onto the Twister: a short rising whirr. */
+export const discWhirl: Recipe = (a, out, t, rnd) => {
+  const v = vary(rnd);
+  noise(a, out, t, {
+    filter: 'bandpass',
+    freq: 500 * v,
+    freqEnd: 2400 * v,
+    q: 3,
+    dur: 0.32,
+    peak: 0.35,
+    attack: 0.04,
+  });
+  tone(a, out, t, 'triangle', 220 * v, 520 * v, 0.3, 0.12, 0.04);
+  return 0.34;
+};
+
 /** The ball lift in the mound (VUK) and the pitch kicker. */
 export const pitchRelease: Recipe = (a, out, t, rnd) => {
   tone(a, out, t, 'sine', 105 * vary(rnd), 55, 0.08, 0.55);

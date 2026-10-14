@@ -70,12 +70,12 @@
 <circle cx="85" cy="434" r="27" fill="#5a3a22"/>
 <circle cx="85" cy="434" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="85.0" y="472.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >LF 7</text>
+<circle cx="151" cy="185" r="27" fill="#5a3a22"/>
+<circle cx="151" cy="185" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
+<text x="151.0" y="223.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >CF 8</text>
 <circle cx="202" cy="420" r="27" fill="#5a3a22"/>
 <circle cx="202" cy="420" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="202.0" y="458.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >SS 6</text>
-<circle cx="275" cy="252" r="27" fill="#5a3a22"/>
-<circle cx="275" cy="252" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
-<text x="275.0" y="290.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >CF 8</text>
 <circle cx="348" cy="420" r="27" fill="#5a3a22"/>
 <circle cx="348" cy="420" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="348.0" y="458.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >2B 4</text>
@@ -85,6 +85,12 @@
 <circle cx="525" cy="692" r="27" fill="#5a3a22"/>
 <circle cx="525" cy="692" r="24.5" fill="none" stroke="#f7f4ec" stroke-width="1" stroke-dasharray="2.5 2" opacity="0.8"/>
 <text x="490.0" y="695.0" font-size="9" fill="#f7f4ec" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >1B 3</text>
+<circle cx="394" cy="200" r="26" fill="#0b1020" opacity="0.8"/>
+<path d="M 409.50,226.85 A 31 31 0 0 0 409.50,173.15" fill="none" stroke="#ff9f1c" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>
+<polygon points="405.17,170.65 407.50,176.62 411.50,169.69" fill="#ff9f1c" opacity="0.9"/>
+<path d="M 378.50,173.15 A 31 31 0 0 0 378.50,226.85" fill="none" stroke="#ff9f1c" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>
+<polygon points="382.83,229.35 380.50,223.38 376.50,230.31" fill="#ff9f1c" opacity="0.9"/>
+<text x="394.0" y="244.0" font-size="8" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TWISTER</text>
 <polygon points="24.00,404.6 9.00,448.8 20.25,439.8 27.75,439.8 39.00,448.8" fill="#ff9f1c" opacity="0.28" stroke="#ff9f1c" stroke-width="1.2"/>
 <text x="24.0" y="466.8" font-size="8.5" fill="#ff9f1c" text-anchor="middle" font-family="Oswald, 'Arial Narrow', Arial, sans-serif" font-weight="700" letter-spacing="0.6" >TRIPLE</text>
 <polygon points="172.46,473.91 165.36,520.04 174.88,509.23 182.26,507.92 194.90,514.83" fill="#ff3b3b" opacity="0.28" stroke="#ff3b3b" stroke-width="1.2"/>

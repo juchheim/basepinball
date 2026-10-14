@@ -624,6 +624,12 @@ describe('feature goals', () => {
     expect(h.g.hustle).toBe(3);
   });
 
+  it('a ride on the Twister counts as a bumper hit after a hit, and feeds nothing before one', () => {
+    expect(inInPlay().ev('disc', 'disc.RF').g.hustle).toBe(0);
+    const h = inLiveAfterHit().wait(1).ev('disc', 'disc.RF');
+    expect(h.g.hustle).toBe(1);
+  });
+
   it('a ball ricocheting through the nest counts once per cooldown, not per contact', () => {
     const h = inLiveAfterHit().wait(1).ev('pop', 'pop.OF.L');
     for (let i = 0; i < 8; i++) h.ev('pop', 'pop.OF.R'); // eight more contacts within 0.1 s

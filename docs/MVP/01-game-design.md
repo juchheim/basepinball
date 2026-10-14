@@ -28,7 +28,7 @@ the crowd roars. Nine innings, three outs each. Score as many runs as you can.
 | Pitcher | Mound with a ball lift (VUK) and pitch kicker, plus an animated pitcher standee |
 | Pitch types | Kicker speed, plus a curveball magnet under the playfield |
 | Catcher | The center drain between the flippers ("catcher's mitt") |
-| Fielders (1B, 2B, SS, 3B, LF, CF, RF) | **Fielder saucers** backed by standees: LF/SS/2B/RF in the gaps of the shot fan, 3B/1B at the orbit approaches, CF in the throat of the pop nest |
+| Fielders (1B, 2B, SS, 3B, LF, CF, RF) | **Fielder saucers** backed by standees: LF/SS/2B/RF in the gaps of the shot fan, 3B/1B at the orbit approaches, CF deep in left-centre above the HR ramp |
 | Foul territory | Outlanes |
 | Dugouts | Slingshots |
 | Single / Double | **The Gap** pop-bumper nest: front pops = single, back pops = double |

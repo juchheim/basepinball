@@ -342,16 +342,18 @@ const elements: ElementDef[] = [
     radius: 5,
     material: 'rubberPost',
   },
-  // Close the dead space under each ramp from the top area.
+  // The deep corners above each ramp's far end are open to the top of the table, so a ball coming
+  // off the top can drop in on CF (left) or the Twister (right). A short wall in each corner,
+  // sloping down from the orbit guide to the ramp's end, rolls a ball out of the nook between them.
   {
     type: 'wall',
     points: [
-      [165, 1090],
-      [185, 1050],
+      [88, 1047],
+      [119, 1033],
     ],
     material: 'metal',
   },
-  { type: 'wall', points: [m2([165, 1090]), m2([185, 1050])], material: 'metal' },
+  { type: 'wall', points: [m2([88, 1047]), m2([119, 1033])], material: 'metal' },
   { type: 'spinner', id: 'spinner.L', a: [3, 800], b: [42, 800] },
   { type: 'spinner', id: 'spinner.R', a: [mx(42), 800], b: [mx(3), 800] },
   // More spinners down each orbit's straight run: a ball looping an orbit sets off a string of them.
@@ -402,8 +404,8 @@ const elements: ElementDef[] = [
   },
   { type: 'post', x: 240, y: 805, radius: 5, material: 'rubberPost' },
   { type: 'post', x: mx(240), y: 805, radius: 5, material: 'rubberPost' },
-  // "Hit it up the middle": two singles flank a 40 mm centre channel; a ball threading it skims
-  // over CF and meets a double at the back. A weak ball in the channel drops into CF instead.
+  // "Hit it up the middle": two singles flank a 40 mm centre channel; a ball threading it meets a
+  // double at the back.
   { type: 'pop', id: 'pop.1B.L', x: 233, y: 868, radius: 22, label: '1B', color: LAMP.ivory },
   { type: 'pop', id: 'pop.1B.R', x: 317, y: 868, radius: 22, label: '1B', color: LAMP.ivory },
   { type: 'pop', id: 'pop.2B.L', x: 247, y: 992, radius: 20, label: '2B', color: LAMP.blue },
@@ -439,8 +441,12 @@ const elements: ElementDef[] = [
   // ---- fielders (7 saucers)
   fieldSaucer('saucer.3B', '3B', 25, 478, 180),
   fieldSaucer('saucer.LF', 'LF', 85, 736, 90, 'post', { dx: -4, dy: 20, radius: 5 }),
+  // CF plays deep in left-centre, up the alley between the HR ramp and the Gap, below the open
+  // corner above the ramp's far end. In the throat of the Gap it caught 2 balls in 60 sim games:
+  // only a ball already dead slow could drop in, and the singles kept those away. Its glove post is
+  // above the dish, slim enough to leave a ball-wide gap to the ramp and to the Gap wall.
+  fieldSaucer('saucer.CF', 'CF', 151, 985, 90, 'post', { dx: 0, dy: 24, radius: 3 }),
   fieldSaucer('saucer.SS', 'SS', 202, 750, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
-  fieldSaucer('saucer.CF', 'CF', 275, 918, 90, 'none'),
   fieldSaucer('saucer.2B', '2B', 348, 750, 90, 'post', { dx: -6, dy: 25, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
   fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
@@ -464,6 +470,12 @@ const elements: ElementDef[] = [
   { type: 'post', x: 167, y: 798, radius: 4, material: 'metal' },
   { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
+
+  // ---- the Twister: a turntable deep in right-centre, up the alley between the Steal ramp and the
+  // Gap (across from CF). It spins the way runners go round the bases (counter-clockwise), always
+  // on. A ball rolling over it is whipped round: a slow one is flung off sideways or back up the
+  // table, a fast one just bends. It feeds HUSTLE like a bumper.
+  { type: 'disc', id: 'disc.RF', x: 394, y: 970, radius: 20, spin: 35, color: LAMP.amber },
 
   // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (out in the open, lower right)
   ...BAT_BANK.centers.map(([x, y], i): ElementDef => {

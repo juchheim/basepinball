@@ -6,7 +6,7 @@
  *
  * Style: a ballpark at night under lights, printed on a pinball playfield.
  */
-import type { ElementDef, LampDef, SaucerDef, TableDef } from '../../src/table/schema';
+import type { DiscDef, ElementDef, LampDef, SaucerDef, TableDef } from '../../src/table/schema';
 
 /**
  * Re-tune a '#rrggbb' colour in HSL: scale its lightness and saturation. The field colours below
@@ -211,6 +211,39 @@ export function playfieldSvg(table: TableDef): string {
     const lx = s.x + Math.cos(a) * (s.radius + 15);
     const ly = s.y + Math.sin(a) * (s.radius + 15) - 3;
     text(lx, ly, `${label} ${POS[label] ?? ''}`, 9, C.chalk);
+  }
+
+  // ---- the Twister: a dark well for the turntable, with arrows showing which way it spins
+  for (const d of els.filter((e): e is DiscDef => e.type === 'disc')) {
+    out.push(
+      `<circle cx="${d.x}" cy="${Y(d.y)}" r="${d.radius + 6}" fill="${C.ink}" opacity="0.8"/>`,
+    );
+    // Two arcs round the well, each ending in an arrowhead, turning the way the disc does.
+    const r = d.radius + 11;
+    const ccw = d.spin >= 0;
+    for (const start of ccw ? [-60, 120] : [60, 240]) {
+      const a0 = (start * Math.PI) / 180;
+      const a1 = ((start + (ccw ? 120 : -120)) * Math.PI) / 180;
+      const p0 = { x: d.x + r * Math.cos(a0), y: d.y + r * Math.sin(a0) };
+      const p1 = { x: d.x + r * Math.cos(a1), y: d.y + r * Math.sin(a1) };
+      // The image is the table seen from above (y flipped), so sweep flag 0 draws counter-clockwise.
+      out.push(
+        `<path d="M ${pt(p0.x, p0.y)} A ${r} ${r} 0 0 ${ccw ? 0 : 1} ${pt(p1.x, p1.y)}" fill="none" stroke="${C.amber}" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>`,
+      );
+      // Arrowhead at p1, pointing along the direction of travel.
+      const dir = a1 + (ccw ? Math.PI / 2 : -Math.PI / 2);
+      const tip = { x: p1.x + Math.cos(dir) * 5, y: p1.y + Math.sin(dir) * 5 };
+      const side = (s: number) => ({
+        x: p1.x + Math.cos(dir + Math.PI / 2) * 4 * s,
+        y: p1.y + Math.sin(dir + Math.PI / 2) * 4 * s,
+      });
+      const l = side(1);
+      const rr = side(-1);
+      out.push(
+        `<polygon points="${[pt(tip.x, tip.y), pt(l.x, l.y), pt(rr.x, rr.y)].join(' ')}" fill="${C.amber}" opacity="0.9"/>`,
+      );
+    }
+    text(d.x, d.y - d.radius - 24, 'TWISTER', 8, C.amber);
   }
 
   // ---- shot arrows and labels (the arrow lamps sit on top)

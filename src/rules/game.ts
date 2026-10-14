@@ -212,6 +212,10 @@ export class GameRules {
       case 'spinner':
         this.plungeSpin(e.id);
         return;
+      case 'disc':
+        // The Twister counts as a bumper: a ride on it after a hit feeds HUSTLE.
+        this.bumperHit();
+        return;
       case 'saucer':
         this.saucer(e.id);
         return;

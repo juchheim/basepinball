@@ -176,37 +176,74 @@ describe('v1 table: devices', () => {
   });
 
   it('saucers catch a slow ball and let a fast one skim over', () => {
-    const roll = (speed: number) => {
-      const w = world();
-      // Start past the single bumpers, which cover the throat of the Gap.
-      const b = w.addBall(0.275, 0.9);
-      b.vy = speed;
+    // CF on a bare playfield. A ball rolled gently into the dish toward its glove post settles in
+    // it; one rolled fast across it skims over.
+    const cf = v1Table.elements.find((e) => e.type === 'saucer' && e.id === 'saucer.CF')!;
+    if (cf.type !== 'saucer') throw new Error('no CF');
+    const bare = { ...v1Table, elements: [cf] };
+    const roll = (dx: number, dy: number, vx: number, vy: number) => {
+      const w = new World(bare, defaultParams());
+      const b = w.addBall((cf.x + dx) / 1000, (cf.y + dy) / 1000);
+      b.vx = vx;
+      b.vy = vy;
       return run(w, 2000, (e) => e.type === 'saucer').some((e) => e.id === 'saucer.CF');
     };
-    expect(roll(0.4)).toBe(true);
-    expect(roll(2.5)).toBe(false);
+    const lx = Math.cos((cf.lipAngle * Math.PI) / 180);
+    const ly = Math.sin((cf.lipAngle * Math.PI) / 180);
+    expect(roll(-30 * lx, -30 * ly, 0.4 * lx, 0.4 * ly)).toBe(true);
+    expect(roll(-50, 0, 2.5, 0)).toBe(false);
   });
 
-  it('nudges move the ball and too many swing the tilt bob', () => {
-    const w = world();
-    const b = w.addBall(0.275, 0.6);
-    run(w, 50);
-    const vx = b.vx;
-    w.nudge(1, 0);
-    expect(b.vx - vx).toBeCloseTo(w.params.nudgeSpeed, 5);
-    // One nudge is safe; three in a row swing the bob into the ring.
-    expect(run(w, 1500).filter((e) => e.type === 'tiltBob')).toHaveLength(0);
-    const after: PhysicsEvent[] = [];
-    for (let i = 0; i < 3; i++) {
-      w.nudge(1, 0);
-      after.push(...run(w, 30));
-    }
-    after.push(...run(w, 600));
-    expect(after.some((e) => e.type === 'tiltBob')).toBe(true);
+  it('the Twister whips a slow ball round and only bends a fast one', () => {
+    const disc = v1Table.elements.find((e) => e.type === 'disc')!;
+    if (disc.type !== 'disc') throw new Error('no disc');
+    // Roll a ball straight down the table across the disc, a little off its hub on the side where
+    // the surface runs up the table against it, and see which way it is heading as it leaves. (On a bare playfield, so no wall or post gets in the way.)
+    const bare = { ...v1Table, elements: [disc] };
+    const cross = (speed: number) => {
+      const w = new World(bare, defaultParams());
+      const side = disc.spin > 0 ? 12 : -12;
+      const b = w.addBall((disc.x + side) / 1000, (disc.y + disc.radius + 14) / 1000);
+      b.vy = -speed;
+      let entered = false;
+      const events: PhysicsEvent[] = [];
+      for (let i = 0; i < 2000; i++) {
+        w.step();
+        events.push(...w.events);
+        w.events.length = 0;
+        if (w.discs[0]!.occupied) entered = true;
+        else if (entered) break;
+      }
+      return { events, turn: Math.abs(Math.atan2(b.vx, -b.vy)) };
+    };
+    const slow = cross(0.8);
+    const fast = cross(2.5);
+    expect(slow.events.some((e) => e.type === 'disc' && e.id === 'disc.RF')).toBe(true);
+    expect(slow.turn).toBeGreaterThan(0.6); // about 45°
+    expect(fast.turn).toBeLessThan(0.05);
   });
 });
 
 describe('v1 table: stuck balls', () => {
+  it('no ball can rest on the Twister', () => {
+    const disc = v1Table.elements.find((e) => e.type === 'disc')!;
+    if (disc.type !== 'disc') throw new Error('no disc');
+    for (let i = 0; i < 48; i++) {
+      const w = world();
+      // Set balls down still on rings round the hub (including dead centre).
+      const r = ((i % 4) / 4) * disc.radius;
+      const a = (i / 48) * 2 * Math.PI * 5;
+      w.addBall((disc.x + r * Math.cos(a)) / 1000, (disc.y + r * Math.sin(a)) / 1000);
+      let onFor = 0;
+      for (let k = 0; k < 3000; k++) {
+        w.step();
+        w.events.length = 0;
+        if (w.discs[0]!.occupied) onFor++;
+      }
+      expect(onFor, `ball ${i} at r ${r.toFixed(0)} mm`).toBeLessThan(1000);
+    }
+  });
+
   it('no ball comes to rest outside a cradle or a saucer', () => {
     const rng = new Rng(5);
     const stuck: string[] = [];

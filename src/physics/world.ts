@@ -34,6 +34,7 @@ export type PhysicsEventType =
   | 'spinner'
   | 'kickback'
   | 'plunger'
+  | 'disc'
   | 'tiltBob';
 
 /**
@@ -137,6 +138,20 @@ export interface Magnet {
   power: number;
 }
 
+/** A spinning turntable flush with the playfield (see `DiscDef`). */
+export interface Disc {
+  id: string;
+  cx: number;
+  cy: number;
+  radius: number;
+  /** Spin (rad/s), counter-clockwise positive. */
+  omega: number;
+  /** Turned angle (rad), for the renderer. */
+  angle: number;
+  /** A ball was on the disc at the last substep. */
+  occupied: boolean;
+}
+
 export interface Kickback {
   id: string;
   x0: number;
@@ -203,6 +218,7 @@ export class World {
   readonly sensors: Sensor[] = [];
   readonly spinners = new Map<string, SpinnerState>();
   readonly magnets: Magnet[] = [];
+  readonly discs: Disc[] = [];
   readonly kickbacks: Kickback[] = [];
   readonly drops = new Map<string, DropTarget>();
   readonly retractables: RetractablePop[] = [];
@@ -490,6 +506,7 @@ export class World {
       b.vy += this.gy * h;
       b.vz += this.gz * h;
       for (const m of this.magnets) this.applyMagnet(b, m, h);
+      for (const d of this.discs) this.applyDisc(b, d, h);
       b.px += b.vx * h;
       b.py += b.vy * h;
       b.pz += b.vz * h;
@@ -538,6 +555,7 @@ export class World {
         this.emit('spinner', s.id);
       }
     }
+    for (const d of this.discs) d.angle = (d.angle + d.omega * dt) % (2 * Math.PI);
     for (const r of this.retractables) {
       if (r.raised && r.lift < 1) {
         // Never rise under a ball: it waits until the ball has rolled off (or been pitched away).
@@ -970,6 +988,34 @@ export class World {
     b.vy += (dy / d) * a * h;
   }
 
+  /**
+   * A ball on a turntable is dragged toward the velocity of the surface under it (ω × r), by
+   * friction. The grip grows from nothing at the hub to `discGrip` at the rim: near the hub it is
+   * weaker than the slope, so a ball can never be held there, and further out the surface moves so
+   * fast that the ball cannot keep up with it round the turn and is thrown off.
+   */
+  private applyDisc(b: Ball, d: Disc, h: number): void {
+    const dx = b.px - d.cx;
+    const dy = b.py - d.cy;
+    const r2 = dx * dx + dy * dy;
+    const on = b.pz < b.radius + 0.002 && r2 < d.radius * d.radius;
+    if (on && !d.occupied) {
+      const ready = this.cooldowns.get(d.id) ?? -1;
+      if (this.time >= ready) this.emit('disc', d.id);
+      this.cooldowns.set(d.id, this.time + 0.3);
+    }
+    d.occupied = on;
+    if (!on || r2 < 1e-12) return;
+    const sx = -d.omega * dy - b.vx;
+    const sy = d.omega * dx - b.vy;
+    const slip = Math.sqrt(sx * sx + sy * sy);
+    if (slip < 1e-9) return;
+    const dv = Math.min(slip, ((this.params.discGrip * Math.sqrt(r2)) / d.radius) * h);
+    b.vx += (sx / slip) * dv;
+    b.vy += (sy / slip) * dv;
+    b.wz += (d.omega - b.wz) * Math.min(1, 20 * h);
+  }
+
   // ---------------------------------------------------------------- sensors & devices
 
   private updateSensors(b: Ball): void {
@@ -1280,6 +1326,17 @@ export class World {
             cy: el.y * MM,
             radius: el.radius * MM,
             power: 0,
+          });
+          break;
+        case 'disc':
+          this.discs.push({
+            id: el.id,
+            cx: el.x * MM,
+            cy: el.y * MM,
+            radius: el.radius * MM,
+            omega: el.spin,
+            angle: 0,
+            occupied: false,
           });
           break;
         case 'kickback':

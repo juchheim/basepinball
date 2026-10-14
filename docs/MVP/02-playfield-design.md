@@ -67,8 +67,9 @@ regular pinball.
 6. **Open mid-field** (y ≈ 480–700): travel space with insert arrows aimed at every shot.
 7. **Shot fan** (y ≈ 680–810): left orbit, LF, left ramp, SS, **the Gap** mouth, 2B, right ramp,
    RF, right orbit.
-8. **The Gap** (y ≈ 805–1030): the center pop-bumper nest (singles in front, doubles behind, CF
-   saucer in its throat).
+8. **The Gap** (y ≈ 805–1030): the center pop-bumper nest (singles in front, doubles behind).
+   Up the alleys either side of it, between the Gap and the ramps: **CF** (left) and **the
+   Twister** (right).
 9. **Top** (y > 1030): R-B-I rollover lanes, the orbit arch, corner kicker bumpers (triples),
    ramp crests, the shooter lane exit.
 
@@ -78,7 +79,7 @@ regular pinball.
 |---|------|-----------------|--------|----------------------|
 | 1 | **Left orbit** (spinner) | Right | **TRIPLE.** The ball strikes the top-left corner kicker, loops the arch, and drops through the R-B-I lanes into the Gap. | 3B side saucer on the approach (catches weak shots), LF on the inside |
 | 2 | **Left ramp: "Over the Wall"** | Right | **HOME RUN** at the crest gate. The wireform returns the ball to the **left inlane**, setting up a rally. | LF and SS flank the entrance. A missed ramp rolls back toward them. |
-| 3 | **The Gap** (center pop nest) | Either | **SINGLE** (front pops) or **DOUBLE** (back pops). A slow, straight-up-the-middle ball can drop into the **CF** saucer in the throat. | SS and 2B flank the mouth. CF is inside. |
+| 3 | **The Gap** (center pop nest) | Either | **SINGLE** (front pops) or **DOUBLE** (back pops). | SS and 2B flank the mouth. CF plays deep, up the alley beside the HR ramp. |
 | 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); Its mouth is **70 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
@@ -125,9 +126,10 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (105, 660) / (445, 660), 17 mm, a mirror pair | Score no hit; feed HUSTLE. Soft kick (0.8 m/s; the Gap pops' is 3.4). |
 | `hustle.1`-`.5` | HUSTLE meter lamps | (243 + 16 i, 612) | One lamp per three bumper hits after a hit |
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
-| `saucer.CF` | Fielder saucer in the Gap throat | (275, 910) | Between and just behind the singles |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
 | `saucer.2B` | Fielder saucer | (348, 750) | Between the Gap and the right ramp (LF, SS, 2B and RF form a mirror-symmetric arc, SS and 2B at 750 and LF and RF at 736, low enough to clear the wider Steal ramp mouth) |
+| `saucer.CF` | Fielder saucer, deep left-centre | (151, 985) | Up the alley between the HR ramp and the Gap, below the open corner above the ramp's far end. Slim glove post (3 mm) above the dish, a ball-wide gap each side. |
+| `disc.RF` | **The Twister**: a spinning disc, flush with the playfield | (394, 970), 20 mm | Up the alley between the Steal ramp and the Gap, across from CF. Spins counter-clockwise (the way runners go round), always on. Feeds HUSTLE like a bumper. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
 | `saucer.RF` | Fielder saucer | (465, 736) | Between the right ramp and the right orbit (level with LF) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
@@ -135,7 +137,7 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `shooter` | Shooter lane + plunger | x 550–590, plunger at (570, 40) | Leadoff launch and skill shot |
 
 **Fielders (7 saucers):** 3B and 1B on the walls at the orbit approaches; LF, SS, 2B and RF in the
-gaps of the shot fan; CF in the throat of the Gap. The pitcher (mound) and catcher (drain) are the
+gaps of the shot fan; CF deep, up the alley beside the HR ramp. The pitcher (mound) and catcher (drain) are the
 battery.
 
 ### 5.1 Optional / later elements (reserved space)
@@ -171,7 +173,7 @@ Fast shots that only graze a saucer skim across it.
 | Hit | Device | Behaviour |
 |-----|--------|-----------|
 | Single | Front pair of pop bumpers in the Gap (ivory, "1B") | The first pop contact during `IN_PLAY` is a single. Later contacts are cosmetic. |
-| Double | Back pair of pop bumpers in the Gap (blue, "2B") | Reached by a strong, straight shot that skims the CF saucer, or that threads between a single and CF. |
+| Double | Back pair of pop bumpers in the Gap (blue, "2B") | Reached by a strong, straight shot that threads the channel between the singles. |
 | Triple | Corner kicker bumpers at the arch corners (amber, "3B") | Kicks the ball onward around the orbit. Switch on contact. |
 | Home run | Left ramp crest gate (red ramp, "HR" flag) | Gate switch = HR. The wireform returns the ball to the left inlane. |
 
@@ -227,7 +229,7 @@ Measure each layout revision (playtests + headless sim bot):
 
 - Success rate of each shot from a cradle and from a moving ball, plus the capture rate of each
   flanking saucer on misses.
-- Gap outcome split (single / double / CF) vs entry speed and angle.
+- Gap outcome split (single / double) vs entry speed and angle.
 - Ramp rollback rate and where rollbacks end up.
 - Pop and sling exits that go straight down the middle (target < 5 %). With every drain an out, this
   matters even more.
@@ -403,3 +405,30 @@ word walks the batter). HUSTLE, rallies, steals and the Stretch all need a hit o
 The right-orbit route is excluded on purpose: a gentle plunge that happens to roll down the right orbit
 is not a hard plunge. If the bonus feels too automatic (the bot never plunges softly), tighten the
 trigger (all five plates, or a faster ball) or lower the reward to +2 (6.1 runs, 2.3 payouts), which no longer lights a dot by itself.
+
+### Deep outfield: CF moves out, and the Twister
+
+Playtest feedback: the CF saucer in the throat of the Gap never caught anything. Move it out, and
+give right field something that makes the ball do something interesting. Both should sit deep in
+the outfield, not crammed in among the other devices.
+
+| Area | Change | Result |
+|---|---|---|
+| CF | Out of the Gap to **(151, 985)**, up the alley between the HR ramp and the Gap. A slim glove post (3 mm) above the dish leaves a ball-wide gap to the ramp and to the Gap wall. First tried at (150, 1045), right up in the corner; brought down so it is not crowded against the top. | In the Gap it caught **2 balls in 60 sim games** (LF caught 136): only a dead-slow ball could drop in, and the singles kept those away. Deep, it catches about as often as SS and 2B. |
+| Deep corners | The walls that sealed off the space above each ramp's far end (from the top area) are gone, so a ball coming off the top can drop into those corners. A short wall in each, sloping from the orbit guide down to the ramp's end, rolls a ball out of the nook between them (without it, balls came to rest there). | Flipper shot map unchanged (HR ramp 15, steal ramp 25, Gap 155 + 14, orbits 5 + 4 of 494 sweep flips). |
+| The Twister | A new device, `disc`, at **(394, 970)**, 20 mm, up the alley between the Steal ramp and the Gap: a turntable flush with the playfield, always spinning (35 rad/s, counter-clockwise). It drags a ball toward the velocity of the surface under it, with a grip that grows from nothing at the hub to 14 m/s² at the rim. A slow ball is flung off sideways, or back up the table; a fast one only bends. Riding it feeds HUSTLE (after a hit), with a whirr and a flash. | Friction strong everywhere held balls near the hub against the slope; with the grip fading to the hub there is no spot to rest. In narrow alleys it pinned balls against walls, so it sits in open floor. Stuck-ball scans: 0. |
+
+**Result (sim bot, 500 games, same seeds, before → after):** runs per game 7.17 → 7.06, fielder
+outs 22.1 → 23.8 % of PA, ball rescues 0.04 → 0.02 a game, skill shots 0.19 → 0.15 a game (some soft
+plunges now fall into the opened corners instead of the R-B-I lanes).
+
+**What reaches them.** About a third of Twister rides and a fifth of CF catches come off the
+pitcher's mound ramp; most of the rest spill out of the back of the Gap. Shots off the mound ramp
+can reach both, but rarely: of about 110 launches in a sweep of flipper shots with the mound up,
+1-2 end in a CF catch and 4-5 on the Twister, wherever the two sit between the alley mouths
+(y ≈ 850) and the top corners. Launched balls mostly come down at y ≈ 700-800, among the
+LF / SS / 2B / RF saucers. A taller mound ramp makes it worse (at 14-30 mm, CF catches fall by up to
+30 % and Twister rides by up to 50 %). Reshaping the space above the Gap was tried too (a roof over
+it, a split roof, deflectors outside the top lanes): the roofs trapped balls under the outer lanes
+or fed the corners below CF and the Twister, and the best deflector traded about 20 % more Twister
+rides for about 20 % fewer CF catches, so none was kept.

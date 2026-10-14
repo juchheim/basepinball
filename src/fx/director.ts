@@ -134,11 +134,15 @@ export class Director {
         this.out.sound('spinner', at);
         this.out.flash(e.id.endsWith('.L') ? 'arrow.orbit.L' : 'arrow.orbit.R');
         return;
+      case 'disc':
+        this.out.sound('disc', at);
+        this.out.flash(e.id);
+        return;
       case 'saucer': {
         const s = this.saucers.find((x) => x.id === e.id);
         this.out.sound('saucer', s ? this.place(s.x * MM, s.y * MM) : at);
         if (s?.label) {
-          // CF sits in the grass of the Gap; the rest are on the dirt.
+          // The outfielders stand on the grass; the rest are on the dirt.
           this.out.figure({
             kind: 'catch',
             position: s.label,

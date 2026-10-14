@@ -14,6 +14,7 @@ export const SOUNDS = {
   dropReset: { bus: 'mech', poly: 1, recipe: sfx.dropReset },
   standup: { bus: 'mech', poly: 3, recipe: sfx.standup },
   spinner: { bus: 'mech', poly: 6, recipe: sfx.spinnerTick },
+  disc: { bus: 'mech', poly: 1, recipe: sfx.discWhirl },
   saucer: { bus: 'mech', poly: 1, recipe: sfx.saucerCatch },
   pitch: { bus: 'mech', poly: 1, recipe: sfx.pitchRelease },
   drain: { bus: 'mech', poly: 1, recipe: sfx.drain },
