@@ -63,6 +63,12 @@ export class Stage {
   private fitExtra: THREE.Vector3[] = [];
   private dprCap = 2;
   private maxPixels = 6e6;
+  /**
+   * The drawing-buffer size waiting to be applied (see `resize`), and the one last applied. Setting
+   * a canvas's size, even to the same value, wipes it, so it is only done right before a draw.
+   */
+  private pendingSize: { w: number; h: number; pr: number } | null = null;
+  private appliedSize = { w: 0, h: 0, pr: 0 };
   /** Called after every canvas resize (diagnostics). */
   onResize: ((w: number, h: number, pixelRatio: number) => void) | null = null;
   private shakeAmp = 0;
@@ -237,12 +243,13 @@ export class Stage {
     const h = this.container.clientHeight || window.innerHeight;
     // The pixel ratio is the device's, capped by the tier and by the canvas's total pixel budget.
     const budget = Math.sqrt(this.maxPixels / Math.max(1, w * h));
-    this.renderer.setPixelRatio(
-      Math.max(0.75, Math.min(window.devicePixelRatio, this.dprCap, budget)),
-    );
-    // Drawing-buffer size only: CSS sizes the canvas, so a stale size can't pin it smaller.
-    this.renderer.setSize(w, h, false);
-    this.onResize?.(w, h, this.renderer.getPixelRatio());
+    const pr = Math.max(0.75, Math.min(window.devicePixelRatio, this.dprCap, budget));
+    // The canvas itself is resized at the next draw (`applySize`). Resizing it here would blank it
+    // for a frame: this runs from a ResizeObserver (after the frame is drawn, before it is shown)
+    // and from the quality controller (after the draw), and an unchanged size still clears it.
+    const a = this.appliedSize;
+    if (w !== a.w || h !== a.h || pr !== a.pr) this.pendingSize = { w, h, pr };
+    else this.pendingSize = null;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     if (!this.fitTarget) return;
@@ -287,7 +294,20 @@ export class Stage {
   recover(hard = false): void {
     if (hard) this.setPost(this.bloomEnabled, this.fxaaEnabled);
     this.pipeline.needsUpdate = true;
+    // Force the canvas to be reconfigured at the next draw, even at the same size.
+    this.appliedSize = { w: 0, h: 0, pr: 0 };
     this.resize();
+  }
+
+  /** Apply a pending canvas resize; called right before drawing, so the cleared canvas is redrawn. */
+  private applySize(): void {
+    const s = this.pendingSize;
+    if (!s) return;
+    this.pendingSize = null;
+    this.appliedSize = s;
+    // Drawing-buffer size only: CSS sizes the canvas, so a stale size can't pin it smaller.
+    this.renderer.setDrawingBufferSize(s.w, s.h, s.pr);
+    this.onResize?.(s.w, s.h, s.pr);
   }
 
   /** The WebGPU device, if that is the backend in use. */
@@ -319,6 +339,7 @@ export class Stage {
       }
     });
     try {
+      this.applySize();
       this.pipeline.render();
     } finally {
       for (const o of hidden) o.visible = false;
@@ -327,6 +348,7 @@ export class Stage {
   }
 
   render(): void {
+    this.applySize();
     if (this.orbit > 0.001) {
       // A slow sway around the table for attract mode; dead-ball only (docs/MVP/05 § 7).
       this.orbitClock += 1 / 60;
