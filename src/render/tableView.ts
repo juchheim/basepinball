@@ -497,8 +497,9 @@ export class TableView {
     const qb = new THREE.Quaternion();
     this.ballMeshes.forEach((m, i) => {
       const b = balls[i];
-      m.visible = !!b && b.active;
-      if (!b || !b.active) return;
+      // A parked ball (the Bullpen's reliever) is on show too.
+      m.visible = !!b && (b.active || b.parkedIn !== null);
+      if (!b || !m.visible) return;
       m.position.set(
         b.prevPx + (b.px - b.prevPx) * alpha,
         b.prevPy + (b.py - b.prevPy) * alpha,

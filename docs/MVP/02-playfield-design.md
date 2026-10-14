@@ -68,8 +68,8 @@ regular pinball.
 7. **Shot fan** (y ≈ 680–810): left orbit, LF, left ramp, SS, **the Gap** mouth, 2B, right ramp,
    RF, right orbit.
 8. **The Gap** (y ≈ 805–1030): the center pop-bumper nest (singles in front, doubles behind).
-   Up the alleys either side of it, between the Gap and the ramps: **CF** (left) and **the
-   Bullpen** scoop (right).
+   Up the alley between it and the HR ramp: **CF**. Deep in right field, between the Steal ramp
+   and the right orbit: **the Bullpen** scoop.
 9. **Top** (y > 1030): R-B-I rollover lanes, the orbit arch, corner kicker bumpers (triples),
    ramp crests, the shooter lane exit.
 
@@ -128,8 +128,8 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
 | `saucer.2B` | Fielder saucer | (348, 750) | Between the Gap and the right ramp (LF, SS, 2B and RF form a mirror-symmetric arc, SS and 2B at 750 and LF and RF at 736, low enough to clear the wider Steal ramp mouth) |
-| `saucer.CF` | Fielder saucer, deep left-centre | (151, 985) | Up the alley between the HR ramp and the Gap, below the open corner above the ramp's far end. Slim glove post (3 mm) above the dish, a ball-wide gap each side. |
-| `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out), with two lock lamps below it | (397, 985); lamps at (386, 950) / (408, 950) | CF's mirror, up the alley between the Steal ramp and the Gap. Two balls in start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
+| `saucer.CF` | Fielder saucer, deep left-centre | (158, 940) | Up the alley between the HR ramp and the Gap. Its glove post is set into the Gap wall (above the dish, in an alley this narrow, it left a notch that held balls). |
+| `saucer.BULLPEN` | **The Bullpen**: a scoop (a saucer that kicks the ball back out) where a reliever (a parked ball) waits on show, with a lamp below it | (480, 890); lamp at (480, 855) | In the pocket between the Steal ramp and the right orbit's guide. Touch the reliever to start DOUBLEHEADER multiball ([01 § 4.8.2](01-game-design.md#482-doubleheader-in-detail)). Never an out. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
 | `saucer.RF` | Fielder saucer | (465, 736) | Between the right ramp and the right orbit (level with LF) |
 | `kicker.3B.L` / `.R` | Corner kicker bumpers (triples) | arch corners ≈ (40, 1060) / (545, 1060) | Amber kicking rubber. Kicks the ball onward around the arch. |
@@ -447,7 +447,23 @@ precisely because it rarely triggers: two-ball multiball ([01 § 4.8.2](01-game-
 
 **Result (sim bot, 500 games, same seeds, before → after):** runs per game 7.06 → 8.24 (the extra
 runs come in rare bursts: a DOUBLEHEADER is worth about 6 runs and comes once in six games),
-fielder outs 23.8 → 23.3 % of PA, ball rescues 0.02 → 0.01 a game. To make it rarer or smaller:
-`BULLPEN_LOCKS` (3 locks), `DOUBLEHEADER_SAVE` (a shorter save) or `DOUBLEHEADER_RUNS`
-(`src/rules/game.ts`).
+fielder outs 23.8 → 23.3 % of PA, ball rescues 0.02 → 0.01 a game. (Superseded by the one-touch
+Bullpen below.)
+
+### The Bullpen: one touch, the reliever on show
+
+Playtest feedback: the Bullpen was nearly impossible to hit. Trigger DOUBLEHEADER in one step, show
+the second ball waiting in the Bullpen, move it and CF down, narrow the Steal ramp's left side, and
+move 2B out of the way of balls hit toward the Bullpen.
+
+| Area | Change | Result |
+|---|---|---|
+| Trigger | One step: the **reliever**, a real ball, is parked in the scoop (drawn, not simulated; a ball in play bounces off him). Any touch from a ball in play starts DOUBLEHEADER and he is kicked out as the second ball. One lamp, lit while he waits. A new reliever is parked at the start of the next inning. | Any touch, because a ball that only rested against him in a narrow spot would be stuck (a shot-only trigger left 33 balls to rescue in 60 games). |
+| Bullpen | First moved down the alley beside the Gap (y 985 → 940). With 2B moved, any ball up that alley met the reliever: **5 DOUBLEHEADERS a game** wherever he sat in it (y 940-1050). Moved to **(480, 890)**, the pocket between the Steal ramp and the right orbit's guide, deep in right field. | **0.34 DOUBLEHEADERS a game** (500 games), 5.8 runs each; still a real shot (5 of 494 flipper shots in a sweep hit him). |
+| CF | Down the alley, (151, 985) → **(158, 940)**. Glove post set into the Gap wall (dx 23, dy 22): above the dish at this height it left a notch that held balls. | — |
+| Steal ramp | Left side pulled in at the mouth: 70 → **62 mm**, centre line moved 4 mm right there (the right edge stays put), fading to the old ramp at the top. Left guard post moves with it. | Steal shots 25 → 19-21 of 494. |
+| 2B | (348, 750) → **(362, 722)**, glove post to its right (dx 6, dy 22): it sat on the line from the left flipper up the right alley. The STEAL arrow insert moved to (392, 664) to clear him. | Flipper shots up the right alley 7 → 33 of 494; Gap shots unchanged. |
+
+**Result (sim bot, 500 games):** runs per game 9.93 (8.24 with the two-lock Bullpen up the alley,
+7.06 before DOUBLEHEADER), 0.34 DOUBLEHEADERS a game at 5.8 runs each, ball rescues 0.02 a game.
 

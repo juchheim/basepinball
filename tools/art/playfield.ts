@@ -202,7 +202,7 @@ export function playfieldSvg(table: TableDef): string {
   const POS: Record<string, number> = { '1B': 3, '2B': 4, '3B': 5, SS: 6, LF: 7, CF: 8, RF: 9 };
   for (const s of saucers) {
     if (!s.label) {
-      // The Bullpen scoop: an amber-ringed dish, its name under its two lock lamps.
+      // The Bullpen scoop: an amber-ringed dish, its name under its lamp.
       out.push(
         `<circle cx="${s.x}" cy="${Y(s.y)}" r="${s.radius + 7}" fill="${C.ink}" opacity="0.85"/>`,
       );

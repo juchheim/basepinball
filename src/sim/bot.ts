@@ -63,7 +63,7 @@ export class Bot {
   /** Called once per physics step. Returns flipper button changes for the rules. */
   update(world: World, rules: GameRules): void {
     const now = world.time;
-    const b = world.balls[0];
+    const b = world.balls.find((x) => x.active);
 
     // Plunger: on the leadoff, pull for a random time and release.
     if (

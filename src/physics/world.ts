@@ -34,6 +34,8 @@ export type PhysicsEventType =
   | 'spinner'
   | 'kickback'
   | 'plunger'
+  /** A ball in play touched a ball parked in a saucer (id: the saucer). */
+  | 'parkedHit'
   | 'tiltBob';
 
 /**
@@ -282,9 +284,9 @@ export class World {
     return b;
   }
 
-  /** The main ball, created on demand: serves and pitches use it. */
+  /** The main ball, created on demand: serves and pitches use it. Never a parked ball. */
   ball(): Ball {
-    return this.balls[0] ?? this.addBall(0, 0);
+    return this.balls.find((b) => !b.parkedIn) ?? this.addBall(0, 0);
   }
 
   /** The balls on the playfield (multiball can have more than one). */
@@ -410,7 +412,12 @@ export class World {
     this.events.length = 0;
     this.impacts.length = 0;
     this.resetDropTargets();
-    this.releaseSaucers();
+    for (const s of this.saucers) {
+      s.holding = false;
+      s.settle = 0;
+      s.settling = null;
+      s.ball = null;
+    }
     for (const r of this.retractables) {
       r.raised = false;
       this.setLift(r, 0);
@@ -437,9 +444,28 @@ export class World {
     return true;
   }
 
-  /** Clears saucer holds (the ball was routed elsewhere). */
+  /**
+   * Parks a ball on show in a saucer (the Bullpen's reliever): it sits in the dish, drawn but not
+   * simulated, and a ball in play that strikes it fires `parkedHit`. Kick it out to put it in play.
+   */
+  parkBall(saucerId: string): void {
+    const s = this.saucers.find((x) => x.id === saucerId);
+    if (!s || s.holding) return;
+    const b = this.spareBall();
+    // Resting at the bottom of the dish.
+    b.place(s.cx, s.cy, s.bowlZ - (s.bowlR - b.radius));
+    b.active = false;
+    b.parkedIn = saucerId;
+    s.holding = true;
+    s.settle = 0;
+    s.settling = null;
+    s.ball = b;
+  }
+
+  /** Clears saucer holds (the ball was routed elsewhere). A parked ball stays where it is. */
   releaseSaucers(): void {
     for (const s of this.saucers) {
+      if (s.ball?.parkedIn) continue;
       s.holding = false;
       s.settle = 0;
       s.settling = null;
@@ -570,10 +596,11 @@ export class World {
     const balls = this.balls;
     for (let i = 0; i < balls.length; i++) {
       const a = balls[i]!;
-      if (!a.active) continue;
+      if (!a.active && !a.parkedIn) continue;
       for (let j = i + 1; j < balls.length; j++) {
         const b = balls[j]!;
-        if (!b.active) continue;
+        if (!b.active && !b.parkedIn) continue;
+        if (!a.active && !b.active) continue;
         const dx = b.px - a.px;
         const dy = b.py - a.py;
         const dz = b.pz - a.pz;
@@ -584,13 +611,16 @@ export class World {
         const nx = dx / d;
         const ny = dy / d;
         const nz = dz / d;
-        const push = (min - d) / 2;
-        a.px -= nx * push;
-        a.py -= ny * push;
-        a.pz -= nz * push;
-        b.px += nx * push;
-        b.py += ny * push;
-        b.pz += nz * push;
+        // A parked ball does not move: the ball in play takes the whole push and bounce.
+        const wa = !a.active ? 0 : !b.active ? 1 : 0.5;
+        const wb = 1 - wa;
+        const push = min - d;
+        a.px -= nx * push * wa;
+        a.py -= ny * push * wa;
+        a.pz -= nz * push * wa;
+        b.px += nx * push * wb;
+        b.py += ny * push * wb;
+        b.pz += nz * push * wb;
         const vn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny + (a.vz - b.vz) * nz;
         if (vn <= 0) continue;
         if (vn > 0.12 && this.impacts.length < 64) {
@@ -602,13 +632,19 @@ export class World {
             z: a.pz,
           });
         }
-        const k = ((1 + BALL_RESTITUTION) * vn) / 2;
-        a.vx -= nx * k;
-        a.vy -= ny * k;
-        a.vz -= nz * k;
-        b.vx += nx * k;
-        b.vy += ny * k;
-        b.vz += nz * k;
+        const parked = !a.active ? a : !b.active ? b : null;
+        if (parked?.parkedIn) {
+          const ready = this.cooldowns.get(parked.parkedIn) ?? -1;
+          if (this.time >= ready) this.emit('parkedHit', parked.parkedIn);
+          this.cooldowns.set(parked.parkedIn, this.time + 0.3);
+        }
+        const k = (1 + BALL_RESTITUTION) * vn;
+        a.vx -= nx * k * wa;
+        a.vy -= ny * k * wa;
+        a.vz -= nz * k * wa;
+        b.vx += nx * k * wb;
+        b.vy += ny * k * wb;
+        b.vz += nz * k * wb;
       }
     }
   }

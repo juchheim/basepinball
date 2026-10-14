@@ -132,14 +132,6 @@ function Hud() {
             DOUBLEHEADER{g.ballSave > 0 ? ` · SAVE ${Math.ceil(g.ballSave)}` : ''}
           </span>
         )}
-        {!g.doubleheader && g.bullpen > 0 && (
-          <span class="chip bullpen" aria-label={`Bullpen ${g.bullpen} of ${g.bullpenTarget}`}>
-            BULLPEN{' '}
-            {Array.from({ length: g.bullpenTarget }, (_, i) => (
-              <i class={g.bullpen > i ? 'on' : ''} />
-            ))}
-          </span>
-        )}
         {g.rally >= 2 && <span class="chip rally">RALLY ×{g.rally}</span>}
         {g.tiltWarnings > 0 && !g.tilted && <span class="chip warn">WARNING {g.tiltWarnings}</span>}
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (

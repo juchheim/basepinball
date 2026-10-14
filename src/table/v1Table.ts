@@ -165,11 +165,20 @@ const RAMP_WIDTH = 52;
 /**
  * The Steal ramp's mouth is clearly wider than the home-run ramp's, so the cheaper award is the
  * easier shot (a ball must enter within roughly mouth - 44 mm of the centre line: 8 mm of play on
- * the HR ramp, about 26 mm here). The four outfield-line fielders sit in a mirror-symmetric arc, SS
- * and 2B at y = 750 and LF and RF at 736, low enough to make room: each mouth guard post then keeps
- * a ball-wide (>= 27.5 mm) gap to their glove posts, so no notch can hold a ball.
+ * the HR ramp, about 18 mm here). It was 70 mm; its left side was pulled in by 8 mm (the right edge
+ * stays put) to open the alley beside it, the way to the Bullpen. The four outfield-line fielders
+ * sit low enough to make room: each mouth guard post keeps a ball-wide (>= 27.5 mm) gap to their
+ * glove posts, so no notch can hold a ball.
  */
-const STEAL_RAMP_WIDTH = 70;
+const STEAL_RAMP_WIDTH = 62;
+/** How far right the Steal ramp's centre line moves at the mouth, fading to none at the top. */
+const STEAL_SHIFT = (70 - STEAL_RAMP_WIDTH) / 2;
+const STEAL_MOUTH_X = mx(hrRamp[0]![0]) + STEAL_SHIFT;
+const stealRamp: Vec3[] = hrRamp.map((p) => {
+  const [x, y, z] = m3(p);
+  const top = hrRamp[hrRamp.length - 1]![1];
+  return [round(x + (STEAL_SHIFT * (top - y)) / (top - hrRamp[0]![1])), y, z];
+});
 
 const fieldSaucer = (
   id: string,
@@ -343,7 +352,7 @@ const elements: ElementDef[] = [
     material: 'rubberPost',
   },
   // The deep corners above each ramp's far end are open to the top of the table, so a ball coming
-  // off the top can drop in on CF (left) or the Bullpen (right). A short wall in each corner,
+  // off the top can drop down the alleys either side of the Gap. A short wall in each corner,
   // sloping down from the orbit guide to the ramp's end, rolls a ball out of the nook between them.
   {
     type: 'wall',
@@ -444,10 +453,10 @@ const elements: ElementDef[] = [
   // CF plays deep in left-centre, up the alley between the HR ramp and the Gap, below the open
   // corner above the ramp's far end. In the throat of the Gap it caught 2 balls in 60 sim games:
   // only a ball already dead slow could drop in, and the singles kept those away. Its glove post is
-  // above the dish, slim enough to leave a ball-wide gap to the ramp and to the Gap wall.
-  fieldSaucer('saucer.CF', 'CF', 151, 985, 90, 'post', { dx: 0, dy: 24, radius: 3 }),
+  // set into the Gap wall (above it, in an alley this narrow, it left a notch that held balls).
+  fieldSaucer('saucer.CF', 'CF', 158, 940, 90, 'post', { dx: 23, dy: 22, radius: 4 }),
   fieldSaucer('saucer.SS', 'SS', 202, 750, 90, 'post', { dx: 4, dy: 25, radius: 5 }),
-  fieldSaucer('saucer.2B', '2B', 348, 750, 90, 'post', { dx: -6, dy: 25, radius: 5 }),
+  fieldSaucer('saucer.2B', '2B', 362, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
   fieldSaucer('saucer.1B', '1B', mx(25), 478, 0),
 
@@ -458,7 +467,7 @@ const elements: ElementDef[] = [
   {
     type: 'ramp',
     id: 'ramp.STEAL',
-    path: hrRamp.map(m3),
+    path: stealRamp,
     width: STEAL_RAMP_WIDTH,
     endWidth: 32,
     wallHeight: 40,
@@ -468,24 +477,24 @@ const elements: ElementDef[] = [
   // Posts guarding the ramp entrance corners.
   { type: 'post', x: 117, y: 782, radius: 4, material: 'metal' },
   { type: 'post', x: 167, y: 798, radius: 4, material: 'metal' },
-  { type: 'post', x: 408 + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
-  { type: 'post', x: 408 - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
+  { type: 'post', x: STEAL_MOUTH_X + STEAL_RAMP_WIDTH / 2, y: 782, radius: 4, material: 'metal' },
+  { type: 'post', x: STEAL_MOUTH_X - STEAL_RAMP_WIDTH / 2, y: 798, radius: 4, material: 'metal' },
 
-  // ---- the Bullpen: a scoop deep in right-centre, up the alley between the Steal ramp and the Gap
-  // (CF's mirror). A ball in it warms up a reliever and is kicked back out; the second starts
-  // DOUBLEHEADER, two-ball multiball (docs/MVP/01 § 4.8). Its glove post is above the dish, slim
-  // enough to leave a ball-wide gap to the ramp and to the Gap wall. No standee: the dish is the
-  // bullpen mound.
+  // ---- the Bullpen: a scoop deep in right field, in the pocket between the Steal ramp and the right
+  // orbit's guide. A reliever (a second ball) waits in it, on show; touch him with the ball in play
+  // and DOUBLEHEADER, two-ball multiball, begins (docs/MVP/01 § 4.8). Up the alley beside the Gap
+  // it was touched almost every inning (5 DOUBLEHEADERS a game in the sim, wherever it sat in the
+  // alley); here a ball reaches it about once every two games. No glove post: the reliever is the
+  // target, and an empty scoop just kicks the ball back out. No standee: the dish is the mound.
   {
     type: 'saucer',
     id: 'saucer.BULLPEN',
-    x: 397,
-    y: 985,
+    x: 480,
+    y: 890,
     radius: 20,
     depth: 7,
     lipAngle: 90,
-    lip: 'post',
-    lipPost: { dx: 0, dy: 24, radius: 3 },
+    lip: 'none',
   },
 
   // ---- target banks: B-A-T drops (left wall), W-A-L-K standups (out in the open, lower right)
@@ -600,11 +609,12 @@ const elements: ElementDef[] = [
   { type: 'lamp', id: 'arrow.orbit.L', x: 24, y: 745, radius: 12, color: LAMP.amber, arrow: 90 },
   { type: 'lamp', id: 'arrow.ramp.HR', x: 176, y: 676, radius: 12, color: LAMP.red, arrow: 100 },
   { type: 'lamp', id: 'arrow.gap', x: 275, y: 665, radius: 12, color: LAMP.ivory, arrow: 90 },
+  // Up and right of the HOME RUN arrow's mirror spot, clear of 2B (moved off the way to the Bullpen).
   {
     type: 'lamp',
     id: 'arrow.ramp.STEAL',
-    x: mx(176),
-    y: 676,
+    x: 392,
+    y: 664,
     radius: 12,
     color: LAMP.teal,
     arrow: 80,
@@ -663,9 +673,8 @@ const elements: ElementDef[] = [
     color: LAMP.violet,
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
-  // The Bullpen's two lock lamps, below the scoop: one per reliever warming up.
-  { type: 'lamp', id: 'lamp.bullpen.1', x: 386, y: 950, radius: 6, color: LAMP.amber },
-  { type: 'lamp', id: 'lamp.bullpen.2', x: 408, y: 950, radius: 6, color: LAMP.amber },
+  // The Bullpen's lamp, below the scoop: lit while a reliever waits there.
+  { type: 'lamp', id: 'lamp.bullpen', x: 480, y: 855, radius: 7, color: LAMP.amber },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
 

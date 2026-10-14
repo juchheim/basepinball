@@ -47,9 +47,9 @@ export type RulesEvent =
   | { type: 'spinBonus'; gained: number }
   /** A runner is on and the pitcher goes to the stretch: the mound's ramp-and-bumper has risen. */
   | { type: 'stretch' }
-  /** A ball in the Bullpen scoop: a reliever warms up (`locks` of `BULLPEN_LOCKS`). */
-  | { type: 'bullpen'; locks: number }
-  /** Both relievers are warm: DOUBLEHEADER, two-ball multiball, begins. */
+  /** A new reliever (a parked ball) is warming up in the Bullpen, after a DOUBLEHEADER. */
+  | { type: 'bullpenReady' }
+  /** The reliever in the Bullpen was struck: DOUBLEHEADER, two-ball multiball, begins. */
   | { type: 'doubleheader' }
   /** A ball drained in DOUBLEHEADER's opening seconds: it is pitched straight back in. */
   | { type: 'ballSaved' }
@@ -133,9 +133,8 @@ export interface GameSnapshot {
   /** The HUSTLE meter: bumper hits so far, and how many fill it. */
   hustle: number;
   hustleTarget: number;
-  /** Relievers warmed up in the Bullpen (locks), and how many start DOUBLEHEADER. */
-  bullpen: number;
-  bullpenTarget: number;
+  /** A reliever waits in the Bullpen: strike him to start DOUBLEHEADER. */
+  bullpenReady: boolean;
   /** Two-ball multiball is running. */
   doubleheader: boolean;
   /** Seconds of DOUBLEHEADER's ball save left (0 when off). */
@@ -162,6 +161,8 @@ export interface Machine {
   ejectSaucer(id: string): void;
   /** Multiball: pitch another ball from the mound while the others stay in play. */
   addBall(spec: PitchSpec): void;
+  /** Park a ball on show in the Bullpen scoop (the waiting reliever). */
+  parkBullpen(): void;
   /** How many balls are on the playfield. */
   ballsInPlay(): number;
   setMagnet(power: number): void;

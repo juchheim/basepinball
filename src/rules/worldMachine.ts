@@ -1,4 +1,5 @@
 import type { World } from '../physics/world';
+import { BULLPEN } from './game';
 import type { PitchSpec } from './pitching';
 import type { Machine } from './types';
 
@@ -34,6 +35,10 @@ export class WorldMachine implements Machine {
 
   addBall(spec: PitchSpec): void {
     this.world.pitchBall(spec.targetX, spec.targetY, spec.speed, this.world.spareBall());
+  }
+
+  parkBullpen(): void {
+    this.world.parkBall(BULLPEN);
   }
 
   ballsInPlay(): number {

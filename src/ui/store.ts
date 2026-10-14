@@ -156,13 +156,8 @@ export function calloutFor(e: RulesEvent): void {
         'big',
         2000,
       );
-    case 'bullpen':
-      return showCallout(
-        'BULLPEN',
-        'A reliever warms up · one more for a DOUBLEHEADER',
-        'info',
-        2000,
-      );
+    case 'bullpenReady':
+      return showCallout('BULLPEN', 'A new reliever is warming up', 'info', 1800);
     case 'doubleheader':
       return showCallout(
         'DOUBLEHEADER!',

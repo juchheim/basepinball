@@ -49,13 +49,12 @@ export const SPIN_BONUS_PLATES = 4;
 export const SPIN_BONUS_HUSTLE = HUSTLE_TARGET / 5;
 const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT'];
 
-/** The Bullpen scoop (docs/MVP/01 § 4.8). */
+/** The Bullpen scoop (docs/MVP/01 § 4.8): a reliever (a parked ball) waits in it, on show. */
 export const BULLPEN = 'saucer.BULLPEN';
-/** Balls in the Bullpen (relievers warmed up) that start DOUBLEHEADER. */
-export const BULLPEN_LOCKS = 2;
-/** Seconds the scoop holds a ball before kicking it out: a lock, and the start of DOUBLEHEADER. */
+/** Seconds the empty scoop holds a ball before kicking it back out. */
 export const BULLPEN_HOLD = 1.2;
-export const DOUBLEHEADER_HOLD = 2.5;
+/** Seconds from striking the reliever to his entrance (the scoop kicks him into play). */
+export const RELIEVER_ENTRANCE = 0.6;
 /** Seconds a fielder holds a ball he has dropped in DOUBLEHEADER before throwing it back. */
 export const ERROR_HOLD = 0.8;
 /** In DOUBLEHEADER every run counts this many times. */
@@ -121,8 +120,8 @@ export class GameRules {
   private moundUp = false;
   /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
   hustle = 0;
-  /** Relievers warmed up in the Bullpen. They carry over between innings, until DOUBLEHEADER. */
-  bullpen = 0;
+  /** A reliever (a parked ball) waits in the Bullpen. Strike him to start DOUBLEHEADER. */
+  bullpenReady = false;
   /** Two-ball multiball is running, and the runs scored in it so far. */
   doubleheader = false;
   private doubleheaderRuns = 0;
@@ -239,6 +238,9 @@ export class GameRules {
       case 'saucer':
         this.saucer(e.id);
         return;
+      case 'parkedHit':
+        if (e.id === BULLPEN) this.relieverStruck();
+        return;
       case 'drain':
         this.drain();
         return;
@@ -342,33 +344,34 @@ export class GameRules {
   }
 
   /**
-   * The Bullpen (docs/MVP/01 § 4.8). A ball in the scoop warms up a reliever and is kicked back out;
-   * play goes on as if nothing happened. With the second reliever warm, DOUBLEHEADER begins: the
-   * scoop kicks its ball out and a second ball is pitched from the mound. In DOUBLEHEADER (or when
-   * the ball is not live) the scoop just kicks the ball back out.
+   * The Bullpen (docs/MVP/01 § 4.8). A reliever, a second ball, waits in the scoop where the player
+   * can see him. Touch him with the ball in play and DOUBLEHEADER begins: the scoop kicks him into
+   * play. (Any touch counts: in the narrow alley a ball that only rested against him would be stuck.)
+   * The next reliever warms up at the start of the next inning.
    */
-  private bullpenCatch(): void {
-    if (this.doubleheader || !LIVE.includes(this.state)) {
-      this.after(BULLPEN_HOLD, () => this.machine.ejectSaucer(BULLPEN));
-      return;
-    }
-    this.bullpen++;
-    if (this.bullpen < BULLPEN_LOCKS) {
-      this.emit({ type: 'bullpen', locks: this.bullpen });
-      this.after(BULLPEN_HOLD, () => this.machine.ejectSaucer(BULLPEN));
-      return;
-    }
-    this.bullpen = 0;
+  private relieverStruck(): void {
+    if (!this.bullpenReady || this.doubleheader || !LIVE.includes(this.state)) return;
+    this.bullpenReady = false;
     this.doubleheader = true;
     this.doubleheaderRuns = 0;
     this.stats.doubleheaders++;
+    // The ball save starts now, so a drain before the reliever is in play is saved too.
+    this.saveUntil = this.now + DOUBLEHEADER_SAVE;
     this.emit({ type: 'doubleheader' });
-    this.after(DOUBLEHEADER_HOLD, () => {
-      if (!this.doubleheader) return;
-      this.machine.ejectSaucer(BULLPEN);
-      this.machine.addBall(choosePitch(this.inning, this.rng));
-      this.saveUntil = this.now + DOUBLEHEADER_SAVE;
-    });
+    this.after(RELIEVER_ENTRANCE, () => this.machine.ejectSaucer(BULLPEN));
+  }
+
+  /** A ball in the empty scoop (no reliever waiting) is held a moment and kicked back out. */
+  private bullpenCatch(): void {
+    this.after(BULLPEN_HOLD, () => this.machine.ejectSaucer(BULLPEN));
+  }
+
+  /** Park a reliever in the Bullpen, if he is not there already. */
+  private warmUpReliever(announce: boolean): void {
+    if (this.bullpenReady) return;
+    this.bullpenReady = true;
+    this.machine.parkBullpen();
+    if (announce) this.emit({ type: 'bullpenReady' });
   }
 
   /** Down to one ball (or none): normal play resumes with whatever ball is left. */
@@ -497,6 +500,8 @@ export class GameRules {
     this.lastActivity = this.now;
     this.machine.serveToPlunger();
     this.emit({ type: 'inningStart', inning: n });
+    // After a DOUBLEHEADER a new reliever warms up (announced; the first is there from the start).
+    this.warmUpReliever(n > 1);
   }
 
   private endInning(): void {
@@ -721,8 +726,7 @@ export class GameRules {
       walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
       hustle: this.hustle,
       hustleTarget: HUSTLE_TARGET,
-      bullpen: this.bullpen,
-      bullpenTarget: BULLPEN_LOCKS,
+      bullpenReady: this.bullpenReady,
       doubleheader: this.doubleheader,
       ballSave: this.doubleheader ? Math.max(0, this.saveUntil - this.now) : 0,
       kickbackLit: this.kickbackLit,
@@ -760,10 +764,8 @@ export class GameRules {
     for (const l of WALK_LETTERS)
       out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
     for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
-    // The Bullpen: a lamp per reliever warming up; both blink through DOUBLEHEADER.
-    for (let i = 1; i <= BULLPEN_LOCKS; i++) {
-      out[`lamp.bullpen.${i}`] = this.doubleheader ? 'blink' : on(this.bullpen >= i);
-    }
+    // The Bullpen: lit while a reliever waits; blinking through DOUBLEHEADER.
+    out['lamp.bullpen'] = this.doubleheader ? 'blink' : on(this.bullpenReady);
     // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
     const full = this.hustle >= HUSTLE_TARGET;
     for (let i = 1; i <= 5; i++) {

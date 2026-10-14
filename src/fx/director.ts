@@ -137,10 +137,9 @@ export class Director {
       case 'saucer': {
         const s = this.saucers.find((x) => x.id === e.id);
         this.out.sound('saucer', s ? this.place(s.x * MM, s.y * MM) : at);
-        // The Bullpen scoop has no fielder: its lock lamps flash instead.
+        // The Bullpen scoop has no fielder: its lamp flashes instead.
         if (s && !s.label) {
-          this.out.flash('lamp.bullpen.1');
-          this.out.flash('lamp.bullpen.2');
+          this.out.flash('lamp.bullpen');
         }
         if (s?.label) {
           // The outfielders stand on the grass; the rest are on the dirt.
@@ -157,6 +156,10 @@ export class Director {
       }
       case 'drain':
         this.out.sound('drain', { x: 0.5, y: 0 });
+        return;
+      case 'parkedHit':
+        // The ball in play struck the reliever waiting in the Bullpen.
+        this.out.flash('lamp.bullpen');
         return;
       case 'kickback':
         this.out.sound('kickback', { x: 0.05, y: 0.15 });
@@ -319,11 +322,10 @@ export class Director {
         o.crowd('ooh');
         o.scoreboard('FROM THE STRETCH', 'RUNNER ON', '#ff3b3b', 2);
         return;
-      case 'bullpen':
-        // A reliever warms up: the scoop's lock lamp lights.
+      case 'bullpenReady':
+        // A new reliever is parked in the scoop, on show: the next DOUBLEHEADER is there to win.
         o.sound('award');
         o.show('bullpen');
-        o.crowd('ooh');
         o.scoreboard('BULLPEN', 'A RELIEVER IS WARMING UP', '#ff9f1c', 2);
         return;
       case 'doubleheader':

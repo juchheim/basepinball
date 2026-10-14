@@ -4,12 +4,12 @@ import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
   BULLPEN,
   BULLPEN_HOLD,
-  DOUBLEHEADER_HOLD,
   DOUBLEHEADER_SAVE,
   ERROR_HOLD,
   GameRules,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
+  RELIEVER_ENTRANCE,
   SPIN_BONUS_HUSTLE,
   STRETCH_ALERT_DELAY,
 } from '../../src/rules/game';
@@ -51,6 +51,9 @@ class FakeMachine implements Machine {
   addBall(): void {
     this.calls.push('addBall');
     this.balls++;
+  }
+  parkBullpen(): void {
+    this.calls.push('park');
   }
   ballsInPlay(): number {
     return this.balls;
@@ -765,47 +768,63 @@ describe('feature goals', () => {
 });
 
 describe('the Bullpen and DOUBLEHEADER', () => {
-  /** A ball into the Bullpen scoop, held and kicked back out. */
-  const bullpen = (h: Harness): Harness => h.ev('saucer', BULLPEN).wait(BULLPEN_HOLD + 0.05);
-  /** Two balls into the Bullpen: DOUBLEHEADER starts and both balls are in play. */
+  /** The ball in play touches the reliever waiting in the Bullpen; he enters a moment later. */
+  const strike = (h: Harness): Harness => h.ev('parkedHit', BULLPEN).wait(RELIEVER_ENTRANCE + 0.05);
   const inDoubleheader = (): Harness => {
-    const h = bullpen(inInPlay())
-      .ev('saucer', BULLPEN)
-      .wait(DOUBLEHEADER_HOLD + 0.05);
+    const h = strike(inInPlay());
     expect(h.g.doubleheader).toBe(true);
     return h;
   };
 
-  it('a ball in the Bullpen warms up a reliever: no out, and it is kicked back into play', () => {
-    const h = inInPlay().ev('saucer', BULLPEN);
-    expect(h.last('bullpen')).toMatchObject({ locks: 1 });
-    expect(h.g.outs).toBe(0);
-    expect(h.state).toBe('IN_PLAY');
-    expect(h.g.lamps()['lamp.bullpen.1']).toBe('on');
-    expect(h.m.balls).toBe(0);
-    h.wait(BULLPEN_HOLD + 0.05);
-    expect(h.m.calls).toContain(`eject:${BULLPEN}`);
-    expect(h.m.balls).toBe(1);
-    expect(h.g.doubleheader).toBe(false);
+  it('a reliever waits in the Bullpen from the start, lamps lit', () => {
+    const h = inLeadoff();
+    expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
+    expect(h.g.bullpenReady).toBe(true);
+    expect(h.g.lamps()['lamp.bullpen']).toBe('on');
   });
 
-  it('the second starts DOUBLEHEADER: the scoop kicks its ball out and a second ball is pitched', () => {
-    const h = bullpen(inInPlay()).ev('saucer', BULLPEN);
+  it('touching him starts DOUBLEHEADER: he is kicked into play as the second ball', () => {
+    const h = inInPlay().ev('parkedHit', BULLPEN);
     expect(h.count('doubleheader')).toBe(1);
-    expect(h.g.bullpen).toBe(0);
+    expect(h.g.doubleheader).toBe(true);
+    expect(h.g.bullpenReady).toBe(false);
     expect(h.g.stats.doubleheaders).toBe(1);
-    h.wait(DOUBLEHEADER_HOLD + 0.05);
-    expect(h.m.calls.filter((c) => c === 'addBall')).toHaveLength(1);
+    expect(h.m.balls).toBe(1);
+    h.wait(RELIEVER_ENTRANCE + 0.05);
+    expect(h.m.calls).toContain(`eject:${BULLPEN}`);
     expect(h.m.balls).toBe(2);
-    expect(h.g.lamps()['lamp.bullpen.1']).toBe('blink');
-    expect(h.g.snapshot().ballSave).toBeGreaterThan(DOUBLEHEADER_SAVE - 1);
+    expect(h.g.lamps()['lamp.bullpen']).toBe('blink');
+    // A second touch (he has gone) does nothing.
+    h.ev('parkedHit', BULLPEN);
+    expect(h.count('doubleheader')).toBe(1);
   });
 
-  it('relievers stay warm through the inning change', () => {
-    const h = bullpen(inInPlay());
+  it('a touch when the ball is not live does nothing', () => {
+    const h = inInPlay().ev('drain', 'drain').ev('parkedHit', BULLPEN);
+    expect(h.count('doubleheader')).toBe(0);
+    expect(h.g.bullpenReady).toBe(true);
+  });
+
+  it('a ball in the empty Bullpen is no out: it is kicked back out', () => {
+    const h = strike(inInPlay())
+      .wait(DOUBLEHEADER_SAVE + 0.1)
+      .ev('drain', 'drain');
+    expect(h.g.doubleheader).toBe(false);
+    h.ev('saucer', BULLPEN);
+    expect(h.g.outs).toBe(0);
+    h.wait(BULLPEN_HOLD + 0.05);
+    expect(h.m.calls.filter((c) => c === `eject:${BULLPEN}`)).toHaveLength(2);
+  });
+
+  it('a new reliever warms up at the start of the next inning', () => {
+    const h = strike(inInPlay())
+      .wait(DOUBLEHEADER_SAVE + 0.1)
+      .ev('drain', 'drain');
     h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
     expect(h.g.inning).toBe(2);
-    expect(h.g.bullpen).toBe(1);
+    expect(h.g.bullpenReady).toBe(true);
+    expect(h.count('bullpenReady')).toBe(1);
+    expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(2);
   });
 
   it('a ball drained in the opening seconds is pitched straight back in', () => {
@@ -841,9 +860,7 @@ describe('the Bullpen and DOUBLEHEADER', () => {
     // A runner on third, then DOUBLEHEADER, then a single brings him home: 2 runs.
     const h = inInPlay();
     h.g.bases = [false, false, true];
-    bullpen(h)
-      .ev('saucer', BULLPEN)
-      .wait(DOUBLEHEADER_HOLD + 0.05);
+    strike(h);
     const before = h.g.stats.runs;
     h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
     expect(h.last('hit')).toMatchObject({ runs: 2 });
