@@ -4,7 +4,6 @@ import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
   BULLPEN,
   BULLPEN_HOLD,
-  DOUBLEHEADER_SAVE,
   ERROR_HOLD,
   GameRules,
   HUSTLE_COOLDOWN,
@@ -46,10 +45,6 @@ class FakeMachine implements Machine {
   }
   ejectSaucer(id: string): void {
     this.calls.push(`eject:${id}`);
-    this.balls++;
-  }
-  addBall(): void {
-    this.calls.push('addBall');
     this.balls++;
   }
   parkBullpen(): void {
@@ -806,9 +801,7 @@ describe('the Bullpen and DOUBLEHEADER', () => {
   });
 
   it('a ball in the empty Bullpen is no out: it is kicked back out', () => {
-    const h = strike(inInPlay())
-      .wait(DOUBLEHEADER_SAVE + 0.1)
-      .ev('drain', 'drain');
+    const h = strike(inInPlay()).ev('drain', 'drain');
     expect(h.g.doubleheader).toBe(false);
     h.ev('saucer', BULLPEN);
     expect(h.g.outs).toBe(0);
@@ -817,9 +810,7 @@ describe('the Bullpen and DOUBLEHEADER', () => {
   });
 
   it('a new reliever warms up at the start of the next inning', () => {
-    const h = strike(inInPlay())
-      .wait(DOUBLEHEADER_SAVE + 0.1)
-      .ev('drain', 'drain');
+    const h = strike(inInPlay()).ev('drain', 'drain');
     h.ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain').wait(6);
     expect(h.g.inning).toBe(2);
     expect(h.g.bullpenReady).toBe(true);
@@ -827,24 +818,24 @@ describe('the Bullpen and DOUBLEHEADER', () => {
     expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(2);
   });
 
-  it('a ball drained in the opening seconds is pitched straight back in', () => {
+  it('no outs in DOUBLEHEADER: it ends when one ball is left, then outs count again', () => {
     const h = inDoubleheader().ev('drain', 'drain');
-    expect(h.count('ballSaved')).toBe(1);
     expect(h.g.outs).toBe(0);
-    expect(h.m.balls).toBe(2);
-    expect(h.g.doubleheader).toBe(true);
-  });
-
-  it('after the save there are still no outs: it ends when one ball is left, then outs count', () => {
-    const h = inDoubleheader()
-      .wait(DOUBLEHEADER_SAVE + 0.1)
-      .ev('drain', 'drain');
-    expect(h.g.outs).toBe(0);
-    expect(h.count('ballSaved')).toBe(0);
     expect(h.g.doubleheader).toBe(false);
     expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 0 });
+    // Nothing is put back: the player plays on with the one ball that is left.
+    expect(h.m.balls).toBe(1);
     h.ev('drain', 'drain');
     expect(h.g.outs).toBe(1);
+  });
+
+  it('a drain before the reliever is in play is no out: he still comes in', () => {
+    const h = inInPlay().ev('parkedHit', BULLPEN).ev('drain', 'drain');
+    expect(h.g.outs).toBe(0);
+    expect(h.g.doubleheader).toBe(false);
+    h.wait(RELIEVER_ENTRANCE + 0.05);
+    expect(h.m.calls).toContain(`eject:${BULLPEN}`);
+    expect(h.m.balls).toBe(1);
   });
 
   it('a fielder drops the ball in DOUBLEHEADER: an error, no out, and the ball is thrown back', () => {
@@ -865,7 +856,7 @@ describe('the Bullpen and DOUBLEHEADER', () => {
     h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L');
     expect(h.last('hit')).toMatchObject({ runs: 2 });
     expect(h.g.stats.runs - before).toBe(2);
-    h.wait(DOUBLEHEADER_SAVE + 0.1).ev('drain', 'drain');
+    h.ev('drain', 'drain');
     expect(h.last('doubleheaderEnd')).toMatchObject({ runs: 2 });
   });
 });

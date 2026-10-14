@@ -470,3 +470,10 @@ move 2B out of the way of balls hit toward the Bullpen.
 **Playtest:** in the pocket between the Steal ramp and the right orbit the Bullpen could not be
 found in play (the sim reached it, a player could not see how), so it went back up the alley
 between the Steal ramp and the Gap, at (392, 940).
+
+**Playtest: no ball save.** Triggered in play, DOUBLEHEADER paid too much, and the 20 s ball save
+was unnecessary. It is gone: the reliever is released and the player plays both balls until both
+are lost. Sim bot, 500 games: 5.54 DOUBLEHEADERS a game (here, up the alley, the bot touches the
+reliever almost every inning) at **1.2 runs each** (5.8 with the save), runs per game 15.42, ball
+rescues 0.03 a game.
+

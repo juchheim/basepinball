@@ -127,11 +127,7 @@ function Hud() {
             ))}
           </span>
         )}
-        {g.doubleheader && (
-          <span class="chip doubleheader">
-            DOUBLEHEADER{g.ballSave > 0 ? ` · SAVE ${Math.ceil(g.ballSave)}` : ''}
-          </span>
-        )}
+        {g.doubleheader && <span class="chip doubleheader">DOUBLEHEADER</span>}
         {g.rally >= 2 && <span class="chip rally">RALLY ×{g.rally}</span>}
         {g.tiltWarnings > 0 && !g.tilted && <span class="chip warn">WARNING {g.tiltWarnings}</span>}
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (

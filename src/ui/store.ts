@@ -165,8 +165,6 @@ export function calloutFor(e: RulesEvent): void {
         'big',
         3200,
       );
-    case 'ballSaved':
-      return showCallout('BALL SAVED', undefined, 'info', 900);
     case 'fieldingError':
       return showCallout(
         `ERROR · E${POS_NUM[e.position]}`,

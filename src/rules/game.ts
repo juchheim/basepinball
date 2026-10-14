@@ -59,11 +59,6 @@ export const RELIEVER_ENTRANCE = 0.6;
 export const ERROR_HOLD = 0.8;
 /** In DOUBLEHEADER every run counts this many times. */
 export const DOUBLEHEADER_RUNS = 2;
-/**
- * Seconds from the second ball's pitch in which a drained ball is pitched straight back in, so
- * DOUBLEHEADER always gets going (a pitched ball drains easily before the player has it).
- */
-export const DOUBLEHEADER_SAVE = 20;
 
 export interface GameOptions {
   seed?: number;
@@ -125,8 +120,8 @@ export class GameRules {
   /** Two-ball multiball is running, and the runs scored in it so far. */
   doubleheader = false;
   private doubleheaderRuns = 0;
-  /** Sim time until which DOUBLEHEADER's ball save is on. */
-  private saveUntil = -Infinity;
+  /** The reliever has been touched and is about to enter (he counts as a ball in play). */
+  private relieverPending = false;
   /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
   private readonly walkLetters = new Set<string>();
   private readonly buttons = { L: false, R: false };
@@ -355,10 +350,14 @@ export class GameRules {
     this.doubleheader = true;
     this.doubleheaderRuns = 0;
     this.stats.doubleheaders++;
-    // The ball save starts now, so a drain before the reliever is in play is saved too.
-    this.saveUntil = this.now + DOUBLEHEADER_SAVE;
+    this.relieverPending = true;
     this.emit({ type: 'doubleheader' });
-    this.after(RELIEVER_ENTRANCE, () => this.machine.ejectSaucer(BULLPEN));
+    this.after(RELIEVER_ENTRANCE, () => {
+      // If DOUBLEHEADER was cut short (a tilt, a rescue, the inning over), he stays in the Bullpen.
+      if (!this.relieverPending) return;
+      this.relieverPending = false;
+      this.machine.ejectSaucer(BULLPEN);
+    });
   }
 
   /** A ball in the empty scoop (no reliever waiting) is held a moment and kicked back out. */
@@ -374,11 +373,19 @@ export class GameRules {
     if (announce) this.emit({ type: 'bullpenReady' });
   }
 
-  /** Down to one ball (or none): normal play resumes with whatever ball is left. */
-  private endDoubleheader(): void {
+  /**
+   * Down to one ball (or none): normal play resumes with whatever ball is left, the reliever too if
+   * he is on his way in. Cut short (a tilt, a rescue, the inning over), a reliever who never got in
+   * stays warm in the Bullpen.
+   */
+  private endDoubleheader(cutShort: boolean): void {
     if (!this.doubleheader) return;
     this.doubleheader = false;
-    this.saveUntil = -Infinity;
+    if (cutShort && this.relieverPending) {
+      // He never got in: he is still warm, waiting in the Bullpen.
+      this.relieverPending = false;
+      this.bullpenReady = true;
+    }
     this.emit({ type: 'doubleheaderEnd', runs: this.doubleheaderRuns });
   }
 
@@ -389,16 +396,11 @@ export class GameRules {
 
   private drain(): void {
     if (!LIVE.includes(this.state)) return;
-    if (this.doubleheader && this.now < this.saveUntil) {
-      // Ball save: the drained ball is pitched straight back in.
-      this.emit({ type: 'ballSaved' });
-      this.machine.addBall(choosePitch(this.inning, this.rng));
-      return;
-    }
     if (this.doubleheader) {
-      // No outs in DOUBLEHEADER: a drained ball just leaves play, until one is left.
-      const left = this.machine.ballsInPlay();
-      if (left <= 1) this.endDoubleheader();
+      // No outs in DOUBLEHEADER: a drained ball just leaves play, until one is left (a reliever on
+      // his way in counts as one).
+      const left = this.machine.ballsInPlay() + (this.relieverPending ? 1 : 0);
+      if (left <= 1) this.endDoubleheader(false);
       if (left >= 1) return;
     }
     // Every drain is an out (docs/MVP/01 § 4.2): down an outlane is a foul out, else a strikeout.
@@ -448,7 +450,7 @@ export class GameRules {
   // ---------------------------------------------------------------- pitching
 
   private schedulePitch(delay: number): void {
-    this.endDoubleheader();
+    this.endDoubleheader(true);
     this.state = 'DEAD';
     this.machine.holdBall();
     const spec = choosePitch(this.inning, this.rng);
@@ -514,7 +516,7 @@ export class GameRules {
       lob,
     });
     this.bases = EMPTY;
-    this.endDoubleheader();
+    this.endDoubleheader(true);
     this.endRally();
     this.clearPitch();
     this.skillLane = null;
@@ -662,7 +664,7 @@ export class GameRules {
     }
     // TILT: flippers die, the PA is an out, the ball drains normally (docs/MVP/01 § 4.9).
     this.tilted = true;
-    this.endDoubleheader();
+    this.endDoubleheader(true);
     this.machine.setFlippersEnabled(false);
     this.emit({ type: 'tilt' });
     this.out('tilt');
@@ -728,7 +730,6 @@ export class GameRules {
       hustleTarget: HUSTLE_TARGET,
       bullpenReady: this.bullpenReady,
       doubleheader: this.doubleheader,
-      ballSave: this.doubleheader ? Math.max(0, this.saveUntil - this.now) : 0,
       kickbackLit: this.kickbackLit,
       tiltWarnings: this.tiltWarnings,
       tilted: this.tilted,

@@ -57,7 +57,6 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
   stealRamp: [{ type: 'stealRamp', result: 'noRunner' }],
   bullpenReady: [{ type: 'bullpenReady' }],
   doubleheader: [{ type: 'doubleheader' }],
-  ballSaved: [{ type: 'ballSaved' }],
   doubleheaderEnd: [
     { type: 'doubleheaderEnd', runs: 0 },
     { type: 'doubleheaderEnd', runs: 6 },

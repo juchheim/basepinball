@@ -337,12 +337,6 @@ export class Director {
         o.scoreboard('DOUBLEHEADER!', 'TWO BALLS · NO OUTS · RUNS COUNT TWICE', '#ff9f1c', 4);
         o.excite(1);
         return;
-      case 'ballSaved':
-        o.sound('uiConfirm');
-        o.flash('pitch.FB');
-        o.flash('pitch.CH');
-        o.flash('pitch.CB');
-        return;
       case 'fieldingError':
         // In DOUBLEHEADER a catch is dropped: no out, and the fielder throws the ball back in.
         o.crowd('ooh');

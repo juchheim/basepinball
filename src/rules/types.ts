@@ -51,8 +51,6 @@ export type RulesEvent =
   | { type: 'bullpenReady' }
   /** The reliever in the Bullpen was struck: DOUBLEHEADER, two-ball multiball, begins. */
   | { type: 'doubleheader' }
-  /** A ball drained in DOUBLEHEADER's opening seconds: it is pitched straight back in. */
-  | { type: 'ballSaved' }
   /** Down to one ball: DOUBLEHEADER is over. `runs` were scored during it (already doubled). */
   | { type: 'doubleheaderEnd'; runs: number }
   /** In DOUBLEHEADER a fielder's catch is no out: he drops it and throws the ball back in. */
@@ -137,8 +135,6 @@ export interface GameSnapshot {
   bullpenReady: boolean;
   /** Two-ball multiball is running. */
   doubleheader: boolean;
-  /** Seconds of DOUBLEHEADER's ball save left (0 when off). */
-  ballSave: number;
   kickbackLit: boolean;
   tiltWarnings: number;
   tilted: boolean;
@@ -159,8 +155,6 @@ export interface Machine {
   holdBall(): void;
   /** Kick the ball a saucer (the Bullpen scoop, or a fielder in multiball) holds back into play. */
   ejectSaucer(id: string): void;
-  /** Multiball: pitch another ball from the mound while the others stay in play. */
-  addBall(spec: PitchSpec): void;
   /** Park a ball on show in the Bullpen scoop (the waiting reliever). */
   parkBullpen(): void;
   /** How many balls are on the playfield. */

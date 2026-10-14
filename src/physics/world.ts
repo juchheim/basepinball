@@ -358,14 +358,11 @@ export class World {
     pl.pullTarget = Math.max(0, Math.min(1, amount));
   }
 
-  /**
-   * Pitch from the mound: the ball appears at the pitch spot and is kicked toward (tx, ty) (m). The
-   * main ball unless another is given (a second ball for multiball).
-   */
-  pitchBall(tx: number, ty: number, speed: number, ball: Ball = this.ball()): Ball | null {
+  /** Pitch from the mound: the ball appears at the pitch spot and is kicked toward (tx, ty) (m). */
+  pitchBall(tx: number, ty: number, speed: number): Ball | null {
     const spot = this.table.pitchSpot;
     if (!spot) return null;
-    const b = ball;
+    const b = this.ball();
     const x = spot.x * MM;
     const y = spot.y * MM;
     // The ball comes up through the mound, so a bumper there drops out of its way.

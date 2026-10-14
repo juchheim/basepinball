@@ -237,10 +237,10 @@ alley between the Steal ramp and the Gap.
 
 - **Start.** Touch the reliever with the ball in play: callout, fireworks, a lamp show, and a moment
   later the scoop kicks him into play as the second ball.
-- **Ball save.** For the first 20 s, a drained ball is pitched straight back in, so both balls get
-  going.
-- **No outs.** After the save, a drained ball just leaves play. A fielder who catches a ball drops it:
-  an **error** ("E8"), no out, and he throws it back into play after a moment.
+- **No ball save.** The player plays with both balls until both are lost; nothing is put back.
+- **No outs.** A drained ball just leaves play. A fielder who catches a ball drops it: an **error**
+  ("E8"), no out, and he throws it back into play after a moment. A drain in the moment before the
+  reliever is in play is no out either: he still comes in.
 - **Every run counts twice**: hits, steals, walks and HUSTLE.
 - Both balls play as normal otherwise: hits need a swing, the Steal ramp steals, bumpers feed HUSTLE.
 - **End.** When one ball is left, DOUBLEHEADER is over (with a tally of its runs) and normal play
