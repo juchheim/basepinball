@@ -713,6 +713,14 @@ async function main(): Promise<void> {
   let physicsMsAvg = 0;
   let last = performance.now();
   let lastHud = 0;
+  // `?debug` render counters, summed over the overlay's half-second window: render calls (every
+  // renderer.render, shadow passes and cube faces included), the part made by the ball's
+  // reflection, and draw calls. Nothing resets renderer.info without setAnimationLoop, so the
+  // frame does it.
+  const rinfo = stage.renderer.info;
+  let callsSum = 0;
+  let reflectCallsSum = 0;
+  let drawsSum = 0;
   const guard = new FrameGuard();
   const tick = (now: number): void => {
     if (stopped) return;
@@ -777,7 +785,9 @@ async function main(): Promise<void> {
     }
     view.update(loop.alpha, dt);
     const drawStart = performance.now();
-    view.updateReflections(stage.renderer, stage.scene);
+    view.updateReflections(stage.renderer, stage.scene, loop.paused);
+    if (perf) reflectCallsSum += rinfo.render.frameCalls;
+    stage.refreshShadows();
     if (faultInjected) {
       // Debug fault injection: skip drawing and empty the canvas (assigning its width clears it),
       // the symptom the watchdog looks for.
@@ -813,11 +823,19 @@ async function main(): Promise<void> {
 
     frames++;
     physicsMsAvg = physicsMsAvg * 0.95 + loop.lastPhysicsMs * 0.05;
+    if (perf) {
+      callsSum += rinfo.render.frameCalls;
+      drawsSum += rinfo.render.drawCalls;
+      rinfo.reset();
+    }
     if (perf && now - fpsAt > 500) {
       const fps = (frames * 1000) / (now - fpsAt);
+      const per = (n: number): string => (n / frames).toFixed(1);
+      const calls = `render calls ${per(callsSum)}/frame (reflection ${per(reflectCallsSum)}) · draws ${per(drawsSum)}/frame · ${rinfo.render.calls} total`;
       frames = 0;
       fpsAt = now;
-      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · state ${rules?.state ?? '—'}${gpuErrors ? ` · GPU errors ${gpuErrors}` : ''}`;
+      callsSum = reflectCallsSum = drawsSum = 0;
+      perf.textContent = `${stage.backend} · ${quality.tier.name} · ${fps.toFixed(0)} fps · physics ${(physicsMsAvg * 1000).toFixed(0)} µs/frame · ${calls} · state ${rules?.state ?? '—'}${gpuErrors ? ` · GPU errors ${gpuErrors}` : ''}`;
       if (diagEl) diagEl.textContent = diag.lines().join('\n');
     }
   };
