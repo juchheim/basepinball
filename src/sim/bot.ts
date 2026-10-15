@@ -1,4 +1,5 @@
 import { Rng } from '../core/rng';
+import { dcos, dsin, DEG } from '../core/dmath';
 import { defaultParams, type PhysicsParams } from '../physics/params';
 import type { Ball } from '../physics/ball';
 import type { Flipper } from '../physics/flipper';
@@ -18,14 +19,16 @@ import { v1Table } from '../table/v1Table';
 
 export interface BotProfile {
   name: string;
-  /** Flip timing noise (s, standard deviation-ish). */
+  /** Maximum encounter-specific timing offset (s). Sampled once when a plan is made. */
   jitter: number;
-  /** Chance of reacting at all to a ball reaching a flipper. */
+  /** Chance of committing to a predicted encounter. Sampled once per encounter. */
   attention: number;
-  /** Consistent delay before reacting, in seconds. */
+  /** Delay before committing to a response, in seconds. */
   reactionDelay?: number;
-  /** Chance of catching a slow ball in a cradle and aiming from it. */
+  /** Chance of choosing a physical catch for a slow, controllable arrival. */
   cradle: number;
+  /** How often the bot refreshes trajectory plans (s). Paddle deadlines still run every step. */
+  thinkInterval?: number;
 }
 
 export const PROFILES: Record<string, BotProfile> = {
@@ -38,32 +41,98 @@ export const PROFILES: Record<string, BotProfile> = {
 
 /** Player-facing levels vary response speed, attention and cradling. */
 export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
-  easy: { name: 'easy', jitter: 0.016, attention: 0.8, reactionDelay: 0.012, cradle: 0.1 },
-  medium: { name: 'medium', jitter: 0.016, attention: 0.9, reactionDelay: 0.005, cradle: 0.25 },
-  hard: { name: 'hard', jitter: 0.016, attention: 0.95, cradle: 0.35 },
+  easy: {
+    name: 'easy',
+    jitter: 0.012,
+    attention: 0.9,
+    reactionDelay: 0.018,
+    cradle: 0.06,
+    thinkInterval: 0.04,
+  },
+  medium: {
+    name: 'medium',
+    jitter: 0.006,
+    attention: 0.96,
+    reactionDelay: 0.01,
+    cradle: 0.16,
+    thinkInterval: 0.02,
+  },
+  hard: {
+    name: 'hard',
+    jitter: 0.002,
+    attention: 0.995,
+    reactionDelay: 0.004,
+    cradle: 0.28,
+    thinkInterval: 0.01,
+  },
 };
 
-interface FlipperPlan {
-  /** Sim time to press, or -1. */
-  pressAt: number;
-  releaseAt: number;
-  /** Balls already judged as misses; prevents rerolling attention on every physics step. */
-  missedBalls: Set<Ball>;
-  /** Cradling: holding the flipper up with the ball resting on it. */
-  cradleUntil: number;
+type FlipperSide = 'L' | 'R';
+type PlanPhase = 'tracking' | 'committed' | 'striking' | 'catching' | 'cradled' | 'recovering';
+
+interface EncounterCandidate {
+  ball: Ball;
+  /** Seconds from now to the predicted contact or rolling strike point. */
+  eta: number;
+  x: number;
+  y: number;
+  z: number;
+  speed: number;
+  rolling: boolean;
 }
+
+interface FlipperPlan {
+  ball: Ball;
+  phase: PlanPhase;
+  /** Along-bat strike target used only when the ball is already rolling on the bat. */
+  targetAlong: number;
+  /** Selected once per encounter, so replanning does not reroll reaction or cradle decisions. */
+  responseOffset: number;
+  catch: boolean;
+  pressAt: number;
+  contactAt: number;
+  contactX: number;
+  contactY: number;
+  contactZ: number;
+  releaseAt: number;
+  minReleaseAt: number;
+  contactDeadline: number;
+  contactSeen: boolean;
+  contactSince: number;
+}
+
+interface BallSnapshot {
+  x: number;
+  y: number;
+  z: number;
+  vx: number;
+  vy: number;
+  vz: number;
+  active: boolean;
+}
+
+const LIVE_STATES = new Set(['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT']);
+const CONTACT_STEP = 0.002;
+const CONTACT_HORIZON = 0.24;
+const FLIPPER_LEAD = 0.012;
+const CONTACT_TOLERANCE = 0.002;
 
 export class Bot {
   private readonly rng: Rng;
-  private readonly plans: Record<'L' | 'R', FlipperPlan> = {
-    L: { pressAt: -1, releaseAt: -1, missedBalls: new Set(), cradleUntil: -1 },
-    R: { pressAt: -1, releaseAt: -1, missedBalls: new Set(), cradleUntil: -1 },
+  private readonly plans: Record<FlipperSide, FlipperPlan | null> = {
+    L: null,
+    R: null,
   };
+  /** Ignore a ball until it leaves this flipper's encounter area after a missed or completed plan. */
+  private readonly ignoredBalls: Record<FlipperSide, Set<Ball>> = {
+    L: new Set(),
+    R: new Set(),
+  };
+  private readonly ballSnapshots = new WeakMap<Ball, BallSnapshot>();
   private plungeAt = -1;
   private plungeRelease = -1;
   private readonly probe = { d: 0, nx: 0, ny: 0 };
-  /** Where along the bat (0-1) the bot means to hit a ball rolling down it. */
-  private targetAlong = 0.65;
+  private nextThinkAt = -Infinity;
 
   constructor(
     private readonly profile: BotProfile,
@@ -72,12 +141,13 @@ export class Bot {
     this.rng = new Rng(seed);
   }
 
-  /** Called once per physics step. Returns flipper button changes for the rules. */
+  /** Called once per physics step. Paddle deadlines are serviced each step; planning is throttled. */
   update(world: World, rules: GameRules): void {
     const now = world.time;
-    const b = world.balls.find((x) => x.active);
+    const resetBalls = this.trackBallEncounters(world);
 
     // Plunger: on the leadoff, pull for a random time and release.
+    const b = world.balls.find((x) => x.active);
     if (
       rules.state === 'LEADOFF_LAUNCH' &&
       b?.active &&
@@ -96,111 +166,354 @@ export class Bot {
       }
     }
 
+    if (!LIVE_STATES.has(rules.state) || rules.tilted || !world.flippersEnabled) {
+      for (const side of ['L', 'R'] as const) {
+        const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
+        this.setPressed(world, rules, side, f, false);
+        this.plans[side] = null;
+      }
+      return;
+    }
+
     for (const side of ['L', 'R'] as const) {
       const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
       const plan = this.plans[side];
-      // Give a ball another chance only after it has left the paddle's approach area. A small
-      // margin avoids rerolling if it skims along the edge of the area for several steps.
-      for (const missedBall of plan.missedBalls) {
-        if (!this.inApproachArea(missedBall, f, 0.025)) plan.missedBalls.delete(missedBall);
+      this.pruneIgnoredBalls(side, f, now);
+      if (plan && resetBalls.has(plan.ball)) {
+        this.setPressed(world, rules, side, f, false);
+        this.plans[side] = null;
+      } else {
+        this.advancePlan(world, rules, side, f, now);
       }
-      const press = (on: boolean): void => {
-        if (f.pressed === on) return;
-        world.setFlipper(f.id, on);
-        rules.onButton(side, on);
-      };
+    }
 
-      if (plan.pressAt >= 0 && now >= plan.pressAt) {
-        press(true);
-        plan.pressAt = -1;
-      }
-      if (plan.releaseAt >= 0 && now >= plan.releaseAt) {
-        press(false);
-        plan.releaseAt = -1;
-      }
-      if (plan.cradleUntil >= 0) {
-        if (now >= plan.cradleUntil) {
-          // Release the cradle and re-flip after a short, noisy delay: a "drop catch" shot.
-          press(false);
-          plan.cradleUntil = -1;
-          plan.pressAt = now + 0.07 + this.rng.range(-1, 1) * this.profile.jitter * 2;
-          plan.releaseAt = plan.pressAt + 0.18;
-        }
-        continue;
-      }
-      if (plan.pressAt >= 0 || f.pressed) continue;
-      // In multiball, react to whichever ball reaches this flipper first.
-      for (const ball of world.balls) {
-        if (ball.active && !plan.missedBalls.has(ball) && this.plan(ball, f, plan, now, press))
-          break;
-      }
+    if (now >= this.nextThinkAt) {
+      for (const side of ['L', 'R'] as const) this.refreshPlan(world, side, now);
+      this.nextThinkAt = now + (this.profile.thinkInterval ?? 0.02);
     }
   }
 
-  private inApproachArea(b: Ball, f: Flipper, margin = 0): boolean {
-    if (!b.active || b.pz > 0.03 + margin) return false;
-    const dx = (b.px - f.px) * f.dir; // + = toward this flipper's tip
-    const dy = b.py - f.py;
-    return (
-      dx >= -0.02 - margin &&
-      dx <= 0.1 + margin &&
-      dy >= -0.06 - margin &&
-      dy <= 0.09 + margin
-    );
+  private trackBallEncounters(world: World): Set<Ball> {
+    const reset = new Set<Ball>();
+    for (const ball of world.balls) {
+      const previous = this.ballSnapshots.get(ball);
+      if (
+        previous &&
+        (previous.active !== ball.active ||
+          (ball.active &&
+            (Math.hypot(ball.px - previous.x, ball.py - previous.y, ball.pz - previous.z) > 0.08 ||
+              Math.hypot(ball.vx - previous.vx, ball.vy - previous.vy, ball.vz - previous.vz) >
+                0.8)))
+      ) {
+        reset.add(ball);
+        this.ignoredBalls.L.delete(ball);
+        this.ignoredBalls.R.delete(ball);
+      }
+      this.ballSnapshots.set(ball, {
+        x: ball.px,
+        y: ball.py,
+        z: ball.pz,
+        vx: ball.vx,
+        vy: ball.vy,
+        vz: ball.vz,
+        active: ball.active,
+      });
+    }
+    return reset;
   }
 
-  /** Plan a flip (or a cradle) for a ball arriving at flipper `f`. True if a plan was made. */
-  private plan(
-    b: Ball,
+  private setPressed(
+    world: World,
+    rules: GameRules,
+    side: FlipperSide,
+    f: Flipper,
+    pressed: boolean,
+  ): void {
+    if (f.pressed === pressed) return;
+    world.setFlipper(f.id, pressed);
+    rules.onButton(side, pressed);
+  }
+
+  private pruneIgnoredBalls(side: FlipperSide, f: Flipper, now: number): void {
+    for (const ball of this.ignoredBalls[side]) {
+      if (!ball.active || Math.hypot(ball.px - f.px, ball.py - f.py) > f.length + 0.09)
+        this.ignoredBalls[side].delete(ball);
+    }
+    const plan = this.plans[side];
+    if (plan && (!plan.ball.active || now - plan.pressAt > 2)) this.plans[side] = null;
+  }
+
+  private advancePlan(
+    world: World,
+    rules: GameRules,
+    side: FlipperSide,
+    f: Flipper,
+    now: number,
+  ): void {
+    const plan = this.plans[side];
+    if (!plan) {
+      if (f.pressed) this.setPressed(world, rules, side, f, false);
+      return;
+    }
+
+    if (plan.phase === 'tracking') return;
+
+    if (plan.phase === 'committed') {
+      if (now < plan.pressAt) return;
+      // A planned contact can become stale after a bounce, catch, drain or multiball collision.
+      // Re-predict immediately before pressing and move the deadline if the arrival shifted.
+      const current = this.predictEncounter(world, plan.ball, f, plan.targetAlong);
+      if (!current || current.eta > 0.12) {
+        this.plans[side] = null;
+        return;
+      }
+      const expectedEta = Math.max(0, plan.contactAt - now);
+      const contactShift = Math.hypot(
+        current.x - plan.contactX,
+        current.y - plan.contactY,
+        current.z - plan.contactZ,
+      );
+      if (Math.abs(current.eta - expectedEta) > 0.06 || contactShift > 0.06) {
+        // The contact moved materially since the last plan update. Drop it and let the next
+        // planning tick make a fresh encounter decision from the new path.
+        this.plans[side] = null;
+        return;
+      }
+      const revisedPressAt = now + Math.max(0, current.eta - FLIPPER_LEAD);
+      if (revisedPressAt > now + world.dt) {
+        plan.pressAt = revisedPressAt;
+        plan.contactAt = now + current.eta;
+        plan.contactX = current.x;
+        plan.contactY = current.y;
+        plan.contactZ = current.z;
+        return;
+      }
+      this.setPressed(world, rules, side, f, true);
+      plan.phase = plan.catch ? 'catching' : 'striking';
+      plan.contactSeen = false;
+      plan.contactSince = -1;
+      plan.minReleaseAt = now + 0.035;
+      plan.contactDeadline = now + (plan.catch ? 0.24 : 0.18);
+      return;
+    }
+
+    if (plan.phase === 'recovering') {
+      if (now >= plan.releaseAt && f.phase <= 0.025) this.plans[side] = null;
+      return;
+    }
+
+    if (plan.phase === 'cradled') {
+      if (!this.isTouching(plan.ball, f, 0.008) || now >= plan.releaseAt) {
+        this.ignoredBalls[side].add(plan.ball);
+        this.finishAction(world, rules, side, f, plan, now);
+      }
+      return;
+    }
+
+    const touching = this.isTouching(plan.ball, f, 0.004);
+    if (touching) {
+      plan.contactSeen = true;
+      if (plan.ball.speed() <= 0.45) {
+        if (plan.contactSince < 0) plan.contactSince = now;
+      } else {
+        plan.contactSince = -1;
+      }
+    }
+
+    if (plan.phase === 'catching' && plan.contactSince >= 0 && now - plan.contactSince >= 0.075) {
+      // A cradle only starts after sustained, slow, real contact with the raised bat.
+      plan.phase = 'cradled';
+      plan.releaseAt = now + this.rng.range(0.45, 0.9);
+      return;
+    }
+
+    const departed = plan.contactSeen && !touching && now >= plan.minReleaseAt;
+    if (!plan.ball.active || departed || now >= plan.contactDeadline) {
+      this.finishAction(world, rules, side, f, plan, now);
+    }
+  }
+
+  private finishAction(
+    world: World,
+    rules: GameRules,
+    side: FlipperSide,
     f: Flipper,
     plan: FlipperPlan,
     now: number,
-    press: (on: boolean) => void,
-  ): boolean {
-    // Is the ball arriving at this flipper? Work out where it will meet the bat and when.
-    if (!this.inApproachArea(b, f)) return false;
-    f.distance(b.px, b.py, this.probe);
-    const gap = this.probe.d - b.radius;
-    const approach = -(b.vx * this.probe.nx + b.vy * this.probe.ny); // speed toward the bat
-    const cx = b.px - this.probe.nx * this.probe.d;
-    const cy = b.py - this.probe.ny * this.probe.d;
-    const along = ((cx - f.px) * Math.cos(f.theta) + (cy - f.py) * Math.sin(f.theta)) / f.length;
-    const speed = b.speed();
+  ): void {
+    this.setPressed(world, rules, side, f, false);
+    this.ignoredBalls[side].add(plan.ball);
+    plan.phase = 'recovering';
+    plan.releaseAt = now + 0.12;
+  }
 
-    if (speed < 0.35 && gap < 0.004 && along < 0.45 && this.rng.next() < this.profile.cradle) {
-      // Catch it: hold the flipper up and let the ball settle, then aim from the cradle.
-      press(true);
-      plan.cradleUntil = now + this.rng.range(0.4, 1.2);
-      return true;
+  private isTouching(ball: Ball, f: Flipper, margin: number): boolean {
+    if (!ball.active || ball.pz - ball.radius > f.height) return false;
+    f.distance(ball.px, ball.py, this.probe);
+    return this.probe.d <= ball.radius + margin;
+  }
+
+  private refreshPlan(world: World, side: FlipperSide, now: number): void {
+    const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
+    const existing = this.plans[side];
+    if (existing && existing.phase !== 'tracking' && existing.phase !== 'committed') return;
+    if (f.pressed || f.phase > 0.06) return;
+
+    let best: EncounterCandidate | null = null;
+    for (const ball of world.balls) {
+      if (!ball.active || this.ignoredBalls[side].has(ball)) continue;
+      const candidate = this.predictEncounter(world, ball, f, existing?.targetAlong ?? 0.72);
+      if (!candidate) continue;
+      if (!best || this.encounterPriority(candidate) < this.encounterPriority(best))
+        best = candidate;
     }
-    // Time until the ball reaches the bat (falling onto it), or until a ball rolling down the
-    // bat reaches the bot's chosen hitting point.
-    let eta: number;
-    if (approach > 0.15) eta = gap / approach;
-    else {
-      const rollSpeed = b.vx * Math.cos(f.theta) + b.vy * Math.sin(f.theta);
-      if (rollSpeed <= 0.05 || gap > 0.004) return false;
-      eta = Math.max(0, (this.targetAlong - along) * f.length) / rollSpeed;
+
+    if (existing) {
+      const sameBall = best?.ball === existing.ball ? best : null;
+      if (sameBall) {
+        this.schedule(existing, sameBall, now);
+        return;
+      }
+      const current = this.predictEncounter(world, existing.ball, f, existing.targetAlong);
+      if (
+        current &&
+        (!best || this.encounterPriority(best) + 0.025 >= this.encounterPriority(current))
+      ) {
+        this.schedule(existing, current, now);
+        return;
+      }
+      this.plans[side] = null;
     }
-    const flipLead = 0.012; // the bat takes ~12 ms to reach a ball resting on it
-    if (eta > flipLead + 0.03) return false;
+
+    if (!best) return;
+    const targetAlong = best.rolling ? this.rng.range(0.58, 0.82) : 0.72;
+    const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
     if (this.rng.next() > this.profile.attention) {
-      // A missed reaction is a true miss. Delaying it by a second caused unrelated-looking
-      // paddle twitches and blocked the controller from considering another ball meanwhile.
-      plan.missedBalls.add(b);
-      return true;
+      this.ignoredBalls[side].add(selected.ball);
+      return;
     }
+
+    const responseOffset =
+      (this.profile.reactionDelay ?? 0) + this.rng.range(-this.profile.jitter, this.profile.jitter);
+    const catchBall = selected.speed <= 0.6 && this.rng.next() < this.profile.cradle;
+    const plan: FlipperPlan = {
+      ball: selected.ball,
+      phase: 'tracking',
+      targetAlong,
+      responseOffset,
+      catch: catchBall,
+      pressAt: 0,
+      contactAt: 0,
+      contactX: selected.x,
+      contactY: selected.y,
+      contactZ: selected.z,
+      releaseAt: -1,
+      minReleaseAt: -1,
+      contactDeadline: -1,
+      contactSeen: false,
+      contactSince: -1,
+    };
+    this.plans[side] = plan;
+    this.schedule(plan, selected, now);
+  }
+
+  private schedule(plan: FlipperPlan, candidate: EncounterCandidate, now: number): void {
+    // Once the predicted arrival is inside the bat's stroke lead, act now. Waiting for the full
+    // reaction delay at that point would move the deadline forward on every replan.
+    const available = candidate.eta - FLIPPER_LEAD;
+    plan.phase = candidate.eta <= 0.12 ? 'committed' : 'tracking';
+    plan.contactAt = now + candidate.eta;
+    plan.contactX = candidate.x;
+    plan.contactY = candidate.y;
+    plan.contactZ = candidate.z;
     plan.pressAt =
-      now +
-      Math.max(
-        0,
-        eta - flipLead +
-          (this.profile.reactionDelay ?? 0) +
-          this.rng.range(-1, 1) * this.profile.jitter,
-      );
-    plan.releaseAt = plan.pressAt + 0.17;
-    this.targetAlong = this.rng.range(0.45, 0.85);
-    return true;
+      now + (available <= 0 ? 0 : available + Math.min(plan.responseOffset, FLIPPER_LEAD));
+  }
+
+  private encounterPriority(candidate: EncounterCandidate): number {
+    // A low, descending ball is more urgent because it has less room to recover before the drain.
+    const urgent = candidate.ball.py < 0.28 && candidate.ball.vy < 0 ? 0.015 : 0;
+    return candidate.eta - urgent;
+  }
+
+  /**
+   * Predicts a short ball trajectory with gravity, floor contact and rolling resistance. Static
+   * table bounces are intentionally left to the next replan; the committed action is checked again
+   * immediately before it can move a paddle.
+   */
+  private predictEncounter(
+    world: World,
+    ball: Ball,
+    f: Flipper,
+    targetAlong: number,
+  ): EncounterCandidate | null {
+    if (!ball.active) return null;
+    const p = world.params;
+    const slope = p.slopeDeg * DEG;
+    const ax = 0;
+    const ay = -p.gravity * dsin(slope);
+    const az = -p.gravity * dcos(slope);
+    const resistance = p.rollingResistance * p.gravity * dcos(slope);
+    const c = dcos(f.theta);
+    const s = dsin(f.theta);
+    let x = ball.px;
+    let y = ball.py;
+    let z = ball.pz;
+    let vx = ball.vx;
+    let vy = ball.vy;
+    let vz = ball.vz;
+    const steps = Math.ceil(CONTACT_HORIZON / CONTACT_STEP);
+
+    for (let i = 0; i <= steps; i++) {
+      const t = i * CONTACT_STEP;
+      if (i > 0) {
+        vx += ax * CONTACT_STEP;
+        vy += ay * CONTACT_STEP;
+        vz += az * CONTACT_STEP;
+        x += vx * CONTACT_STEP;
+        y += vy * CONTACT_STEP;
+        z += vz * CONTACT_STEP;
+        const floor = world.floorHeightAt(x, y) + ball.radius;
+        if (z < floor) {
+          z = floor;
+          if (vz < 0) vz = 0;
+          const speed = Math.hypot(vx, vy);
+          if (speed > 1e-9) {
+            const nextSpeed = Math.max(0, speed - resistance * CONTACT_STEP);
+            vx *= nextSpeed / speed;
+            vy *= nextSpeed / speed;
+          }
+        }
+      }
+
+      if (z - ball.radius > f.height) continue;
+      f.distance(x, y, this.probe);
+      const gap = this.probe.d - ball.radius;
+      const normalSpeed = vx * this.probe.nx + vy * this.probe.ny;
+      const along = ((x - f.px) * c + (y - f.py) * s) / f.length;
+      const rollingSpeed = vx * c + vy * s;
+      const impact = gap <= CONTACT_TOLERANCE && normalSpeed < -0.08;
+      const rolling =
+        gap <= 0.006 &&
+        Math.abs(normalSpeed) <= 0.18 &&
+        rollingSpeed > 0.05 &&
+        along >= 0.05 &&
+        along < targetAlong;
+      if (impact || rolling) {
+        return {
+          ball,
+          eta: t,
+          x,
+          y,
+          z,
+          speed: Math.hypot(vx, vy, vz),
+          rolling,
+        };
+      }
+
+      if (y < 0.035 && z < 0.05) return null;
+    }
+    return null;
   }
 }
 

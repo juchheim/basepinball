@@ -82,10 +82,16 @@ logic.
 The start menu selects Single Player or Vs AI. Vs AI alternates top and bottom halves in the same
 `GameRules` and `World`: a physics-driven bot operates the AI's top half, then the human plays the
 bottom half. `GameRules` tracks batting side and independent team stats while preserving the usual
-rules and physics event path. Easy, Medium and Hard vary the bot's reaction likelihood, response
-delay, and cradling. A missed reaction stays a miss instead of causing a delayed paddle press. The
-same bot controller is also used by the headless balance simulator. This is local play; no network
-service or backend is required, and it is not online multiplayer.
+rules and physics event path. The bot keeps a ball-specific plan for each flipper: it projects balls
+up to 240 ms ahead with gravity and rolling resistance, ranks arrivals by time and drain urgency,
+and schedules a response for the predicted contact. It replans at a difficulty-specific rate while
+servicing press/release deadlines every physics step. Before a scheduled press it checks that the
+same ball still has a plausible arrival, so a bounce or ball reset cancels stale actions. Easy,
+Medium and Hard vary planning cadence, response delay, timing noise, attention, and the likelihood
+of attempting a slow-ball catch. A catch is held only after slow physical contact is confirmed, then
+released once; it does not issue a blind second flip. The same controller is used by the headless
+balance simulator. This is local play; no network service or backend is required, and it is not
+online multiplayer.
 
 ## 3. Game loop
 
