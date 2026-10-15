@@ -26,6 +26,14 @@ export type LampMode = 'off' | 'on' | 'blink';
 type Lane = 'R' | 'B' | 'I';
 const LANES: Lane[] = ['R', 'B', 'I'];
 const WALK_LETTERS = ['W', 'A', 'L', 'K'];
+/** Lamp ids built once, for `lamps()`: [lamp, the switch that lights it] where there is one. */
+const LAMP_KEYS = {
+  lane: Object.fromEntries(LANES.map((l) => [l, `lamp.lane.${l}`])) as Record<Lane, string>,
+  drops: ['B', 'A', 'T'].map((l) => [`lamp.drop.${l}`, `drop.${l}`] as const),
+  walk: WALK_LETTERS.map((l) => [`lamp.standup.${l}`, `standup.${l}`] as const),
+  rally: [1, 2, 3, 4, 5].map((i) => `rally.${i}`),
+  hustle: [1, 2, 3, 4, 5].map((i) => `hustle.${i}`),
+};
 /** Seconds after the Stretch rises before its alert shows (clear of the hit's own callout). */
 export const STRETCH_ALERT_DELAY = 1.6;
 
@@ -747,39 +755,42 @@ export class GameRules {
   }
 
   /** Lamp states for the playfield inserts. */
+  /**
+   * The lamp states. Read every frame, so it fills one object kept for the purpose, with the keys
+   * built once (docs/MVP/efficiency-audit F11): the result is only good until the next call.
+   */
   lamps(): Record<string, LampMode> {
+    const out = this.lampState;
     const on = (b: boolean): LampMode => (b ? 'on' : 'off');
     const pitchLamp = (t: PitchType): LampMode =>
       this.pitchType !== t ? 'off' : this.pitchPhase === 'windup' ? 'blink' : 'on';
-    const out: Record<string, LampMode> = {
-      'base.1B': on(this.bases[0]),
-      'base.2B': on(this.bases[1]),
-      'base.3B': on(this.bases[2]),
-      'lamp.hotbat': this.hotBat ? 'blink' : 'off',
-      'lamp.kickback': on(this.kickbackLit),
-      'arrow.ramp.STEAL': this.stealReady ? 'blink' : 'off',
-      // The pitch lamp blinks through the windup and holds steady once the ball is thrown.
-      'pitch.FB': pitchLamp('FB'),
-      'pitch.CH': pitchLamp('CH'),
-      'pitch.CB': pitchLamp('CB'),
-    };
+    out['base.1B'] = on(this.bases[0]);
+    out['base.2B'] = on(this.bases[1]);
+    out['base.3B'] = on(this.bases[2]);
+    out['lamp.hotbat'] = this.hotBat ? 'blink' : 'off';
+    out['lamp.kickback'] = on(this.kickbackLit);
+    out['arrow.ramp.STEAL'] = this.stealReady ? 'blink' : 'off';
+    // The pitch lamp blinks through the windup and holds steady once the ball is thrown.
+    out['pitch.FB'] = pitchLamp('FB');
+    out['pitch.CH'] = pitchLamp('CH');
+    out['pitch.CB'] = pitchLamp('CB');
     for (const lane of LANES) {
-      out[`lamp.lane.${lane}`] = this.skillLane === lane ? 'blink' : on(this.rbi.has(lane));
+      out[LAMP_KEYS.lane[lane]] = this.skillLane === lane ? 'blink' : on(this.rbi.has(lane));
     }
-    for (const l of ['B', 'A', 'T'])
-      out[`lamp.drop.${l}`] = on(this.bat.has(`drop.${l}`) || this.hotBat);
-    for (const l of WALK_LETTERS)
-      out[`lamp.standup.${l}`] = on(this.walkLetters.has(`standup.${l}`));
-    for (let i = 1; i <= 5; i++) out[`rally.${i}`] = on(this.rally >= i);
+    for (const [lamp, drop] of LAMP_KEYS.drops) out[lamp] = on(this.bat.has(drop) || this.hotBat);
+    for (const [lamp, target] of LAMP_KEYS.walk) out[lamp] = on(this.walkLetters.has(target));
+    for (let i = 1; i <= 5; i++) out[LAMP_KEYS.rally[i - 1]!] = on(this.rally >= i);
     // The Bleachers: lit while a souvenir waits there; blinking through THROW IT BACK.
     out['lamp.bleachers'] = this.throwBack ? 'blink' : on(this.souvenirReady);
     // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
     const full = this.hustle >= HUSTLE_TARGET;
     for (let i = 1; i <= 5; i++) {
-      out[`hustle.${i}`] = full ? 'blink' : on(this.hustle >= i * (HUSTLE_TARGET / 5));
+      out[LAMP_KEYS.hustle[i - 1]!] = full ? 'blink' : on(this.hustle >= i * (HUSTLE_TARGET / 5));
     }
     return out;
   }
+
+  private readonly lampState: Record<string, LampMode> = {};
 
   private emit(e: RulesEvent): void {
     this.events.push(e);

@@ -111,9 +111,21 @@ export class AudioEngine {
         this.buses.set(name, g);
       }
       this.applyVolumes();
+      // Created muted or paused: start silent and suspended.
+      if (!this.wantRunning()) this.syncRunning();
       for (const hook of this.startHooks) hook(this);
     }
-    if (this.ctx.state === 'suspended' && !this.paused) this.ctx.resume().catch(() => undefined);
+    if (this.ctx.state === 'suspended' && this.wantRunning())
+      this.ctx.resume().catch(() => undefined);
+  }
+
+  /**
+   * Whether the context should run: not paused, and something can be heard. Muted (or master at
+   * 0), it is suspended like a pause, so the audio thread does not keep waking every few
+   * milliseconds to mix the crowd bed and the roll loop into silence (docs/MVP/efficiency-audit F9).
+   */
+  private wantRunning(): boolean {
+    return !this.paused && !this.volumes.muted && this.volumes.master > 0;
   }
 
   bus(name: BusName): AudioNode | null {
@@ -171,15 +183,24 @@ export class AudioEngine {
   /** Fade out over 150 ms and suspend (pause, hidden tab), or resume. */
   setPaused(paused: boolean): void {
     this.paused = paused;
+    this.syncRunning();
+  }
+
+  /** What `syncRunning` last aimed for: the context running (or resuming), or suspending. */
+  private running = true;
+
+  /** Fade out and suspend, or resume and fade in, to match `wantRunning`. */
+  private syncRunning(): void {
+    this.running = this.wantRunning();
     const ctx = this.ctx;
     if (!ctx || !this.master) return;
     const g = this.master.gain;
     const t = ctx.currentTime;
     g.cancelScheduledValues(t);
-    if (paused) {
+    if (!this.running) {
       g.setTargetAtTime(0, t, 0.05);
       setTimeout(() => {
-        if (this.paused) void ctx.suspend();
+        if (!this.wantRunning()) void ctx.suspend();
       }, 160);
     } else {
       void ctx.resume().then(() => {
@@ -220,8 +241,10 @@ export class AudioEngine {
     const ctx = this.ctx;
     if (!ctx || !this.master) return;
     const t = ctx.currentTime;
-    if (!this.paused) this.master.gain.setTargetAtTime(this.masterLevel(), t, 0.02);
     for (const [name, g] of this.buses) g.gain.setTargetAtTime(this.volumes[name], t, 0.02);
+    // Muting, unmuting, or the master reaching or leaving 0 suspends or resumes the context.
+    if (this.wantRunning() !== this.running) this.syncRunning();
+    else if (this.running) this.master.gain.setTargetAtTime(this.masterLevel(), t, 0.02);
   }
 }
 

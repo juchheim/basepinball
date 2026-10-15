@@ -33,6 +33,8 @@ import { BACKDROP_LAYER } from './layers';
  * and a grade (filmic contrast, cool shadows, warm highlights, richer colour, a vignette) give
  * the deep blacks and saturated lamps of a modern lit pinball cabinet.
  */
+const UP = new THREE.Vector3(0, 1, 0);
+
 export class Stage {
   readonly renderer: THREE.WebGPURenderer;
   readonly scene = new THREE.Scene();
@@ -78,6 +80,9 @@ export class Stage {
   /** Attract-mode camera orbit, 0 (player view) to 1 (full slow orbit). */
   orbit = 0;
   private readonly orbitCenter = new THREE.Vector3();
+  /** Scratch for the orbit and the shake, which move the camera for one draw and put it back. */
+  private readonly savedPos = new THREE.Vector3();
+  private readonly orbitOffset = new THREE.Vector3();
   private orbitClock = 0;
 
   constructor(container: HTMLElement, forceWebGL: boolean) {
@@ -361,15 +366,16 @@ export class Stage {
     return performance.now() - t0;
   }
 
-  render(): void {
+  /** Draw a frame; `dt` (s) since the last one drives the attract orbit (frames are paced). */
+  render(dt = 1 / 60): void {
     this.applySize();
     if (this.orbit > 0.001) {
       // A slow sway around the table for attract mode; dead-ball only (docs/MVP/05 § 7).
-      this.orbitClock += 1 / 60;
-      const saved = this.camera.position.clone();
+      this.orbitClock += dt;
+      const saved = this.savedPos.copy(this.camera.position);
       const yaw = Math.sin(this.orbitClock * 0.15) * 0.3 * this.orbit;
-      const offset = saved.clone().sub(this.orbitCenter);
-      offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+      const offset = this.orbitOffset.copy(saved).sub(this.orbitCenter);
+      offset.applyAxisAngle(UP, yaw);
       offset.multiplyScalar(1 + 0.08 * this.orbit);
       this.camera.position.copy(this.orbitCenter).add(offset);
       this.camera.lookAt(this.orbitCenter);
@@ -381,7 +387,7 @@ export class Stage {
     const left = this.shakeUntil - performance.now();
     if (left > 0) {
       const k = (left / this.shakeLength) * this.shakeAmp;
-      const saved = this.camera.position.clone();
+      const saved = this.savedPos.copy(this.camera.position);
       this.camera.position.x += (Math.random() * 2 - 1) * k;
       this.camera.position.y += (Math.random() * 2 - 1) * k * 0.6;
       this.pipeline.render();

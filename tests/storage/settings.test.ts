@@ -83,6 +83,10 @@ describe('settings storage', () => {
     expect(s.graphics).toBe('auto');
     expect(sanitize({ graphics: 'compat' }).graphics).toBe('compat');
     expect(sanitize({ graphics: 'nonsense' }).graphics).toBe('auto');
+    expect(sanitize({ frameRate: '60' }).frameRate).toBe('60');
+    expect(sanitize({ frameRate: 120 }).frameRate).toBe('auto');
+    expect(sanitize({ batterySaver: true }).batterySaver).toBe(true);
+    expect(sanitize({ batterySaver: 'yes' }).batterySaver).toBe(false);
     expect(s.keys.flipperL).toEqual(['KeyQ']);
     expect(s.keys.flipperR).toEqual(DEFAULT_SETTINGS.keys.flipperR);
     expect(s.keys.pause).toEqual(DEFAULT_SETTINGS.keys.pause);

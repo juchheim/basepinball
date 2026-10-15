@@ -134,15 +134,23 @@ export function initialTier(
  * step down changes only the resolution and crowd (see `Stage.applyQuality`), because anything that
  * changes shaders stalls Safari for seconds. The bar is low (not 45 fps) so a busy moment or a
  * busy machine does not trigger a step.
+ *
+ * On phones (`sustained`) it also watches for slow-but-not-terrible frames that last: a median
+ * under about 50 fps for 5 s steps down one tier. That is usually the phone heating up and
+ * throttling, which only gets worse; stepping down early, before it shows as stutter, also lets it
+ * cool (docs/MVP/efficiency-audit F16).
  */
 export class AdaptiveQuality {
   private samples: number[] = [];
   private cooldownUntil = -1;
+  /** Time (ms) spent in back-to-back windows slower than ~50 fps (`sustained` only). */
+  private slowMs = 0;
   enabled = true;
 
   constructor(
     public tier: Quality,
     private readonly apply: (q: Quality) => void,
+    private readonly sustained = false,
   ) {}
 
   frame(now: number, dtMs: number): void {
@@ -156,13 +164,23 @@ export class AdaptiveQuality {
     if (this.samples.length < 45) return;
     const sorted = [...this.samples].sort((a, b) => a - b);
     const median = sorted[sorted.length >> 1]!;
+    const windowMs = this.samples.reduce((a, b) => a + b, 0);
     this.samples = [];
-    const steps = median > 45 ? 2 : median > 33 ? 1 : 0;
+    let steps = median > 45 ? 2 : median > 33 ? 1 : 0;
+    if (this.sustained && median > 20) this.slowMs += windowMs;
+    else this.slowMs = 0;
+    if (steps === 0 && this.slowMs >= 5000) steps = 1;
     if (steps === 0) return;
+    this.slowMs = 0;
     const i = ORDER.indexOf(this.tier.name);
     if (i <= 0) return;
     this.tier = TIERS[ORDER[Math.max(0, i - steps)]!];
     this.apply(this.tier);
     this.cooldownUntil = now + 1500;
   }
+}
+
+/** `q`, or the `max` tier if `q` is above it (Battery saver holds the game to Medium). */
+export function capTier(q: Quality, max: TierName): Quality {
+  return ORDER.indexOf(q.name) > ORDER.indexOf(max) ? TIERS[max] : q;
 }

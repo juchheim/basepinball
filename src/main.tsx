@@ -3,10 +3,12 @@ import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
 import { DiagLog } from './app/diag';
 import { FixedLoop } from './app/loop';
+import { FramePacer, frameInterval, INPUT_BOOST_MS, type PaceMode } from './app/pacing';
 import {
   BlankTracker,
   CanvasProbe,
   FrameGuard,
+  ProbeSchedule,
   showFatal,
   startupFailure,
   watchContextLoss,
@@ -17,15 +19,22 @@ import { playStinger } from './audio/organ';
 import { RollSound } from './audio/sfx';
 import { SOUNDS } from './audio/sounds';
 import { Director } from './fx/director';
-import { LampShows } from './fx/lampShows';
+import { LampShows, type ShowMode } from './fx/lampShows';
 import { createOutput } from './fx/output';
 import { loadParams } from './debug/params';
 import { Input, vibrate, type InputEvent } from './input/input';
 import { World } from './physics/world';
 import { BLEACHERS, GameRules } from './rules/game';
-import type { RulesEvent } from './rules/types';
+import type { GameSnapshot, RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
-import { AdaptiveQuality, initialTier, TIERS, type Quality } from './render/quality';
+import {
+  AdaptiveQuality,
+  capTier,
+  deviceHints,
+  initialTier,
+  TIERS,
+  type Quality,
+} from './render/quality';
 import { Stadium } from './render/stadium';
 import { STANDEE_CELLS, STANDEE_GRID } from './render/standeeAtlas';
 import { Stage } from './render/stage';
@@ -61,7 +70,7 @@ import {
   settings,
   settingsNote,
   settingsOpen,
-  snapshot,
+  publishSnapshot,
 } from './ui/store';
 
 /**
@@ -152,8 +161,12 @@ async function main(): Promise<void> {
   // ---- diagnostics (shown with ?debug): what happened just before, if the canvas ever blanks
   const diag = new DiagLog();
   diag.log(`boot ${stage.backend}, dpr ${window.devicePixelRatio}`);
-  stage.onResize = (w, h, pr) =>
+  // The blank-canvas watchdog's timing: fast after anything that can upset presenting, then slow.
+  const probeSchedule = new ProbeSchedule(performance.now());
+  stage.onResize = (w, h, pr) => {
+    probeSchedule.wake(performance.now());
     diag.log(`resize ${w}x${h} @${pr.toFixed(2)} = ${Math.round(w * pr)}x${Math.round(h * pr)}`);
+  };
 
   // ---- quality tier, textures, standees, reflections
   let textureWidth = 0;
@@ -168,8 +181,9 @@ async function main(): Promise<void> {
   // the crowd; effects that change shaders (bloom, shadows, reflections) stay as they were.
   const applyQuality = (q: Quality, live = false): void => {
     diag.log(`quality -> ${q.name}${live ? ' (resolution only)' : ''}`);
+    probeSchedule.wake(performance.now());
     stage.applyQuality(q, live);
-    if (!live) view.setReflections(q.reflectionSize, q.reflectionEvery);
+    if (!live) view.setReflections(q.reflectionSize, reflectEvery(q));
     stadium.setCrowd(q.crowd);
     if (q.playfieldTexture !== textureWidth && !freePlay) {
       textureWidth = q.playfieldTexture;
@@ -182,14 +196,24 @@ async function main(): Promise<void> {
       });
     }
   };
-  const quality = new AdaptiveQuality(initialTier(query, stage.backend), (q) =>
-    applyQuality(q, true),
+  // Battery saver refreshes the ball's reflection cube every 6 frames at most.
+  const reflectEvery = (q: Quality): number =>
+    cfg.batterySaver && q.reflectionSize > 0 ? Math.max(6, q.reflectionEvery) : q.reflectionEvery;
+  const mobile = deviceHints().mobile;
+  // On phones the controller also steps down on sustained, throttling-level load (F16).
+  const quality = new AdaptiveQuality(
+    initialTier(query, stage.backend),
+    (q) => applyQuality(q, true),
+    mobile,
   );
   quality.enabled = !query.has('quality');
   if (!query.has('quality') && cfg.quality !== 'auto') {
     quality.tier = TIERS[cfg.quality];
     quality.enabled = false;
   }
+  // Battery saver holds the game to Medium (not a forced ?quality=).
+  let saverOn = cfg.batterySaver;
+  if (saverOn && !query.has('quality')) quality.tier = capTier(quality.tier, 'medium');
   applyQuality(quality.tier);
   void loadSlot('standees', 600).then((tex) => {
     if (tex) {
@@ -252,7 +276,8 @@ async function main(): Promise<void> {
     () => world,
     () => {
       // Sounds are placed at a ball in play (in multiball, the first one).
-      const ball = world.balls.find((b) => b.active);
+      // (Runs 1000 times a second: look the ball up only when there is something to place.)
+      const ball = world.events.length > 0 ? world.balls.find((b) => b.active) : undefined;
       for (const e of world.events) {
         director.physics(e, ball ? { x: ball.px, y: ball.py } : null);
         rules?.onSwitch(e);
@@ -271,6 +296,10 @@ async function main(): Promise<void> {
         if (world.time >= timers[i]!.at) timers.splice(i, 1)[0]!.run();
       }
     },
+    performance.now(),
+    // Up to 120 steps a frame, so the menus' 10 fps drawing (see `frameInterval`) still keeps
+    // physics on time; a longer stall drops the backlog.
+    120,
   );
 
   // ---- attract mode: lamps chase, the park lights are low
@@ -410,13 +439,26 @@ async function main(): Promise<void> {
     shows.reduced = reduced;
     director.reduced = reduced;
     input?.setKeys(cfg.keys);
+    const saverChanged = cfg.batterySaver !== saverOn;
+    saverOn = cfg.batterySaver;
     if (!query.has('quality')) {
-      if (cfg.quality === 'auto') quality.enabled = true;
-      else if (quality.tier.name !== cfg.quality || quality.enabled) {
-        quality.enabled = false;
-        quality.tier = TIERS[cfg.quality];
-        applyQuality(quality.tier);
+      quality.enabled = cfg.quality === 'auto';
+      // The tier to run: the one chosen (on Auto, the controller's; back to the starting tier when
+      // Battery saver is turned off), held to Medium by Battery saver. Applied only when it
+      // changes: applying rebuilds shaders, and this runs on every settings change (volume too).
+      let target =
+        cfg.quality !== 'auto'
+          ? TIERS[cfg.quality]
+          : saverChanged && !saverOn
+            ? initialTier(query, stage.backend)
+            : quality.tier;
+      if (saverOn) target = capTier(target, 'medium');
+      if (target !== quality.tier || saverChanged) {
+        quality.tier = target;
+        applyQuality(target);
       }
+    } else if (saverChanged) {
+      applyQuality(quality.tier);
     }
   };
   function updateSettings(patch: Partial<Settings>): void {
@@ -444,7 +486,10 @@ async function main(): Promise<void> {
 
   // ---- input
   const playing = (): boolean => screen.value === 'playing' || freePlay || screen.value === 'title';
+  // Any input brings attract mode up to the play frame rate for a moment (see `frameInterval`).
+  let lastInputAt = -Infinity;
   const onInput = (e: InputEvent): void => {
+    lastInputAt = performance.now();
     const at = (apply: (w: World) => void): void => loop.push({ time: e.time, apply });
     const s = screen.value;
     switch (e.action) {
@@ -556,6 +601,8 @@ async function main(): Promise<void> {
     const had = blank.blankCount;
     const seen = faultInjected ? false : probe.hasContent();
     const action = blank.observe(seen);
+    // Something is wrong: keep checking every half second while the escalation runs its course.
+    if (seen === false) probeSchedule.wake(performance.now());
     if (seen === false && had === 0) diag.log('canvas reads BLANK');
     if (seen === true && had > 0) diag.log(`canvas recovered after ${had} blank checks`);
     if (action === 'soft') {
@@ -566,7 +613,7 @@ async function main(): Promise<void> {
       console.warn('canvas still blank: rebuilding render targets', diag.lines());
       diag.log('watchdog: rebuild');
       stage.recover(true);
-      view.setReflections(quality.tier.reflectionSize, quality.tier.reflectionEvery);
+      view.setReflections(quality.tier.reflectionSize, reflectEvery(quality.tier));
     } else if (action === 'fallback') {
       console.warn(`canvas blank: ${stage.backend} stopped drawing`, diag.lines());
       diag.log('watchdog: fallback');
@@ -610,7 +657,10 @@ async function main(): Promise<void> {
   document.addEventListener('visibilitychange', () => {
     diag.log(document.hidden ? 'tab hidden' : 'tab visible');
     if (document.hidden) pauseGame();
-    else loop.resync();
+    else {
+      loop.resync();
+      probeSchedule.wake(performance.now());
+    }
     // Hidden: fade out and suspend; the pause menu keeps it silent until resumed.
     if (document.hidden) audio.setPaused(true);
     else if (screen.value !== 'paused') audio.setPaused(false);
@@ -713,6 +763,12 @@ async function main(): Promise<void> {
   let physicsMsAvg = 0;
   let last = performance.now();
   let lastHud = 0;
+  // Per-frame scratch, so the frame loop allocates nothing (docs/MVP/efficiency-audit F11).
+  let snap: GameSnapshot | null = null;
+  let snapRules: GameRules | null = null;
+  const NO_LAMPS: Record<string, never> = {};
+  const showLamps = new Map<string, ShowMode>();
+  const ballNow = { x: 0, y: 0, speed: 0 };
   // `?debug` render counters, summed over the overlay's half-second window: render calls (every
   // renderer.render, shadow passes and cube faces included), the part made by the ball's
   // reflection, and draw calls. Nothing resets renderer.info without setAnimationLoop, so the
@@ -722,10 +778,38 @@ async function main(): Promise<void> {
   let reflectCallsSum = 0;
   let drawsSum = 0;
   const guard = new FrameGuard();
+  // Frame pacing (see `frameInterval`): the play rate in a game, less on the title screen and the
+  // menus. rAF still runs every display frame; frames that are not due are skipped whole.
+  const pacer = new FramePacer();
+  const paceMode = (): PaceMode => {
+    if (freePlay) return 'play';
+    if (settingsOpen.value || howToOpen.value) return 'idle';
+    const s = screen.value;
+    return s === 'playing' ? 'play' : s === 'title' ? 'attract' : 'idle';
+  };
+  // The quality controller judges only frames drawn at the play rate (and not the first one after
+  // a slower stretch), so a deliberately slow menu never reads as a struggling device.
+  let judge = false;
+  let wasFullRate = false;
   const tick = (now: number): void => {
     if (stopped) return;
     try {
-      frame(now);
+      // Polled every display frame, so a quick button tap is never missed between paced frames.
+      input?.pollGamepads();
+      const interval = frameInterval({
+        mode: paceMode(),
+        setting: cfg.frameRate,
+        mobile,
+        tier: quality.tier.name,
+        boosted: now - lastInputAt < INPUT_BOOST_MS,
+        saver: cfg.batterySaver,
+      });
+      if (pacer.shouldDraw(now, interval)) {
+        const fullRate = interval <= 1000 / 60 + 0.01;
+        judge = fullRate && wasFullRate;
+        wasFullRate = fullRate;
+        frame(now);
+      }
       guard.ok();
     } catch (err) {
       // One bad frame is logged and skipped; a long run of them stops with a message rather than
@@ -745,29 +829,42 @@ async function main(): Promise<void> {
   let slowLogged = 0;
   let framesSeen = 0;
   const frame = (now: number): void => {
-    input?.pollGamepads();
     loop.frame(now);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     // Lamps: the rules' states, with any running lamp show layered on top.
     shows.update(dt);
-    const base = rules ? rules.lamps() : {};
-    const over = shows.overrides();
+    const base = rules ? rules.lamps() : NO_LAMPS;
+    const over = shows.overrides(showLamps);
     for (const id of shows.lampIds) view.setLamp(id, over.get(id) ?? base[id] ?? 'off');
+    // The game snapshot: ~10 a second is plenty for the HUD, the scoreboard, the runners and the
+    // crowd's tension (it builds a fresh object, so not every frame); at once for a new game.
+    if (now - lastHud > 100 || rules !== snapRules) {
+      lastHud = now;
+      snapRules = rules;
+      snap = rules ? rules.snapshot() : null;
+      if (snap) publishSnapshot(snap);
+      stadium.update(snap, BRAND.game);
+    }
     // Presentation per frame: crowd tension, near misses, the rolling ball, the lights.
     // The rolling sound and near misses follow the fastest ball in play (multiball has two).
     let b = world.balls[0];
     for (const x of world.balls) if (x.active && (!b?.active || x.speed() > b.speed())) b = x;
     const live = !!b && b.active && !loop.paused;
-    const snap0 = rules ? rules.snapshot() : null;
-    if (snap0) view.figures.sync(snap0.bases);
-    director.frame(dt, b && live ? { x: b.px, y: b.py, speed: b.speed() } : null, snap0);
+    if (snap) view.figures.sync(snap.bases);
+    if (b && live) {
+      ballNow.x = b.px;
+      ballNow.y = b.py;
+      ballNow.speed = b.speed();
+    }
+    director.frame(dt, b && live ? ballNow : null, snap);
     if (b) roll?.update(b.speed(), b.surface, b.px / 0.55, b.py / 1.17, live);
     else roll?.update(0, 'playfield', 0.5, 0, false);
     lightLevel += (lightTarget - lightLevel) * Math.min(1, dt * 1.5);
     // A home run's GI flash takes the towers down with it (a ballpark light show).
     const flashLevel = 0.35 + 0.65 * view.giFlashLevel;
-    stage.keyLights.forEach((l, i) => (l.intensity = keyBase[i]! * lightLevel * flashLevel));
+    for (let i = 0; i < stage.keyLights.length; i++)
+      stage.keyLights[i]!.intensity = keyBase[i]! * lightLevel * flashLevel;
     view.setGI(lightLevel);
     stadium.flashesEnabled = !director.reduced;
     stadium.tick(dt);
@@ -776,13 +873,6 @@ async function main(): Promise<void> {
     const orbitTarget = screen.value === 'title' && !director.reduced && !debug ? 1 : 0;
     stage.orbit += (orbitTarget - stage.orbit) * Math.min(1, dt * (orbitTarget ? 0.4 : 1.6));
     if (director.reduced && orbitTarget === 0) stage.orbit = 0;
-    // The HUD and scoreboard only need ~10 updates a second.
-    if (now - lastHud > 100) {
-      lastHud = now;
-      const snap = rules ? rules.snapshot() : null;
-      if (snap) snapshot.value = snap;
-      stadium.update(snap, BRAND.game);
-    }
     view.update(loop.alpha, dt);
     const drawStart = performance.now();
     view.updateReflections(stage.renderer, stage.scene, loop.paused);
@@ -805,7 +895,7 @@ async function main(): Promise<void> {
           console.warn('shader warm-up failed', err);
         }
       }
-      stage.render();
+      stage.render(dt);
     }
     // Stalls go in the `?debug` timeline: a slow frame, and a slow draw (a shader compiling, say).
     const drawMs = performance.now() - drawStart;
@@ -817,9 +907,10 @@ async function main(): Promise<void> {
       }
     }
     lastFrameAt = now;
-    // Every half second (and never while the tab is hidden): did that frame actually draw?
-    if (frames % 30 === 29 && !document.hidden) watchCanvas();
-    quality.frame(now, dt * 1000);
+    // Did that frame actually draw? Every half second at first and after any upset, every 5 s once
+    // healthy (each check stalls the GPU), never while the tab is hidden.
+    if (!document.hidden && probeSchedule.due(now)) watchCanvas();
+    if (judge) quality.frame(now, dt * 1000);
 
     frames++;
     physicsMsAvg = physicsMsAvg * 0.95 + loop.lastPhysicsMs * 0.05;

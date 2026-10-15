@@ -405,6 +405,19 @@ function SettingsPanel({ actions }: { actions: UiActions }) {
       <h3>Display</h3>
       {choice('Quality', st.quality, QUALITY, (quality) => actions.updateSettings({ quality }))}
       {choice(
+        'Frame rate',
+        st.frameRate,
+        [
+          { value: 'auto', label: 'Auto' },
+          { value: '60', label: '60 (battery)' },
+          { value: 'max', label: 'Max' },
+        ],
+        (frameRate) => actions.updateSettings({ frameRate }),
+      )}
+      {toggle('Battery saver', st.batterySaver, (batterySaver) =>
+        actions.updateSettings({ batterySaver }),
+      )}
+      {choice(
         'Graphics',
         st.graphics,
         [

@@ -409,10 +409,27 @@ export class RollSound {
     const base = s * s * (1 - y * 0.35);
     for (const key of ['floor', 'ramp', 'wire'] as const) {
       const level = key === which ? base * (key === 'wire' ? 0.3 : key === 'ramp' ? 0.5 : 0.7) : 0;
-      this.layers[key].gain.gain.setTargetAtTime(level, t, 0.04);
+      this.target(this.layers[key].gain.gain, level, t, 0.04, 0.003);
     }
-    this.layers.floor.filter.frequency.setTargetAtTime(300 + s * 900, t, 0.05);
-    this.pan.pan.setTargetAtTime(Math.max(-0.8, Math.min(0.8, (x - 0.5) * 1.4)), t, 0.05);
+    const freq = 300 + s * 900;
+    this.target(this.layers.floor.filter.frequency, freq, t, 0.05, freq * 0.02);
+    this.target(this.pan.pan, Math.max(-0.8, Math.min(0.8, (x - 0.5) * 1.4)), t, 0.05, 0.02);
+  }
+
+  /** The target last sent to each parameter. */
+  private readonly sent = new Map<AudioParam, number>();
+
+  /**
+   * Schedule `value` only when it has moved more than `eps` since the last one sent (and always
+   * when it reaches 0, so a layer never hangs on as a faint hiss). Called every frame, this used
+   * to queue five automation events a frame whether anything changed or not
+   * (docs/MVP/efficiency-audit F9); a ball at rest now sends none.
+   */
+  private target(p: AudioParam, value: number, t: number, tc: number, eps: number): void {
+    const last = this.sent.get(p);
+    if (last !== undefined && (value === 0 ? last === 0 : Math.abs(value - last) <= eps)) return;
+    this.sent.set(p, value);
+    p.setTargetAtTime(value, t, tc);
   }
 }
 

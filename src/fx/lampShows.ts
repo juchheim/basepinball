@@ -254,12 +254,17 @@ export class LampShows {
     }
   }
 
-  /** The lamps the running shows override (highest priority wins per lamp). */
-  overrides(): Map<string, ShowMode> {
-    const out = new Map<string, ShowMode>();
-    const prio = new Map<string, number>();
+  /**
+   * The lamps the running shows override (highest priority wins per lamp), into `out` (cleared
+   * first). The frame loop passes the same map every frame, so nothing is allocated
+   * (docs/MVP/efficiency-audit F11).
+   */
+  overrides(out = new Map<string, ShowMode>()): Map<string, ShowMode> {
+    out.clear();
+    const prio = this.prio;
+    prio.clear();
     for (const r of this.running) {
-      for (const [lamp, mode] of evaluate(r.show, r.t, this.groups)) {
+      for (const [lamp, mode] of evaluate(r.show, r.t, this.groups, this.scratch)) {
         if ((prio.get(lamp) ?? -1) <= r.show.priority) {
           out.set(lamp, mode);
           prio.set(lamp, r.show.priority);
@@ -268,6 +273,9 @@ export class LampShows {
     }
     return out;
   }
+
+  private readonly prio = new Map<string, number>();
+  private readonly scratch = new Map<string, ShowMode>();
 }
 
 /** Lamp groups for a table: all, around the centre, bottom-to-top, and the feature sets. */
@@ -289,19 +297,21 @@ export function lampGroups(table: TableDef): Record<string, string[]> {
   };
 }
 
-/** The lamp states a show sets at time `t`. */
+/** The lamp states a show sets at time `t`, into `out` (cleared first). */
 export function evaluate(
   show: LampShow,
   t: number,
   groups: Record<string, string[]>,
+  out = new Map<string, ShowMode>(),
 ): Map<string, ShowMode> {
-  const out = new Map<string, ShowMode>();
+  out.clear();
   for (const track of show.tracks) {
     if (t < track.from || t >= track.to) continue;
     const lamps = typeof track.lamps === 'string' ? (groups[track.lamps] ?? []) : track.lamps;
     const local = t - track.from;
     const p = track.pattern;
-    lamps.forEach((id, i) => {
+    for (let i = 0; i < lamps.length; i++) {
+      const id = lamps[i]!;
       let on: boolean;
       switch (p.kind) {
         case 'chase': {
@@ -320,7 +330,7 @@ export function evaluate(
           break;
       }
       out.set(id, on ? 'on' : 'off');
-    });
+    }
   }
   return out;
 }

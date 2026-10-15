@@ -51,10 +51,16 @@ export class Crowd {
     this.intensity = Math.max(0, Math.min(1, v));
     const ctx = this.a.ctx;
     if (!ctx || !this.murmur || !this.buzz) return;
+    // Called every frame; the level only changes with the game situation, so most calls stop here.
+    if (this.intensity === this.applied) return;
+    this.applied = this.intensity;
     const t = ctx.currentTime;
     this.murmur.gain.setTargetAtTime(0.1 + this.intensity * 0.1, t, 0.8);
     this.buzz.gain.setTargetAtTime(0.02 + this.intensity * 0.09, t, 0.8);
   }
+
+  /** The intensity last scheduled on the bed (-1: none yet). */
+  private applied = -1;
 
   /** A cheer: `level` 0.3 (single) to 1 (home run). */
   cheer(level: number, seconds = 1.6 + level * 1.6): void {

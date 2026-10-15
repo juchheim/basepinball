@@ -55,6 +55,7 @@ export class Figures {
   private cells: readonly string[] = [];
   private grid = { cols: 1, rows: 1 };
   private clock = 0;
+  private readonly pathScratch = new THREE.Vector3();
 
   constructor(
     table: TableDef,
@@ -342,7 +343,8 @@ export class Figures {
   private pathPoint(at: number): THREE.Vector3 {
     const i = Math.min(3, Math.floor(at));
     const k = at - i;
-    return this.basePath[i]!.clone().lerp(this.basePath[i + 1]!, k);
+    // Into a scratch vector: called every frame for each running runner; callers copy it at once.
+    return this.pathScratch.copy(this.basePath[i]!).lerp(this.basePath[i + 1]!, k);
   }
 
   private recycle(r: Runner): void {

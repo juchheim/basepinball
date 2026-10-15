@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { AdaptiveQuality, initialTier, TIERS, type Quality } from '../../src/render/quality';
+import {
+  AdaptiveQuality,
+  capTier,
+  initialTier,
+  TIERS,
+  type Quality,
+} from '../../src/render/quality';
 
 // A Safari tester saw the canvas blank for seconds at High (16 fps, WebGL2 renderer) until the
 // adaptive controller stepped down. These tests pin the faster, bigger step-down and the safer
@@ -102,5 +108,47 @@ describe('adaptive controller', () => {
     c.enabled = false;
     run(c, 300, 62);
     expect(seen).toEqual([]);
+  });
+});
+
+// Phones heat up and throttle over a long session (docs/MVP/efficiency-audit F16): sustained frames
+// under ~50 fps step down before they turn into stutter.
+describe('adaptive controller on a phone (sustained load)', () => {
+  const make = (start: Quality) => {
+    const seen: string[] = [];
+    const c = new AdaptiveQuality(start, (t) => seen.push(t.name), true);
+    return { c, seen };
+  };
+
+  it('steps down one tier after about 5 s under 50 fps', () => {
+    const { c, seen } = make(TIERS.medium);
+    const now = run(c, 250, 22); // ~5.5 s: the 1.5 s settle, then ~4 s of windows
+    expect(seen).toEqual([]);
+    run(c, 150, 22, now);
+    expect(seen).toEqual(['low']);
+  });
+
+  it('holds steady at 60 fps, and a short slow patch does not count', () => {
+    const { c, seen } = make(TIERS.medium);
+    let now = run(c, 600, 16.7);
+    now = run(c, 135, 22, now); // ~3 s slow
+    run(c, 600, 16.7, now);
+    expect(seen).toEqual([]);
+  });
+
+  it('desktops keep the old bar: 45 fps is not a reason to step down', () => {
+    const seen: string[] = [];
+    const c = new AdaptiveQuality(TIERS.high, (t) => seen.push(t.name));
+    run(c, 1200, 22);
+    expect(seen).toEqual([]);
+  });
+});
+
+describe('Battery saver cap', () => {
+  it('holds High and Ultra to Medium and leaves Medium and Low alone', () => {
+    expect(capTier(TIERS.ultra, 'medium').name).toBe('medium');
+    expect(capTier(TIERS.high, 'medium').name).toBe('medium');
+    expect(capTier(TIERS.medium, 'medium')).toBe(TIERS.medium);
+    expect(capTier(TIERS.low, 'medium')).toBe(TIERS.low);
   });
 });

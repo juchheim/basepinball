@@ -1,6 +1,8 @@
+import type { FrameRateSetting } from '../app/pacing';
+
 /**
  * Player settings (docs/MVP/01 § 9, 07 § 2 Meta/Accessibility): volumes, reduced motion, HUD size,
- * quality, haptics, motion nudge and key bindings. Stored in localStorage with a version; anything
+ * quality, frame rate, haptics, motion nudge and key bindings. Stored in localStorage with a version; anything
  * missing or malformed falls back to the default, and storage failures (private mode, quota) are
  * swallowed, so the game always starts.
  */
@@ -30,6 +32,13 @@ export interface Settings {
   reducedMotion: 'system' | 'on' | 'off';
   hudScale: 'normal' | 'large';
   quality: QualitySetting;
+  /** Drawing rate: '60' caps it (saves battery on 90/120 Hz screens); 'auto' caps phones only. */
+  frameRate: FrameRateSetting;
+  /**
+   * Battery saver: Medium quality at most, 60 fps at most, a slower title screen and a less
+   * frequently refreshed ball reflection.
+   */
+  batterySaver: boolean;
   /** 'compat' forces the WebGL2 backend (a reload applies it); 'auto' prefers WebGPU. */
   graphics: 'auto' | 'compat';
   /** Vibration (Android) and gamepad rumble. */
@@ -58,6 +67,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reducedMotion: 'system',
   hudScale: 'normal',
   quality: 'auto',
+  frameRate: 'auto',
+  batterySaver: false,
   graphics: 'auto',
   haptics: true,
   motionNudge: false,
@@ -112,7 +123,10 @@ export function sanitize(data: unknown): Settings {
   if (o.hudScale === 'normal' || o.hudScale === 'large') d.hudScale = o.hudScale;
   if (['auto', 'low', 'medium', 'high', 'ultra'].includes(o.quality as string))
     d.quality = o.quality as QualitySetting;
+  if (o.frameRate === 'auto' || o.frameRate === '60' || o.frameRate === 'max')
+    d.frameRate = o.frameRate;
   if (o.graphics === 'auto' || o.graphics === 'compat') d.graphics = o.graphics;
+  if (typeof o.batterySaver === 'boolean') d.batterySaver = o.batterySaver;
   if (typeof o.haptics === 'boolean') d.haptics = o.haptics;
   if (typeof o.motionNudge === 'boolean') d.motionNudge = o.motionNudge;
   const keys = (o.keys ?? {}) as Record<string, unknown>;
