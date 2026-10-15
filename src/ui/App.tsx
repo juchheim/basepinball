@@ -323,7 +323,8 @@ function HowToPlay() {
           <b>The right ramp</b> steals: with a runner on, the lead runner takes the next base (a
           runner on third steals home). Spell <b>W-A-L-K</b> on the four targets at the lower right
           and the batter takes a <b>walk</b>: first base, forcing any runners ahead of him. Letters
-          you've hit glow on the table and in the HUD, and stay lit until the word is spelled.
+          you've hit glow on the table and in the HUD, and stay lit until the word is spelled. In
+          Multiplayer vs AI, each side keeps its own letters and feature bonuses.
         </li>
         <li>
           <b>Bumpers matter</b>: once the ball is in play, every bumper hit that isn't itself a hit

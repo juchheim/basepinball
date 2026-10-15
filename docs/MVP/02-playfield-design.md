@@ -83,7 +83,7 @@ regular pinball.
 | 4 | **Right ramp: "Steal" ramp** | Left | **Feature shot. Does not end the PA.** With a runner on, the lead runner advances one base (stealing home scores); Its mouth is **70 mm** (the HR ramp's is 52), so the cheaper award is the easier shot. Teal-tinted plastic (the HR ramp is red), so it doesn't read as a second home-run ramp. The wireform returns the ball to the **right inlane**. | 2B and RF flank the entrance |
 | 5 | **Right orbit** (spinner) | Left | **TRIPLE** at the top-right corner kicker. The ball loops and drains down the left orbit. | 1B side saucer, RF |
 | 6 | **B-A-T drop bank** (left wall) | Right | Feature: completing the bank lights **HOT BAT** (the next hit gains +1 base) | — |
-| 7 | **W-A-L-K standups** (lower right, out from the wall) | Left | Feature: four letters; spelling WALK walks the batter (the letters persist through innings) | — |
+| 7 | **W-A-L-K standups** (lower right, out from the wall) | Left | Feature: four letters; spelling WALK walks the batter (each batting side keeps its letters across its innings) | — |
 | — | **R-B-I top lanes** | Plunge / orbit | Skill shot (Hot Bat). Completing all three lights the kickback. | — |
 
 **Difficulty ladder:** singles come from the widest shot (the Gap mouth). Doubles need a hard,

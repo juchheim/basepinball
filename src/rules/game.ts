@@ -93,8 +93,6 @@ export class GameRules {
   outs = 0;
   bases: Bases = EMPTY;
   rally = 0;
-  hotBat = false;
-  kickbackLit = true;
   tiltWarnings = 0;
   tilted = false;
   skillLane: Lane | null = null;
@@ -125,8 +123,11 @@ export class GameRules {
   private spinBonusPaid = false;
   /** Whether the Stretch (the mound's ramp-and-bumper) was last commanded up. */
   private moundUp = false;
-  /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. It persists. */
-  hustle = 0;
+  /** Long-lived awards belong to the batting side in Vs AI, and to the sole side in solo play. */
+  private readonly hotBatBySide: Record<BattingSide, boolean> = { human: false, ai: false };
+  private readonly kickbackLitBySide: Record<BattingSide, boolean> = { human: true, ai: true };
+  /** Bumper hits toward HUSTLE; at the target, every runner takes an extra base. */
+  private readonly hustleBySide: Record<BattingSide, number> = { human: 0, ai: 0 };
   /** A souvenir (a parked ball) waits in the Bleachers. Touch it to start THROW IT BACK. */
   souvenirReady = false;
   /** Two-ball multiball is running, and the runs scored in it so far. */
@@ -134,8 +135,11 @@ export class GameRules {
   private throwBackRuns = 0;
   /** The souvenir has been touched and is about to be thrown back (it counts as a ball in play). */
   private souvenirPending = false;
-  /** W-A-L-K letters hit so far (they carry over between innings, until the word is spelled). */
-  private readonly walkLetters = new Set<string>();
+  /** W-A-L-K letters persist across innings independently for each batting side. */
+  private readonly walkLetters: Record<BattingSide, Set<string>> = {
+    human: new Set(),
+    ai: new Set(),
+  };
   private readonly buttons = { L: false, R: false };
   private readonly orbitUp = new Map<'L' | 'R', number>();
   private lastSwing = -Infinity;
@@ -153,6 +157,30 @@ export class GameRules {
   /** Stats for the side currently batting; `humanStats` remains the player's lifetime/high-score row. */
   get stats(): GameStats {
     return this.battingSide === 'ai' ? this.aiStats : this.humanStats;
+  }
+
+  get hotBat(): boolean {
+    return this.hotBatBySide[this.battingSide];
+  }
+
+  set hotBat(value: boolean) {
+    this.hotBatBySide[this.battingSide] = value;
+  }
+
+  get kickbackLit(): boolean {
+    return this.kickbackLitBySide[this.battingSide];
+  }
+
+  set kickbackLit(value: boolean) {
+    this.kickbackLitBySide[this.battingSide] = value;
+  }
+
+  get hustle(): number {
+    return this.hustleBySide[this.battingSide];
+  }
+
+  set hustle(value: number) {
+    this.hustleBySide[this.battingSide] = value;
   }
 
   // ---------------------------------------------------------------- inputs
@@ -521,6 +549,7 @@ export class GameRules {
     this.plungeSpins.clear();
     this.spinBonusPaid = false;
     this.skillLane = LANES[Math.floor(this.rng.next() * 3)]!;
+    this.machine.setKickback(this.kickbackLit);
     this.state = 'LEADOFF_LAUNCH';
     this.lastActivity = this.now;
     this.machine.serveToPlunger();
@@ -547,10 +576,10 @@ export class GameRules {
     this.endRally();
     this.clearPitch();
     this.skillLane = null;
-    // Partial progress in R-B-I and B-A-T resets at the inning change; the W-A-L-K letters carry
-    // over, as do lit awards (docs/MVP/01 § 4.8).
+    // Partial progress in R-B-I and B-A-T resets at the half-inning change. In Vs AI the physical
+    // target bank belongs to the current turn, while stored awards remain with their batting side.
     this.rbi.clear();
-    if (!this.hotBat) {
+    if (!this.hotBat || this.vsAi) {
       this.bat.clear();
       this.machine.resetDropTargets();
     }
@@ -630,12 +659,14 @@ export class GameRules {
   /**
    * W-A-L-K (docs/MVP/01 § 4.8): the four standups. Spelling the word walks the batter: he takes
    * first, forced runners advance, and the bases loaded forces in a run. It is a feature award, not
-   * a hit (no H, and the plate appearance carries on). The letters persist through innings.
+   * a hit (no H, and the plate appearance carries on). Each side's letters persist through its
+   * innings independently.
    */
   private standup(id: string): void {
-    this.walkLetters.add(id);
-    if (this.walkLetters.size < WALK_LETTERS.length) return;
-    this.walkLetters.clear();
+    const letters = this.walkLetters[this.battingSide];
+    letters.add(id);
+    if (letters.size < WALK_LETTERS.length) return;
+    letters.clear();
     if (!LIVE.includes(this.state)) return;
     const result = walk(this.bases);
     const { runs } = result;
@@ -769,7 +800,7 @@ export class GameRules {
       rally: this.rally,
       hotBat: this.hotBat,
       stealReady: this.stealReady,
-      walkHit: WALK_LETTERS.map((l) => this.walkLetters.has(`standup.${l}`)),
+      walkHit: WALK_LETTERS.map((l) => this.walkLetters[this.battingSide].has(`standup.${l}`)),
       hustle: this.hustle,
       hustleTarget: HUSTLE_TARGET,
       souvenirReady: this.souvenirReady,
@@ -808,7 +839,8 @@ export class GameRules {
       out[LAMP_KEYS.lane[lane]] = this.skillLane === lane ? 'blink' : on(this.rbi.has(lane));
     }
     for (const [lamp, drop] of LAMP_KEYS.drops) out[lamp] = on(this.bat.has(drop) || this.hotBat);
-    for (const [lamp, target] of LAMP_KEYS.walk) out[lamp] = on(this.walkLetters.has(target));
+    for (const [lamp, target] of LAMP_KEYS.walk)
+      out[lamp] = on(this.walkLetters[this.battingSide].has(target));
     for (let i = 1; i <= 5; i++) out[LAMP_KEYS.rally[i - 1]!] = on(this.rally >= i);
     // The Bleachers (its lamp and the scoop's border): blinking while a souvenir waits there and
     // through THROW IT BACK.

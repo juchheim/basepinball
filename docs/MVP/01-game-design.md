@@ -203,16 +203,18 @@ Resolution details:
 |------|-----|--------|
 | **HOT BAT** | Knock down all three **B-A-T** drop targets, make the skill shot, or reach Rally Cap | The next non-HR hit gains +1 base (§ 4.8.1) |
 | **STEAL** | A runner is on base. No lighting is needed: the right ramp's arrow blinks while a steal is available. | A **right ramp** shot moves the lead runner who can advance up one base (stealing home scores a run). With the bases empty the shot does nothing but a callout. |
-| **WALK** | Spell **W-A-L-K** on the four standups at the lower right. The letters **persist through innings** until the word is spelled. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
-| **HUSTLE** | **After a hit, while the ball is still live,** every bumper hit counts: the two **outfield bumpers**, or the Gap pops (which score nothing then). At most one hit counts per 0.4 s, so a ricochet through the nest earns by how long it keeps bouncing, not by contacts. 15 hits fill the meter (five lamps of three). | **Every runner takes an extra base** (the runner on third scores). With the bases empty a full meter waits and pays on the next bumper hit once a runner is on. It persists through innings. |
+| **WALK** | Spell **W-A-L-K** on the four standups at the lower right. Each batting side's letters **persist across its innings** until that side spells the word. | The batter **walks**: he takes first base and only the runners forced by him advance (the bases loaded forces in a run). It is a feature award, not a hit: no H, and the plate appearance carries on. |
+| **HUSTLE** | **After a hit, while the ball is still live,** every bumper hit counts: the two **outfield bumpers**, or the Gap pops (which score nothing then). At most one hit counts per 0.4 s, so a ricochet through the nest earns by how long it keeps bouncing, not by contacts. 15 hits fill the meter (five lamps of three). | **Every runner takes an extra base** (the runner on third scores). With the bases empty a full meter waits and pays on the next bumper hit once a runner is on. Each side's meter persists across its innings. |
 | **SPIN BONUS** | At the top of an inning, **plunge hard**: round the whole arch and down the left orbit through its five spinners (about 0.55 of a full pull and up), spinning at least four of them before the first swing. A gentle plunge that falls into the right orbit does not count, and the soft plunge for the skill shot spins at most three of them, though a plunge in that zone can sometimes bounce in and earn both. Once per inning. | **One HUSTLE lamp** (3 bumper hits, so it always lights exactly one new dot, up to the full meter). The risk is the plunge itself: a hard ball is likelier to run on to the drain, where it is a strikeout if the flippers do not catch it. |
 | **THROW IT BACK** | **Hit a home run**: a fan in the **Bleachers** catches the ball, and the **souvenir** shows as a second ball in the Bleachers scoop (deep in right-centre, up the alley between the Steal ramp and the Gap), its lamp lit, **for the rest of that inning**. **Touch it** with the ball in play. | The fan **throws it back** onto the field: **two-ball multiball** (§ 4.8.2). The reward is the second ball. |
 | **Kickback** | Lit at the start of the game. Relit by completing **R-B-I** lanes. | Saves one outlane ball |
 
 Partial progress (some drop targets down, some R-B-I lanes lit) carries over between PAs and
-resets at the inning change. The **W-A-L-K** letters are the exception: they stay lit across innings
-until the word is spelled. A **lit** award (HOT BAT, kickback) stays lit until it is used,
-including across innings.
+resets at the half-inning change. The **W-A-L-K** letters are the exception: they stay lit across
+that batting side's innings until it spells the word. A **lit** award (HOT BAT, kickback) stays lit
+until used. In Vs AI, each side keeps its own W-A-L-K letters, HUSTLE meter and lit awards; the HUD
+and playfield lamps show the current batting side's state. In Single Player, the original solo
+progression remains unchanged.
 
 #### 4.8.1 HOT BAT in detail
 
