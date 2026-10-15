@@ -19,16 +19,18 @@ import { v1Table } from '../table/v1Table';
 
 export interface BotProfile {
   name: string;
-  /** Maximum encounter-specific timing offset (s). Sampled once when a plan is made. */
+  /** Timing error around a deliberate strike deadline (s), sampled once per paddle opportunity. */
   jitter: number;
-  /** Chance of committing to a predicted encounter. Sampled once per encounter. */
+  /** Chance of reacting to an ambiguous encounter. Obvious slow rolls bypass this probability. */
   attention: number;
-  /** Delay before committing to a response, in seconds. */
+  /** Human-like recognition delay for a newly observed, ambiguous opportunity (s). */
   reactionDelay?: number;
   /** Chance of choosing a physical catch for a slow, controllable arrival. */
   cradle: number;
   /** How often the bot refreshes trajectory plans (s). Paddle deadlines still run every step. */
   thinkInterval?: number;
+  /** Target along the bat for a controlled slow roll, in fractions of its length. */
+  rollTarget?: number;
 }
 
 export const PROFILES: Record<string, BotProfile> = {
@@ -39,31 +41,34 @@ export const PROFILES: Record<string, BotProfile> = {
   expert: { name: 'expert', jitter: 0.006, attention: 1, cradle: 0.2 },
 };
 
-/** Player-facing levels vary planning cadence and timing precision; they do not use blind cradles. */
+/** Player-facing levels vary recognition time and timing precision, not whether they see easy rolls. */
 export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
   easy: {
     name: 'easy',
-    jitter: 0.004,
+    jitter: 0.01,
     attention: 1,
-    reactionDelay: 0.005,
+    reactionDelay: 0.09,
     cradle: 0,
     thinkInterval: 0.02,
+    rollTarget: 0.55,
   },
   medium: {
     name: 'medium',
-    jitter: 0.002,
+    jitter: 0.005,
     attention: 1,
-    reactionDelay: 0.002,
+    reactionDelay: 0.065,
     cradle: 0,
     thinkInterval: 0.012,
+    rollTarget: 0.65,
   },
   hard: {
     name: 'hard',
-    jitter: 0.001,
+    jitter: 0.002,
     attention: 1,
-    reactionDelay: 0.001,
+    reactionDelay: 0.04,
     cradle: 0,
     thinkInterval: 0.008,
+    rollTarget: 0.75,
   },
 };
 
@@ -86,8 +91,6 @@ interface FlipperPlan {
   phase: PlanPhase;
   /** Along-bat strike target used only when the ball is already rolling on the bat. */
   targetAlong: number;
-  /** Selected once per encounter, so replanning does not reroll reaction or cradle decisions. */
-  responseOffset: number;
   catch: boolean;
   pressAt: number;
   contactAt: number;
@@ -111,11 +114,34 @@ interface BallSnapshot {
   active: boolean;
 }
 
-interface IgnoredEncounter {
-  /** If the ball never reaches the paddle neighborhood, let the planned encounter expire. */
-  until: number;
-  /** Once seen at the paddle, keep ignoring only until it physically leaves contact range. */
-  sawContact: boolean;
+interface PaddleOpportunity {
+  /** First visible moment sets the reaction clock for ambiguous shots. */
+  firstSeenAt: number;
+  lastSeenAt: number;
+  closeSince: number;
+  supportedSince: number;
+  lastSupportedAt: number;
+  lastAttemptAt: number;
+  attempts: number;
+  attentionAccepted: boolean;
+  timingError: number;
+  along: number;
+  gap: number;
+  normalSpeed: number;
+  tangentSpeed: number;
+  timeToExit: number;
+  contactEta: number;
+  supported: boolean;
+  obvious: boolean;
+}
+
+interface PaddleContact {
+  gap: number;
+  along: number;
+  normalSpeed: number;
+  tangentSpeed: number;
+  facesStroke: boolean;
+  inRollRegion: boolean;
 }
 
 interface BallChanges {
@@ -126,10 +152,19 @@ interface BallChanges {
 const LIVE_STATES = new Set(['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT']);
 const CONTACT_STEP = 0.002;
 const CONTACT_HORIZON = 0.24;
-// Default coil torque/inertia needs about 19 ms for a full stroke; leave a little margin.
-const FLIPPER_LEAD = 0.026;
 const CONTACT_TOLERANCE = 0.002;
-const LOCAL_SAFETY_MARGIN = 0.012;
+const OPPORTUNITY_RANGE = 0.09;
+const OPPORTUNITY_ABSENCE = 0.08;
+const SUPPORT_GAP = 0.006;
+const SUPPORT_GAP_GRACE = 0.015;
+const CLOSE_GAP = 0.02;
+const OBVIOUS_DWELL = 0.08;
+const RETRY_COOLDOWN = 0.065;
+const MIN_STRIKE_PRESS = 0.05;
+const MAX_STRIKE_PRESS = 0.12;
+const STRIKE_FACING_DOT = 0.35;
+const ROLL_MIN_ALONG = 0.15;
+const ROLL_MAX_ALONG = 1.04;
 
 export class Bot {
   private readonly rng: Rng;
@@ -137,8 +172,8 @@ export class Bot {
     L: null,
     R: null,
   };
-  /** Suppress duplicate decisions for one physical encounter without hiding a later return. */
-  private readonly ignoredBalls: Record<FlipperSide, Map<Ball, IgnoredEncounter>> = {
+  /** Opportunities outlive strokes, so a weak first attempt can be corrected after recovery. */
+  private readonly opportunities: Record<FlipperSide, Map<Ball, PaddleOpportunity>> = {
     L: new Map(),
     R: new Map(),
   };
@@ -191,11 +226,12 @@ export class Bot {
 
     for (const side of ['L', 'R'] as const) {
       const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
+      this.updatePaddleOpportunities(world, side, f, now);
       const plan = this.plans[side];
-      this.pruneIgnoredBalls(side, f, now);
       if (plan && ballChanges.reset.has(plan.ball)) {
         this.setPressed(world, rules, side, f, false);
         this.plans[side] = null;
+        this.opportunities[side].delete(plan.ball);
       } else if (
         plan &&
         ballChanges.trajectory.has(plan.ball) &&
@@ -208,9 +244,10 @@ export class Bot {
       } else {
         this.advancePlan(world, rules, side, f, now);
       }
+      // Obvious supported contacts can override a stale forecast, even when another plan is
+      // tracking or committed for later. Let active strokes finish before considering a retry.
       const pending = this.plans[side];
       if (!pending || pending.phase === 'tracking' || pending.phase === 'committed') {
-        // The physical near-contact check may override a pending forecast that has gone stale.
         this.tryLocalSafetyPress(world, rules, side, f, now);
       }
     }
@@ -232,8 +269,8 @@ export class Bot {
         Math.hypot(ball.px - previous.x, ball.py - previous.y, ball.pz - previous.z) > 0.08;
       if (previous && (previous.active !== ball.active || teleported)) {
         reset.add(ball);
-        this.ignoredBalls.L.delete(ball);
-        this.ignoredBalls.R.delete(ball);
+        this.opportunities.L.delete(ball);
+        this.opportunities.R.delete(ball);
       } else if (
         previous &&
         ball.active &&
@@ -266,22 +303,169 @@ export class Bot {
     rules.onButton(side, pressed);
   }
 
-  private pruneIgnoredBalls(side: FlipperSide, f: Flipper, now: number): void {
-    for (const [ball, ignored] of this.ignoredBalls[side]) {
-      if (!ball.active) {
-        this.ignoredBalls[side].delete(ball);
+  private getPaddleOpportunity(side: FlipperSide, ball: Ball, now: number): PaddleOpportunity {
+    let opportunity = this.opportunities[side].get(ball);
+    if (!opportunity) {
+      opportunity = {
+        firstSeenAt: now,
+        lastSeenAt: now,
+        closeSince: -1,
+        supportedSince: -1,
+        lastSupportedAt: -Infinity,
+        lastAttemptAt: -Infinity,
+        attempts: 0,
+        attentionAccepted: this.rng.next() < this.profile.attention,
+        timingError: this.rng.range(-this.profile.jitter, this.profile.jitter),
+        along: 0,
+        gap: Infinity,
+        normalSpeed: 0,
+        tangentSpeed: 0,
+        timeToExit: Infinity,
+        contactEta: Infinity,
+        supported: false,
+        obvious: false,
+      };
+      this.opportunities[side].set(ball, opportunity);
+    }
+    opportunity.lastSeenAt = now;
+    return opportunity;
+  }
+
+  private updatePaddleOpportunities(
+    world: World,
+    side: FlipperSide,
+    f: Flipper,
+    now: number,
+  ): void {
+    const seen = new Set<Ball>();
+    for (const ball of world.balls) {
+      if (!ball.active || ball.pz - ball.radius > f.height) continue;
+      const contact = this.measurePaddleContact(ball, f);
+      const existing = this.opportunities[side].get(ball);
+      const relevant =
+        contact.facesStroke && contact.inRollRegion && contact.gap <= OPPORTUNITY_RANGE;
+      if (!relevant) {
+        // Keep an in-flight opportunity through its own stroke, but don't keep refreshing it
+        // after the ball has left the paddle's neighborhood.
+        if (existing && this.plans[side]?.ball === ball) {
+          existing.lastSeenAt = now;
+          existing.supported = false;
+          existing.supportedSince = -1;
+          existing.closeSince = -1;
+          existing.obvious = false;
+          seen.add(ball);
+        }
         continue;
       }
-      f.distance(ball.px, ball.py, this.probe);
-      const near =
-        ball.pz - ball.radius <= f.height && this.probe.d <= ball.radius + LOCAL_SAFETY_MARGIN;
-      if (near) ignored.sawContact = true;
-      if ((ignored.sawContact && !near) || (!ignored.sawContact && now >= ignored.until)) {
-        this.ignoredBalls[side].delete(ball);
+
+      const opportunity = this.getPaddleOpportunity(side, ball, now);
+      seen.add(ball);
+      opportunity.along = contact.along;
+      opportunity.gap = contact.gap;
+      opportunity.normalSpeed = contact.normalSpeed;
+      opportunity.tangentSpeed = contact.tangentSpeed;
+      opportunity.contactEta =
+        contact.gap <= SUPPORT_GAP
+          ? 0
+          : contact.normalSpeed < -0.01
+            ? contact.gap / -contact.normalSpeed
+            : Infinity;
+      opportunity.timeToExit = this.timeToTip(world, f, contact.along, contact.tangentSpeed);
+
+      const close =
+        contact.facesStroke &&
+        contact.inRollRegion &&
+        contact.gap <= CLOSE_GAP &&
+        Math.abs(contact.normalSpeed) <= 0.25;
+      if (close) {
+        if (opportunity.closeSince < 0) opportunity.closeSince = now;
+      } else if (contact.gap > CLOSE_GAP + 0.004 || Math.abs(contact.normalSpeed) > 0.35) {
+        opportunity.closeSince = -1;
+      }
+
+      const supported =
+        contact.facesStroke &&
+        contact.inRollRegion &&
+        contact.gap <= SUPPORT_GAP &&
+        Math.abs(contact.normalSpeed) <= 0.25 &&
+        ball.speed() <= 0.65;
+      if (supported) {
+        if (opportunity.supportedSince < 0) opportunity.supportedSince = now;
+        opportunity.lastSupportedAt = now;
+      }
+      opportunity.supported = now - opportunity.lastSupportedAt <= SUPPORT_GAP_GRACE;
+      if (!opportunity.supported) opportunity.supportedSince = -1;
+
+      const targetAlong = this.profile.rollTarget ?? 0.7;
+      const dwell = opportunity.supportedSince < 0 ? 0 : now - opportunity.supportedSince;
+      opportunity.obvious =
+        this.profile.attention > 0 &&
+        ((opportunity.supported &&
+          (contact.along >= targetAlong ||
+            opportunity.timeToExit <= flipperLead(world, f) + 0.02 ||
+            dwell >= OBVIOUS_DWELL ||
+            opportunity.attempts > 0)) ||
+          (opportunity.closeSince >= 0 &&
+            now - opportunity.closeSince >= OBVIOUS_DWELL &&
+            opportunity.contactEta <= 0.12));
+    }
+
+    for (const [ball, opportunity] of this.opportunities[side]) {
+      if (!ball.active || (!seen.has(ball) && now - opportunity.lastSeenAt > OPPORTUNITY_ABSENCE)) {
+        this.opportunities[side].delete(ball);
       }
     }
     const plan = this.plans[side];
     if (plan && (!plan.ball.active || now - plan.pressAt > 2)) this.plans[side] = null;
+  }
+
+  private measurePaddleContact(ball: Ball, f: Flipper): PaddleContact {
+    const c = dcos(f.theta);
+    const s = dsin(f.theta);
+    f.distance(ball.px, ball.py, this.probe);
+    const gap = this.probe.d - ball.radius;
+    const along = ((ball.px - f.px) * c + (ball.py - f.py) * s) / f.length;
+    const cx = ball.px - this.probe.nx * ball.radius;
+    const cy = ball.py - this.probe.ny * ball.radius;
+    const surfaceVx = -f.omega * (cy - f.py);
+    const surfaceVy = f.omega * (cx - f.px);
+    const relativeVx = ball.vx - surfaceVx;
+    const relativeVy = ball.vy - surfaceVy;
+    const normalSpeed = relativeVx * this.probe.nx + relativeVy * this.probe.ny;
+    const tangentSpeed = relativeVx * c + relativeVy * s;
+    const strokeNx = f.dir * -s;
+    const strokeNy = f.dir * c;
+    return {
+      gap,
+      along,
+      normalSpeed,
+      tangentSpeed,
+      facesStroke: this.probe.nx * strokeNx + this.probe.ny * strokeNy > STRIKE_FACING_DOT,
+      inRollRegion: along >= ROLL_MIN_ALONG && along <= ROLL_MAX_ALONG,
+    };
+  }
+
+  private timeToTip(world: World, f: Flipper, along: number, tangentSpeed: number): number {
+    const distance = (1.02 - along) * f.length;
+    if (distance <= 0) return 0;
+    const slope = world.params.slopeDeg * DEG;
+    const acceleration =
+      -world.params.gravity * dsin(slope) * dsin(f.theta) -
+      Math.sign(tangentSpeed) * world.params.rollingResistance * world.params.gravity * dcos(slope);
+    if (Math.abs(acceleration) < 1e-5) {
+      return tangentSpeed > 1e-4 ? distance / tangentSpeed : Infinity;
+    }
+    const discriminant = tangentSpeed * tangentSpeed + 2 * acceleration * distance;
+    if (discriminant < 0) return Infinity;
+    const root = Math.sqrt(discriminant);
+    const candidates = [
+      (-tangentSpeed + root) / acceleration,
+      (-tangentSpeed - root) / acceleration,
+    ];
+    return (
+      candidates.filter((time) => time >= 0 && Number.isFinite(time)).sort((a, b) => a - b)[0] ??
+      Infinity
+    );
   }
 
   private advancePlan(
@@ -320,7 +504,13 @@ export class Bot {
         this.plans[side] = null;
         return;
       }
-      const revisedPressAt = now + Math.max(0, current.eta - FLIPPER_LEAD);
+      const opportunity = this.getPaddleOpportunity(side, plan.ball, now);
+      const recognizedAt = opportunity.firstSeenAt + (this.profile.reactionDelay ?? 0);
+      const revisedPressAt = Math.max(
+        now,
+        now + current.eta - flipperLead(world, f) + opportunity.timingError,
+        recognizedAt,
+      );
       if (revisedPressAt > now + world.dt) {
         plan.pressAt = revisedPressAt;
         plan.contactAt = now + current.eta;
@@ -330,17 +520,18 @@ export class Bot {
         return;
       }
       this.setPressed(world, rules, side, f, true);
+      this.markAttempt(side, plan.ball, now);
       plan.phase = plan.catch ? 'catching' : 'striking';
       plan.contactSeen = false;
       plan.contactSince = -1;
-      plan.minReleaseAt = now + 0.035;
-      plan.contactDeadline = now + (plan.catch ? 0.24 : 0.18);
+      plan.minReleaseAt = now + MIN_STRIKE_PRESS;
+      plan.contactDeadline = now + (plan.catch ? 0.24 : MAX_STRIKE_PRESS);
       return;
     }
 
     if (plan.phase === 'recovering') {
-      // Replan as soon as the bat is physically at rest, after a short debounce. The encounter
-      // ignore marker independently prevents duplicate presses while the same ball still touches.
+      // Replan as soon as the bat is physically at rest, after a short debounce. The persistent
+      // opportunity can ask for a deliberate retry if the ball is still controllable.
       if (now >= plan.releaseAt && f.phase <= 0.025) this.plans[side] = null;
       return;
     }
@@ -384,13 +575,14 @@ export class Bot {
     now: number,
   ): void {
     this.setPressed(world, rules, side, f, false);
-    this.ignoreEncounter(side, plan.ball, now + 0.04, plan.contactSeen);
     plan.phase = 'recovering';
     plan.releaseAt = now + 0.02;
   }
 
-  private ignoreEncounter(side: FlipperSide, ball: Ball, until: number, sawContact: boolean): void {
-    this.ignoredBalls[side].set(ball, { until, sawContact });
+  private markAttempt(side: FlipperSide, ball: Ball, now: number): void {
+    const opportunity = this.getPaddleOpportunity(side, ball, now);
+    opportunity.lastAttemptAt = now;
+    opportunity.attempts++;
   }
 
   /**
@@ -405,26 +597,32 @@ export class Bot {
     now: number,
   ): void {
     if (f.pressed || f.phase > 0.06) return;
-    const c = dcos(f.theta);
-    const s = dsin(f.theta);
     let chosen: Ball | null = null;
-    let chosenGap = Infinity;
+    let chosenPriority = Infinity;
 
     for (const ball of world.balls) {
-      if (!ball.active || ball.pz - ball.radius > f.height || this.ignoredBalls[side].has(ball))
-        continue;
-      f.distance(ball.px, ball.py, this.probe);
-      const gap = this.probe.d - ball.radius;
-      const normalSpeed = ball.vx * this.probe.nx + ball.vy * this.probe.ny;
-      const along = ((ball.px - f.px) * c + (ball.py - f.py) * s) / f.length;
-      const rollingSpeed = ball.vx * c + ball.vy * s;
-      const touching = gap <= 0.003;
-      const arriving = gap <= 0.025 && normalSpeed < -0.1;
-      const rollingOffBat =
-        gap <= 0.008 && Math.abs(normalSpeed) <= 0.25 && rollingSpeed > 0.02 && along >= 0.05;
-      if ((touching || arriving || rollingOffBat) && gap < chosenGap) {
+      if (!ball.active || ball.pz - ball.radius > f.height) continue;
+      const opportunity = this.opportunities[side].get(ball);
+      if (!opportunity || this.profile.attention <= 0) continue;
+      const contact = this.measurePaddleContact(ball, f);
+      const immediateTouch =
+        contact.facesStroke &&
+        contact.inRollRegion &&
+        contact.gap <= 0.003 &&
+        contact.normalSpeed < -0.05;
+      const stillSupported =
+        contact.facesStroke &&
+        contact.inRollRegion &&
+        contact.gap <= SUPPORT_GAP + 0.003 &&
+        Math.abs(contact.normalSpeed) <= 0.3 &&
+        ball.speed() <= 0.75;
+      const readyToRetry = now - opportunity.lastAttemptAt >= RETRY_COOLDOWN;
+      if (((!opportunity.obvious || !stillSupported) && !immediateTouch) || !readyToRetry) continue;
+      const priority =
+        opportunity.timeToExit - (opportunity.obvious ? 0.05 : 0) - (immediateTouch ? 0.05 : 0);
+      if (priority < chosenPriority) {
         chosen = ball;
-        chosenGap = gap;
+        chosenPriority = priority;
       }
     }
 
@@ -433,8 +631,7 @@ export class Bot {
     this.plans[side] = {
       ball: chosen,
       phase: 'striking',
-      targetAlong: 0.72,
-      responseOffset: 0,
+      targetAlong: this.profile.rollTarget ?? 0.7,
       catch: false,
       pressAt: now,
       contactAt: now,
@@ -442,11 +639,12 @@ export class Bot {
       contactY: chosen.py,
       contactZ: chosen.pz,
       releaseAt: -1,
-      minReleaseAt: now + 0.055,
-      contactDeadline: now + 0.18,
+      minReleaseAt: now + MIN_STRIKE_PRESS,
+      contactDeadline: now + MAX_STRIKE_PRESS,
       contactSeen: true,
       contactSince: -1,
     };
+    this.markAttempt(side, chosen, now);
   }
 
   private isTouching(ball: Ball, f: Flipper, margin: number): boolean {
@@ -463,9 +661,16 @@ export class Bot {
 
     let best: EncounterCandidate | null = null;
     for (const ball of world.balls) {
-      if (!ball.active || this.ignoredBalls[side].has(ball)) continue;
-      const candidate = this.predictEncounter(world, ball, f, existing?.targetAlong ?? 0.72);
+      if (!ball.active) continue;
+      const candidate = this.predictEncounter(
+        world,
+        ball,
+        f,
+        existing?.ball === ball ? existing.targetAlong : (this.profile.rollTarget ?? 0.7),
+      );
       if (!candidate) continue;
+      const opportunity = this.getPaddleOpportunity(side, ball, now);
+      if (!opportunity.attentionAccepted && !opportunity.obvious) continue;
       if (!best || this.encounterPriority(candidate) < this.encounterPriority(best))
         best = candidate;
     }
@@ -473,7 +678,7 @@ export class Bot {
     if (existing) {
       const sameBall = best?.ball === existing.ball ? best : null;
       if (sameBall) {
-        this.schedule(existing, sameBall, now);
+        this.schedule(world, f, side, existing, sameBall, now);
         return;
       }
       const current = this.predictEncounter(world, existing.ball, f, existing.targetAlong);
@@ -481,30 +686,22 @@ export class Bot {
         current &&
         (!best || this.encounterPriority(best) + 0.025 >= this.encounterPriority(current))
       ) {
-        this.schedule(existing, current, now);
+        this.schedule(world, f, side, existing, current, now);
         return;
       }
       this.plans[side] = null;
     }
 
     if (!best) return;
-    // Player levels use a stable roll strike point; random target selection made paddle timing
-    // look arbitrary without a calibrated shot map to explain the variation.
-    const targetAlong = 0.7;
+    const targetAlong = this.profile.rollTarget ?? 0.7;
     const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
-    if (this.rng.next() > this.profile.attention) {
-      this.ignoreEncounter(side, selected.ball, now + selected.eta + 0.06, false);
-      return;
-    }
-
-    const responseOffset =
-      (this.profile.reactionDelay ?? 0) + this.rng.range(-this.profile.jitter, this.profile.jitter);
+    const opportunity = this.getPaddleOpportunity(side, selected.ball, now);
+    if (!opportunity.attentionAccepted && !opportunity.obvious) return;
     const catchBall = selected.speed <= 0.6 && this.rng.next() < this.profile.cradle;
     const plan: FlipperPlan = {
       ball: selected.ball,
       phase: 'tracking',
       targetAlong,
-      responseOffset,
       catch: catchBall,
       pressAt: 0,
       contactAt: 0,
@@ -518,20 +715,30 @@ export class Bot {
       contactSince: -1,
     };
     this.plans[side] = plan;
-    this.schedule(plan, selected, now);
+    this.schedule(world, f, side, plan, selected, now);
   }
 
-  private schedule(plan: FlipperPlan, candidate: EncounterCandidate, now: number): void {
-    // Once the predicted arrival is inside the bat's stroke lead, act now. Waiting for the full
-    // reaction delay at that point would move the deadline forward on every replan.
-    const available = candidate.eta - FLIPPER_LEAD;
+  private schedule(
+    world: World,
+    f: Flipper,
+    side: FlipperSide,
+    plan: FlipperPlan,
+    candidate: EncounterCandidate,
+    now: number,
+  ): void {
+    const opportunity = this.getPaddleOpportunity(side, candidate.ball, now);
+    const lead = flipperLead(world, f);
+    const recognizedAt = opportunity.firstSeenAt + (this.profile.reactionDelay ?? 0);
     plan.phase = candidate.eta <= 0.12 ? 'committed' : 'tracking';
     plan.contactAt = now + candidate.eta;
     plan.contactX = candidate.x;
     plan.contactY = candidate.y;
     plan.contactZ = candidate.z;
-    plan.pressAt =
-      now + (available <= 0 ? 0 : available + Math.min(plan.responseOffset, FLIPPER_LEAD));
+    plan.pressAt = Math.max(
+      now,
+      now + candidate.eta - lead + opportunity.timingError,
+      recognizedAt,
+    );
   }
 
   private encounterPriority(candidate: EncounterCandidate): number {
@@ -596,13 +803,19 @@ export class Bot {
       const normalSpeed = vx * this.probe.nx + vy * this.probe.ny;
       const along = ((x - f.px) * c + (y - f.py) * s) / f.length;
       const rollingSpeed = vx * c + vy * s;
-      const impact = gap <= CONTACT_TOLERANCE && normalSpeed < -0.08;
-      const rolling =
+      const facesStroke =
+        this.probe.nx * (f.dir * -s) + this.probe.ny * (f.dir * c) > STRIKE_FACING_DOT;
+      const impact = facesStroke && gap <= CONTACT_TOLERANCE && normalSpeed < -0.08;
+      const onBatRoll =
+        facesStroke &&
         gap <= 0.006 &&
         Math.abs(normalSpeed) <= 0.18 &&
         rollingSpeed > 0.05 &&
-        along >= 0.05 &&
-        along < targetAlong;
+        along >= ROLL_MIN_ALONG &&
+        along <= ROLL_MAX_ALONG;
+      // Aim at a useful point down the bat, rather than flicking as soon as the ball first enters
+      // the paddle's neighborhood. A ball already beyond the target is still a valid rescue.
+      const rolling = onBatRoll && along >= targetAlong;
       if (impact || rolling) {
         return {
           ball,
@@ -619,6 +832,14 @@ export class Bot {
     }
     return null;
   }
+}
+
+function flipperLead(world: World, f: Flipper): number {
+  const p = world.params.flipper;
+  const inertia = (p.mass * f.length * f.length) / 3;
+  const angularAcceleration = p.coilTorque / Math.max(inertia, 1e-9);
+  const fullStrokeTime = Math.sqrt((2 * f.stroke) / Math.max(angularAcceleration, 1e-9));
+  return Math.max(0.012, Math.min(0.06, fullStrokeTime + 0.006));
 }
 
 export interface GameResult {
