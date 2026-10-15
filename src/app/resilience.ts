@@ -45,7 +45,8 @@ export type WatchdogAction = 'none' | 'soft' | 'rebuild' | 'fallback';
 
 /**
  * Turns observations of the canvas ("is anything drawn?") into recovery steps, escalating the
- * longer it stays empty. Checks are about half a second apart. A canvas that was drawing and goes
+ * longer it stays empty. Checks are about half a second apart while anything looks wrong (see
+ * `ProbeSchedule`). A canvas that was drawing and goes
  * blank gets a nudge after 2 checks (1 s), a rebuild of the render targets after 4 (2 s), and the
  * WebGL2 fallback after 8 (4 s). A canvas never seen drawing gets only the fallback, after 12, so a
  * browser where the probe can't tell is switched to the safer backend rather than left blank.
@@ -84,6 +85,40 @@ export class BlankTracker {
       return 'soft';
     }
     return 'none';
+  }
+}
+
+/**
+ * When to probe the canvas. Each probe reads the whole frame back from the GPU (a stall), so once
+ * the canvas has been healthy for a while it is checked every 5 s instead of every 0.5 s
+ * (docs/MVP/efficiency-audit F5). Anything that can break presenting (start-up, a resize, a
+ * quality change, a recovery) or a blank read `wake`s it back to the fast rate for 10 s, so the
+ * `BlankTracker` escalation keeps its half-second pace once something is wrong.
+ */
+export class ProbeSchedule {
+  private next = 0;
+  private fastUntil: number;
+
+  constructor(
+    now: number,
+    private readonly fastMs = 500,
+    private readonly slowMs = 5000,
+    private readonly settleMs = 10_000,
+  ) {
+    this.fastUntil = now + settleMs;
+    this.next = now + fastMs;
+  }
+
+  wake(now: number): void {
+    this.fastUntil = Math.max(this.fastUntil, now + this.settleMs);
+    this.next = Math.min(this.next, now + this.fastMs);
+  }
+
+  /** Whether a probe is due now (call only right after a drawn frame). */
+  due(now: number): boolean {
+    if (now < this.next) return false;
+    this.next = now + (now < this.fastUntil ? this.fastMs : this.slowMs);
+    return true;
   }
 }
 

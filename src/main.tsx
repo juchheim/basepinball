@@ -3,10 +3,12 @@ import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
 import { DiagLog } from './app/diag';
 import { FixedLoop } from './app/loop';
+import { FramePacer, frameInterval, INPUT_BOOST_MS, type PaceMode } from './app/pacing';
 import {
   BlankTracker,
   CanvasProbe,
   FrameGuard,
+  ProbeSchedule,
   showFatal,
   startupFailure,
   watchContextLoss,
@@ -25,7 +27,7 @@ import { World } from './physics/world';
 import { BLEACHERS, GameRules } from './rules/game';
 import type { RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
-import { AdaptiveQuality, initialTier, TIERS, type Quality } from './render/quality';
+import { AdaptiveQuality, deviceHints, initialTier, TIERS, type Quality } from './render/quality';
 import { Stadium } from './render/stadium';
 import { STANDEE_CELLS, STANDEE_GRID } from './render/standeeAtlas';
 import { Stage } from './render/stage';
@@ -152,8 +154,12 @@ async function main(): Promise<void> {
   // ---- diagnostics (shown with ?debug): what happened just before, if the canvas ever blanks
   const diag = new DiagLog();
   diag.log(`boot ${stage.backend}, dpr ${window.devicePixelRatio}`);
-  stage.onResize = (w, h, pr) =>
+  // The blank-canvas watchdog's timing: fast after anything that can upset presenting, then slow.
+  const probeSchedule = new ProbeSchedule(performance.now());
+  stage.onResize = (w, h, pr) => {
+    probeSchedule.wake(performance.now());
     diag.log(`resize ${w}x${h} @${pr.toFixed(2)} = ${Math.round(w * pr)}x${Math.round(h * pr)}`);
+  };
 
   // ---- quality tier, textures, standees, reflections
   let textureWidth = 0;
@@ -168,6 +174,7 @@ async function main(): Promise<void> {
   // the crowd; effects that change shaders (bloom, shadows, reflections) stay as they were.
   const applyQuality = (q: Quality, live = false): void => {
     diag.log(`quality -> ${q.name}${live ? ' (resolution only)' : ''}`);
+    probeSchedule.wake(performance.now());
     stage.applyQuality(q, live);
     if (!live) view.setReflections(q.reflectionSize, q.reflectionEvery);
     stadium.setCrowd(q.crowd);
@@ -271,6 +278,10 @@ async function main(): Promise<void> {
         if (world.time >= timers[i]!.at) timers.splice(i, 1)[0]!.run();
       }
     },
+    performance.now(),
+    // Up to 120 steps a frame, so the menus' 10 fps drawing (see `frameInterval`) still keeps
+    // physics on time; a longer stall drops the backlog.
+    120,
   );
 
   // ---- attract mode: lamps chase, the park lights are low
@@ -444,7 +455,10 @@ async function main(): Promise<void> {
 
   // ---- input
   const playing = (): boolean => screen.value === 'playing' || freePlay || screen.value === 'title';
+  // Any input brings attract mode up to the play frame rate for a moment (see `frameInterval`).
+  let lastInputAt = -Infinity;
   const onInput = (e: InputEvent): void => {
+    lastInputAt = performance.now();
     const at = (apply: (w: World) => void): void => loop.push({ time: e.time, apply });
     const s = screen.value;
     switch (e.action) {
@@ -556,6 +570,8 @@ async function main(): Promise<void> {
     const had = blank.blankCount;
     const seen = faultInjected ? false : probe.hasContent();
     const action = blank.observe(seen);
+    // Something is wrong: keep checking every half second while the escalation runs its course.
+    if (seen === false) probeSchedule.wake(performance.now());
     if (seen === false && had === 0) diag.log('canvas reads BLANK');
     if (seen === true && had > 0) diag.log(`canvas recovered after ${had} blank checks`);
     if (action === 'soft') {
@@ -610,7 +626,10 @@ async function main(): Promise<void> {
   document.addEventListener('visibilitychange', () => {
     diag.log(document.hidden ? 'tab hidden' : 'tab visible');
     if (document.hidden) pauseGame();
-    else loop.resync();
+    else {
+      loop.resync();
+      probeSchedule.wake(performance.now());
+    }
     // Hidden: fade out and suspend; the pause menu keeps it silent until resumed.
     if (document.hidden) audio.setPaused(true);
     else if (screen.value !== 'paused') audio.setPaused(false);
@@ -722,10 +741,38 @@ async function main(): Promise<void> {
   let reflectCallsSum = 0;
   let drawsSum = 0;
   const guard = new FrameGuard();
+  // Frame pacing (see `frameInterval`): the play rate in a game, less on the title screen and the
+  // menus. rAF still runs every display frame; frames that are not due are skipped whole.
+  const pacer = new FramePacer();
+  const mobile = deviceHints().mobile;
+  const paceMode = (): PaceMode => {
+    if (freePlay) return 'play';
+    if (settingsOpen.value || howToOpen.value) return 'idle';
+    const s = screen.value;
+    return s === 'playing' ? 'play' : s === 'title' ? 'attract' : 'idle';
+  };
+  // The quality controller judges only frames drawn at the play rate (and not the first one after
+  // a slower stretch), so a deliberately slow menu never reads as a struggling device.
+  let judge = false;
+  let wasFullRate = false;
   const tick = (now: number): void => {
     if (stopped) return;
     try {
-      frame(now);
+      // Polled every display frame, so a quick button tap is never missed between paced frames.
+      input?.pollGamepads();
+      const interval = frameInterval({
+        mode: paceMode(),
+        setting: cfg.frameRate,
+        mobile,
+        tier: quality.tier.name,
+        boosted: now - lastInputAt < INPUT_BOOST_MS,
+      });
+      if (pacer.shouldDraw(now, interval)) {
+        const fullRate = interval <= 1000 / 60 + 0.01;
+        judge = fullRate && wasFullRate;
+        wasFullRate = fullRate;
+        frame(now);
+      }
       guard.ok();
     } catch (err) {
       // One bad frame is logged and skipped; a long run of them stops with a message rather than
@@ -745,7 +792,6 @@ async function main(): Promise<void> {
   let slowLogged = 0;
   let framesSeen = 0;
   const frame = (now: number): void => {
-    input?.pollGamepads();
     loop.frame(now);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
@@ -805,7 +851,7 @@ async function main(): Promise<void> {
           console.warn('shader warm-up failed', err);
         }
       }
-      stage.render();
+      stage.render(dt);
     }
     // Stalls go in the `?debug` timeline: a slow frame, and a slow draw (a shader compiling, say).
     const drawMs = performance.now() - drawStart;
@@ -817,9 +863,10 @@ async function main(): Promise<void> {
       }
     }
     lastFrameAt = now;
-    // Every half second (and never while the tab is hidden): did that frame actually draw?
-    if (frames % 30 === 29 && !document.hidden) watchCanvas();
-    quality.frame(now, dt * 1000);
+    // Did that frame actually draw? Every half second at first and after any upset, every 5 s once
+    // healthy (each check stalls the GPU), never while the tab is hidden.
+    if (!document.hidden && probeSchedule.due(now)) watchCanvas();
+    if (judge) quality.frame(now, dt * 1000);
 
     frames++;
     physicsMsAvg = physicsMsAvg * 0.95 + loop.lastPhysicsMs * 0.05;

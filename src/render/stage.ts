@@ -361,11 +361,12 @@ export class Stage {
     return performance.now() - t0;
   }
 
-  render(): void {
+  /** Draw a frame; `dt` (s) since the last one drives the attract orbit (frames are paced). */
+  render(dt = 1 / 60): void {
     this.applySize();
     if (this.orbit > 0.001) {
       // A slow sway around the table for attract mode; dead-ball only (docs/MVP/05 § 7).
-      this.orbitClock += 1 / 60;
+      this.orbitClock += dt;
       const saved = this.camera.position.clone();
       const yaw = Math.sin(this.orbitClock * 0.15) * 0.3 * this.orbit;
       const offset = saved.clone().sub(this.orbitCenter);
