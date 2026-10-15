@@ -75,6 +75,8 @@ export class Input {
   private capture: ((code: string) => void) | null = null;
   private readonly pads = new Map<number, PadState>();
   private lastPad: Gamepad | null = null;
+  /** A gamepad has connected: until then `pollGamepads` skips `getGamepads()` every frame. */
+  private padSeen = false;
   private motionOn = false;
   private motionListening = false;
   private lastMotionNudge = 0;
@@ -129,6 +131,8 @@ export class Input {
       this.emit({ action, pressed: false, time: e.timeStamp });
     });
     window.addEventListener('blur', () => this.releaseAll());
+    // Browsers announce a pad on its first button press; until then there is nothing to poll.
+    window.addEventListener('gamepadconnected', () => (this.padSeen = true));
   }
 
   /** Let go of everything (the window lost focus, the game paused). */
@@ -204,7 +208,7 @@ export class Input {
    * right stick down and let go), Start pauses, a flick of the left stick nudges.
    */
   pollGamepads(): void {
-    if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    if (!this.padSeen || typeof navigator === 'undefined' || !navigator.getGamepads) return;
     const now = performance.now();
     for (const pad of navigator.getGamepads()) {
       if (!pad || pad.mapping !== 'standard') continue;
