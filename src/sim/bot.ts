@@ -22,6 +22,8 @@ export interface BotProfile {
   jitter: number;
   /** Chance of reacting at all to a ball reaching a flipper. */
   attention: number;
+  /** Consistent delay before reacting, in seconds. */
+  reactionDelay?: number;
   /** Chance of catching a slow ball in a cradle and aiming from it. */
   cradle: number;
 }
@@ -34,10 +36,10 @@ export const PROFILES: Record<string, BotProfile> = {
   expert: { name: 'expert', jitter: 0.006, attention: 1, cradle: 0.2 },
 };
 
-/** Player-facing levels vary reaction rate while keeping shot timing and cradling consistent. */
+/** Player-facing levels vary response speed, attention and cradling. */
 export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
-  easy: { name: 'easy', jitter: 0.016, attention: 0.35, cradle: 0.35 },
-  medium: { name: 'medium', jitter: 0.016, attention: 0.7, cradle: 0.35 },
+  easy: { name: 'easy', jitter: 0.016, attention: 0.8, reactionDelay: 0.012, cradle: 0.1 },
+  medium: { name: 'medium', jitter: 0.016, attention: 0.9, reactionDelay: 0.005, cradle: 0.25 },
   hard: { name: 'hard', jitter: 0.016, attention: 0.95, cradle: 0.35 },
 };
 
@@ -45,6 +47,8 @@ interface FlipperPlan {
   /** Sim time to press, or -1. */
   pressAt: number;
   releaseAt: number;
+  /** Balls already judged as misses; prevents rerolling attention on every physics step. */
+  missedBalls: Set<Ball>;
   /** Cradling: holding the flipper up with the ball resting on it. */
   cradleUntil: number;
 }
@@ -52,8 +56,8 @@ interface FlipperPlan {
 export class Bot {
   private readonly rng: Rng;
   private readonly plans: Record<'L' | 'R', FlipperPlan> = {
-    L: { pressAt: -1, releaseAt: -1, cradleUntil: -1 },
-    R: { pressAt: -1, releaseAt: -1, cradleUntil: -1 },
+    L: { pressAt: -1, releaseAt: -1, missedBalls: new Set(), cradleUntil: -1 },
+    R: { pressAt: -1, releaseAt: -1, missedBalls: new Set(), cradleUntil: -1 },
   };
   private plungeAt = -1;
   private plungeRelease = -1;
@@ -95,6 +99,11 @@ export class Bot {
     for (const side of ['L', 'R'] as const) {
       const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
       const plan = this.plans[side];
+      // Give a ball another chance only after it has left the paddle's approach area. A small
+      // margin avoids rerolling if it skims along the edge of the area for several steps.
+      for (const missedBall of plan.missedBalls) {
+        if (!this.inApproachArea(missedBall, f, 0.025)) plan.missedBalls.delete(missedBall);
+      }
       const press = (on: boolean): void => {
         if (f.pressed === on) return;
         world.setFlipper(f.id, on);
@@ -122,9 +131,22 @@ export class Bot {
       if (plan.pressAt >= 0 || f.pressed) continue;
       // In multiball, react to whichever ball reaches this flipper first.
       for (const ball of world.balls) {
-        if (ball.active && this.plan(ball, f, plan, now, press)) break;
+        if (ball.active && !plan.missedBalls.has(ball) && this.plan(ball, f, plan, now, press))
+          break;
       }
     }
+  }
+
+  private inApproachArea(b: Ball, f: Flipper, margin = 0): boolean {
+    if (!b.active || b.pz > 0.03 + margin) return false;
+    const dx = (b.px - f.px) * f.dir; // + = toward this flipper's tip
+    const dy = b.py - f.py;
+    return (
+      dx >= -0.02 - margin &&
+      dx <= 0.1 + margin &&
+      dy >= -0.06 - margin &&
+      dy <= 0.09 + margin
+    );
   }
 
   /** Plan a flip (or a cradle) for a ball arriving at flipper `f`. True if a plan was made. */
@@ -136,9 +158,7 @@ export class Bot {
     press: (on: boolean) => void,
   ): boolean {
     // Is the ball arriving at this flipper? Work out where it will meet the bat and when.
-    const dx = (b.px - f.px) * f.dir; // + = toward this flipper's tip
-    const dy = b.py - f.py;
-    if (dx < -0.02 || dx > 0.1 || dy > 0.09 || dy < -0.06 || b.pz > 0.03) return false;
+    if (!this.inApproachArea(b, f)) return false;
     f.distance(b.px, b.py, this.probe);
     const gap = this.probe.d - b.radius;
     const approach = -(b.vx * this.probe.nx + b.vy * this.probe.ny); // speed toward the bat
@@ -165,11 +185,19 @@ export class Bot {
     const flipLead = 0.012; // the bat takes ~12 ms to reach a ball resting on it
     if (eta > flipLead + 0.03) return false;
     if (this.rng.next() > this.profile.attention) {
-      plan.pressAt = now + 1; // distracted: too late to matter
-      plan.releaseAt = plan.pressAt + 0.05;
+      // A missed reaction is a true miss. Delaying it by a second caused unrelated-looking
+      // paddle twitches and blocked the controller from considering another ball meanwhile.
+      plan.missedBalls.add(b);
       return true;
     }
-    plan.pressAt = now + Math.max(0, eta - flipLead + this.rng.range(-1, 1) * this.profile.jitter);
+    plan.pressAt =
+      now +
+      Math.max(
+        0,
+        eta - flipLead +
+          (this.profile.reactionDelay ?? 0) +
+          this.rng.range(-1, 1) * this.profile.jitter,
+      );
     plan.releaseAt = plan.pressAt + 0.17;
     this.targetAlong = this.rng.range(0.45, 0.85);
     return true;

@@ -82,9 +82,10 @@ logic.
 The start menu selects Single Player or Vs AI. Vs AI alternates top and bottom halves in the same
 `GameRules` and `World`: a physics-driven bot operates the AI's top half, then the human plays the
 bottom half. `GameRules` tracks batting side and independent team stats while preserving the usual
-rules and physics event path. Easy, Medium and Hard vary the bot's reaction likelihood. The same bot
-controller is also used by the headless balance simulator. This is local play; no network service or
-backend is required, and it is not online multiplayer.
+rules and physics event path. Easy, Medium and Hard vary the bot's reaction likelihood, response
+delay, and cradling. A missed reaction stays a miss instead of causing a delayed paddle press. The
+same bot controller is also used by the headless balance simulator. This is local play; no network
+service or backend is required, and it is not online multiplayer.
 
 ## 3. Game loop
 
