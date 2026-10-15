@@ -191,6 +191,8 @@ export function startupFailure(err: unknown, forcedWebGL: boolean): FatalInfo {
  */
 export function showFatal(info: FatalInfo): void {
   if (document.querySelector('.fatal-panel')) return;
+  // A failure during start-up: the message replaces the loading screen.
+  document.getElementById('loader')?.remove();
   const panel = document.createElement('div');
   panel.className = 'fatal-panel';
   panel.setAttribute('role', 'alertdialog');

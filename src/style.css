@@ -95,6 +95,77 @@ canvas {
   cursor: pointer;
 }
 
+/* Loading screen (index.html, src/app/loader.ts): up from the first paint until the title screen
+   is ready. `--progress` (0–1) drives the bar. */
+#loader {
+  --progress: 0.04;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 16px;
+  background: radial-gradient(ellipse at 50% 40%, #142046 0%, #070b18 55%, var(--bg) 100%);
+  font-family: Oswald, 'Arial Narrow', Inter, system-ui, sans-serif;
+  transition:
+    opacity 0.5s ease,
+    visibility 0s linear 0.5s;
+}
+#loader.done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.loader-logo {
+  width: auto;
+  height: clamp(140px, 30vh, 240px);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 24px rgba(242, 179, 61, 0.25));
+  animation: loader-glow 2.4s ease-in-out infinite;
+}
+.loader-bar {
+  width: min(280px, 70vw);
+  height: 6px;
+  overflow: hidden;
+  background: rgba(244, 241, 232, 0.1);
+  border: 1px solid var(--glass-edge);
+  border-radius: 3px;
+}
+.loader-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold) 50%, #d48a12);
+  box-shadow: 0 0 12px rgba(242, 179, 61, 0.5);
+  transform: scaleX(var(--progress));
+  transform-origin: left;
+  transition: transform 0.35s ease-out;
+}
+.loader-status {
+  margin: 0;
+  min-height: 1.4em;
+  font-size: 13px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+@keyframes loader-glow {
+  50% {
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.55))
+      drop-shadow(0 0 36px rgba(242, 179, 61, 0.45));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #loader,
+  .loader-bar i {
+    transition: none;
+  }
+  .loader-logo {
+    animation: none;
+  }
+}
+
 /* ---------------------------------------------------------------- game UI */
 
 .ui {
