@@ -998,6 +998,19 @@ export class TableView {
           const post = saucerLipPost(el);
           this.addStatic(this.cylinderGeometry(post.x, post.y, post.radius, 12), mats.rubber);
         }
+        // The Bleachers scoop (no fielder): its amber border lights with the scoop's lamp, so it
+        // flashes while a souvenir waits in it and through THROW IT BACK.
+        if (!el.label) {
+          const mat = glowMaterial(0xff9f1c, 0.1);
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry((el.radius + 3) * MM, (el.radius + 6) * MM, 48),
+            mat,
+          );
+          ring.position.set(el.x * MM, el.y * MM, 0.0004);
+          this.group.add(ring);
+          this.addLight(el.id, { glow: glowOf(mat), base: 0.1, level: 0, mode: 'off', boost: 3 });
+          this.lampLink.set('lamp.bleachers', el.id);
+        }
         // Fielder standee behind the lip (added when the standee art loads).
         if (el.label) {
           this.standeeSpots.push({

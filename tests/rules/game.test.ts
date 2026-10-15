@@ -787,7 +787,7 @@ describe('the Bleachers and THROW IT BACK', () => {
     return h;
   };
 
-  it('no souvenir at the start: a home run puts one in the Bleachers, its lamp lit', () => {
+  it('no souvenir at the start: a home run puts one in the Bleachers, its lamp blinking', () => {
     const h = inLeadoff();
     expect(h.g.souvenirReady).toBe(false);
     expect(h.m.calls).not.toContain('park');
@@ -795,7 +795,7 @@ describe('the Bleachers and THROW IT BACK', () => {
     h.ev('plunger').ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
     expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);
     expect(h.count('souvenirReady')).toBe(1);
-    expect(h.g.lamps()['lamp.bleachers']).toBe('on');
+    expect(h.g.lamps()['lamp.bleachers']).toBe('blink');
     // Another home run while it waits: still one souvenir.
     h.ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
     expect(h.m.calls.filter((c) => c === 'park')).toHaveLength(1);

@@ -199,7 +199,7 @@ export function playfieldSvg(table: TableDef): string {
   // they are, and their labels were too small to read anyway.
   for (const s of saucers) {
     if (!s.label) {
-      // The Bleachers scoop: an amber-ringed dish (its sign goes with the labels below).
+      // The Bleachers scoop: an amber-ringed dish (the ring lights up in 3D, with its lamp).
       out.push(
         `<circle cx="${s.x}" cy="${Y(s.y)}" r="${s.radius + 7}" fill="${C.ink}" opacity="0.85"/>`,
       );
@@ -247,9 +247,6 @@ export function playfieldSvg(table: TableDef): string {
   // The two meters' names sit to the right of their lamp rows.
   text(322, 564, 'RALLY', 13, C.gold, '', 'start');
   text(322, 596, 'HUSTLE', 13, '#7bd88f', '', 'start');
-  // THROW IT BACK: the Bleachers' alley is too narrow for a sign across it, so it runs up the
-  // alley, below the scoop's lamp.
-  text(382, 856, 'MULTIBALL', 12, C.amber, `transform="rotate(-90 382 ${Y(856)})"`);
   const hot = lamp('lamp.hotbat');
   if (hot) text(hot.x, hot.y - 26, 'HOT BAT', 16, C.red);
   const wa = lamp('lamp.standup.W');
