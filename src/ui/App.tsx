@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { BRAND } from '../app/brand';
+import type { AiDifficulty, GameMode, OpponentScore } from '../rules/aiOpponent';
 import type { GameSnapshot, GameStats } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 import { battingAverage } from '../storage/lifetime';
@@ -12,6 +13,8 @@ import {
   type Settings,
 } from '../storage/settings';
 import {
+  activeAiDifficulty,
+  activeGameMode,
   callout,
   finalStats,
   highScores,
@@ -27,12 +30,13 @@ import {
   settingsNote,
   settingsOpen,
   snapshot,
+  opponentScore,
 } from './store';
 
 /** The DOM overlay: HUD, callouts and menus (docs/MVP/05 § 8). Basic M2 styling; art is M3. */
 
 export interface UiActions {
-  start: () => void;
+  start: (mode?: GameMode, difficulty?: AiDifficulty) => void;
   resume: () => void;
   quit: () => void;
   saveInitials: (initials: string) => void;
@@ -133,6 +137,12 @@ function Hud() {
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (
           <span class="chip info">SKILL SHOT: {g.skillLane} LANE</span>
         )}
+        {activeGameMode.value === 'vs-ai' && (
+          <span class="chip opponent-score">
+            YOU {g.stats.runs} · AI {opponentScore.value?.runs ?? 0} ·{' '}
+            {activeAiDifficulty.value.toUpperCase()}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -173,11 +183,14 @@ function PitchIndicator({ paused }: { paused: boolean }) {
 function LineScore() {
   const g: GameSnapshot | null = snapshot.value;
   if (!g) return null;
+  const vsAi = activeGameMode.value === 'vs-ai';
+  const opponent = opponentScore.value;
   return (
-    <div class="linescore" aria-hidden="true">
+    <div class="linescore">
       <table>
         <thead>
           <tr>
+            <th />
             {Array.from({ length: 9 }, (_, i) => (
               <th class={i + 1 === g.inning ? 'now' : ''}>{i + 1}</th>
             ))}
@@ -187,12 +200,27 @@ function LineScore() {
         </thead>
         <tbody>
           <tr>
+            <th scope="row" class="team">
+              {vsAi ? BRAND.teamShort.toUpperCase() : ''}
+            </th>
             {Array.from({ length: 9 }, (_, i) => (
               <td class={i + 1 === g.inning ? 'now' : ''}>{g.stats.runsByInning[i] ?? ''}</td>
             ))}
             <td class="total">{g.stats.runs}</td>
             <td class="total">{g.stats.hits}</td>
           </tr>
+          {vsAi && (
+            <tr>
+              <th scope="row" class="team">
+                AI · {activeAiDifficulty.value.toUpperCase()}
+              </th>
+              {Array.from({ length: 9 }, (_, i) => (
+                <td class={i + 1 === g.inning ? 'now' : ''}>{opponent?.runsByInning[i] ?? ''}</td>
+              ))}
+              <td class="total">{opponent?.runs ?? 0}</td>
+              <td class="total">{opponent?.hits ?? 0}</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -223,6 +251,11 @@ function HowToPlay() {
       <p class="lead">
         Real pinball, scored like baseball. You bat for nine innings; three outs end each one. Score
         as many runs as you can.
+      </p>
+      <p>
+        Choose <b>Single Player</b> for the solo challenge, or <b>Multiplayer vs AI</b> to play
+        against an opponent with Easy, Medium or Hard scoring. The AI's baseball inning is simulated
+        locally after each of yours.
       </p>
       <h3>Hits</h3>
       <table class="shots">
@@ -526,8 +559,9 @@ function CalloutView() {
 
 function Title({ actions }: { actions: UiActions }) {
   const scores = highScores.value;
+  const [menuStep, setMenuStep] = useState<'mode' | 'difficulty'>('mode');
   return (
-    <div class="panel title" onPointerDown={actions.start}>
+    <div class="panel title">
       <p class="kicker">
         {BRAND.park} · {BRAND.team}
       </p>
@@ -535,7 +569,33 @@ function Title({ actions }: { actions: UiActions }) {
         <img src="/steel-diamond.webp" alt={BRAND.game} width={585} height={613} />
       </h1>
       <p class="tagline">Nine innings. Hit 'em where they ain't.</p>
-      <p class="cta">Press Enter or tap to play</p>
+      {menuStep === 'mode' ? (
+        <>
+          <p class="cta">Choose a game mode</p>
+          <div class="mode-choices">
+            <button onClick={() => actions.start('single')}>Single Player</button>
+            <button class="secondary" onClick={() => setMenuStep('difficulty')}>
+              Multiplayer vs AI
+            </button>
+          </div>
+          <p class="menu-hint">Press Enter for Single Player</p>
+        </>
+      ) : (
+        <div class="difficulty-choice">
+          <h2>Choose AI difficulty</h2>
+          <p>The AI plays a simulated baseball half-inning after each of your innings.</p>
+          <div class="difficulty-buttons">
+            {(['easy', 'medium', 'hard'] as const).map((difficulty) => (
+              <button onClick={() => actions.start('vs-ai', difficulty)}>
+                {difficulty[0]!.toUpperCase() + difficulty.slice(1)}
+              </button>
+            ))}
+          </div>
+          <button class="secondary small" onClick={() => setMenuStep('mode')}>
+            Back to game modes
+          </button>
+        </div>
+      )}
       {scores.length > 0 && <ScoreTable scores={scores.slice(0, 5)} highlight={-1} />}
       <Lifetime />
       <p class="controls">
@@ -591,6 +651,8 @@ function Pause({ actions }: { actions: UiActions }) {
 
 function GameOver({ actions }: { actions: UiActions }) {
   const stats = finalStats.value;
+  const vsAi = activeGameMode.value === 'vs-ai';
+  const opponent = opponentScore.value;
   const [initials, setInitials] = useState('');
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
@@ -599,10 +661,18 @@ function GameOver({ actions }: { actions: UiActions }) {
     e.preventDefault();
     actions.saveInitials(initials || '???');
   };
+  const result =
+    !vsAi || !opponent
+      ? 'FINAL'
+      : stats.runs === opponent.runs
+        ? 'TIE GAME'
+        : stats.runs > opponent.runs
+          ? 'YOU WIN'
+          : 'AI WINS';
   return (
     <div class="panel gameover">
-      <h2>Final</h2>
-      <BoxScore stats={stats} />
+      <h2>{result}</h2>
+      <BoxScore stats={stats} opponent={vsAi ? opponent : null} />
       {qualified.value ? (
         <form onSubmit={submit} class="initials">
           <label>New high score! Your initials</label>
@@ -626,7 +696,7 @@ function GameOver({ actions }: { actions: UiActions }) {
   );
 }
 
-function BoxScore({ stats }: { stats: GameStats }) {
+function BoxScore({ stats, opponent }: { stats: GameStats; opponent: OpponentScore | null }) {
   const innings = Array.from({ length: 9 }, (_, i) => stats.runsByInning[i] ?? 0);
   return (
     <div class="boxscore">
@@ -650,6 +720,16 @@ function BoxScore({ stats }: { stats: GameStats }) {
             <td class="total">{stats.runs}</td>
             <td class="total">{stats.hits}</td>
           </tr>
+          {opponent && (
+            <tr>
+              <td class="team">AI · {opponent.difficulty.toUpperCase()}</td>
+              {opponent.runsByInning.map((runs) => (
+                <td>{runs ?? ''}</td>
+              ))}
+              <td class="total">{opponent.runs}</td>
+              <td class="total">{opponent.hits}</td>
+            </tr>
+          )}
         </tbody>
       </table>
       <div class="statline">
@@ -673,7 +753,12 @@ function Scores({ actions }: { actions: UiActions }) {
       <h2>High scores</h2>
       <ScoreTable scores={highScores.value} highlight={lastRank.value} />
       <Lifetime />
-      <button onClick={actions.start}>Play again</button>
+      <button onClick={() => actions.start(activeGameMode.value, activeAiDifficulty.value)}>
+        Play again
+      </button>
+      <button class="secondary" onClick={actions.quit}>
+        Choose game mode
+      </button>
     </div>
   );
 }

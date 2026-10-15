@@ -25,6 +25,7 @@ import { createOutput } from './fx/output';
 import { loadParams } from './debug/params';
 import { Input, vibrate, type InputEvent } from './input/input';
 import { World } from './physics/world';
+import { AiOpponent, type AiDifficulty, type GameMode } from './rules/aiOpponent';
 import { BLEACHERS, GameRules } from './rules/game';
 import type { GameSnapshot, RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
@@ -59,6 +60,8 @@ import {
   calloutFor,
   showCallout,
   pitchCueFor,
+  activeAiDifficulty,
+  activeGameMode,
   finalStats,
   highScores,
   howToOpen,
@@ -72,6 +75,7 @@ import {
   settingsNote,
   settingsOpen,
   publishSnapshot,
+  opponentScore,
 } from './ui/store';
 
 /**
@@ -240,6 +244,7 @@ async function main(): Promise<void> {
   });
 
   let rules: GameRules | null = null;
+  let opponent: AiOpponent | null = null;
   const timers: { at: number; run: () => void }[] = [];
   const after = (seconds: number, run: () => void): void => {
     timers.push({ at: world.time + seconds, run });
@@ -273,11 +278,27 @@ async function main(): Promise<void> {
     calloutFor(e);
     pitchCueFor(e);
     director.rules(e, rules?.snapshot() ?? null);
+    if (e.type === 'inningEnd' && opponent) {
+      const inning = opponent.playInning(e.inning);
+      const score = opponent.snapshot();
+      opponentScore.value = score;
+      showCallout(
+        `AI INNING ${inning.inning}`,
+        `${inning.runs} run${inning.runs === 1 ? '' : 's'} · ${score.runs} total`,
+        'info',
+        1800,
+      );
+    }
     if (e.type === 'gameOver') {
+      const completedRules = rules;
       after(2.2, () => {
-        lifetime.value = recordGame(rules!.stats);
-        finalStats.value = { ...rules!.stats };
-        qualified.value = qualifies(rules!.stats);
+        if (!completedRules || rules !== completedRules) return;
+        lifetime.value = recordGame(completedRules.stats);
+        finalStats.value = {
+          ...completedRules.stats,
+          runsByInning: [...completedRules.stats.runsByInning],
+        };
+        qualified.value = activeGameMode.value === 'single' && qualifies(completedRules.stats);
         screen.value = 'gameover';
       });
     }
@@ -324,24 +345,36 @@ async function main(): Promise<void> {
   else setLights(true);
 
   // ---- game flow
-  const start = (): void => {
+  const start = (
+    mode: GameMode = 'single',
+    difficulty: AiDifficulty = activeAiDifficulty.value,
+  ): void => {
     if (booting) return;
     ui('uiConfirm');
     diag.log('game start');
     world.reset();
     timers.length = 0;
-    rules = new GameRules(machine, { seed: (Date.now() & 0x7fffffff) >>> 0 });
+    const seed = (Date.now() & 0x7fffffff) >>> 0;
+    rules = new GameRules(machine, { seed });
+    activeGameMode.value = mode;
+    activeAiDifficulty.value = difficulty;
+    opponent = mode === 'vs-ai' ? new AiOpponent(difficulty, (seed ^ 0x9e3779b9) >>> 0) : null;
+    opponentScore.value = opponent?.snapshot() ?? null;
     audio.unlock();
     shows.stop('attract');
     view.figures.sync([false, false, false]);
     rules.start(world.time);
     lastRank.value = -1;
+    qualified.value = false;
+    finalStats.value = null;
     screen.value = 'playing';
     loop.paused = false;
     loop.resync();
   };
   const toTitle = (): void => {
     rules = null;
+    opponent = null;
+    opponentScore.value = null;
     attract();
     world.reset();
     idleBall();
@@ -351,8 +384,8 @@ async function main(): Promise<void> {
     loop.resync();
   };
   const actions = {
-    start: () => {
-      if (!freePlay) start();
+    start: (mode?: GameMode, difficulty?: AiDifficulty) => {
+      if (!freePlay) start(mode, difficulty);
     },
     resume: () => {
       // A 3-2-1 countdown before the physics restarts (docs/MVP/01 § 5).
@@ -413,6 +446,7 @@ async function main(): Promise<void> {
         highScores.value = loadHighScores();
       }
       rules = null;
+      opponent = null;
       attract();
       world.reset();
       idleBall();
@@ -523,8 +557,10 @@ async function main(): Promise<void> {
       case 'plunger':
         if (settingsOpen.value || howToOpen.value) return;
         // Starting a game: a fresh press, not a drag in progress.
-        if (e.pressed && e.value === undefined && (s === 'title' || s === 'scores') && !freePlay)
-          return start();
+        if (e.pressed && e.value === undefined && s === 'title' && !freePlay)
+          return start('single');
+        if (e.pressed && e.value === undefined && s === 'scores' && !freePlay)
+          return start(activeGameMode.value, activeAiDifficulty.value);
         if (s !== 'playing') return;
         if (e.pressed && e.value !== undefined) at((w) => w.setPlungerPull(e.value!));
         else at((w) => w.setPlunger(e.pressed));

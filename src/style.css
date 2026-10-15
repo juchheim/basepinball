@@ -367,6 +367,12 @@ canvas {
   color: #1a0d00;
   box-shadow: 0 0 10px rgba(255, 159, 28, 0.7);
 }
+.chip.opponent-score {
+  color: var(--gold-hi);
+  border-color: rgba(242, 179, 61, 0.5);
+  background: rgba(242, 179, 61, 0.14);
+  font-variant-numeric: tabular-nums;
+}
 
 /* The pre-pitch indicator: mid-field, clear of the mound and flippers so the pitch stays visible. */
 .pitch-cue {
@@ -695,6 +701,42 @@ canvas {
   opacity: 0;
   pointer-events: none;
   animation: cta-halo 1.2s ease-in-out infinite alternate;
+}
+.mode-choices,
+.difficulty-buttons {
+  display: grid;
+  gap: 10px;
+}
+.mode-choices {
+  grid-template-columns: 1fr 1fr;
+}
+.mode-choices button,
+.difficulty-buttons button {
+  margin: 0;
+}
+.difficulty-choice h2 {
+  margin: 6px 0 4px;
+  font-size: 22px;
+}
+.difficulty-choice p,
+.menu-hint {
+  margin: 8px 0;
+  color: var(--muted);
+  font:
+    12px/1.4 Inter,
+    system-ui,
+    sans-serif;
+  letter-spacing: 0;
+}
+.difficulty-buttons {
+  grid-template-columns: repeat(3, 1fr);
+}
+.difficulty-buttons button {
+  padding: 9px 5px;
+  font-size: 16px;
+}
+.menu-hint {
+  margin: 7px 0 0;
 }
 @keyframes cta-glow {
   from {
@@ -1096,6 +1138,13 @@ canvas {
     right: auto;
     left: max(16px, env(safe-area-inset-left));
   }
+}
+.linescore .team {
+  padding-right: 8px;
+  color: var(--fg);
+  text-align: left;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- M6: how to play, version */

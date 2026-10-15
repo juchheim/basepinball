@@ -13,7 +13,7 @@
 
 | Area | P0 | P1 | P2 |
 |------|----|----|----|
-| Rules | 9 innings, outs (saucers + every drain), 4 hit types, base running by hit value, rallies, Hot Bat (B-A-T drops), kickback (R-B-I), tilt, ball search | STEAL (R-U-N → right ramp), skill shot, Rally Cap | Walks, sacrifice flies, double plays, opponent half-innings, extra innings, combos |
+| Rules | 9 innings, outs (saucers + every drain), 4 hit types, base running by hit value, rallies, Hot Bat (B-A-T drops), kickback (R-B-I), tilt, ball search | STEAL (R-U-N → right ramp), skill shot, Rally Cap | Walks, sacrifice flies, double plays, full playable opponent half-innings, extra innings, combos |
 | Pitching | Pitch delivery from the mound, FB/CH, fairness validation | Curveball magnet, difficulty curve by inning | Pitcher fatigue, closer in the 9th, named pitchers |
 | Physics | Custom engine, every listed device (incl. drop targets, standups, spinners), feel suite passing, nudge | Golden replays in CI | Cross-engine determinism, multiball |
 | Playfield | Full v1 shot-fan layout (orbits, two ramps, the Gap pop nest, drops, standups, 7 fielder saucers) tuned in whitebox | Lit-shot chasers | Upper-right flipper, captive ball, moving fielders ("defensive shift"), multiball |
@@ -23,6 +23,21 @@
 | Platforms | Desktop keyboard, mobile touch (portrait), auto-pause | Gamepad, landscape mobile layout, motion nudge | PWA install / offline, Steam/desktop wrapper |
 | Meta | Local high scores (top 10), box score | Lifetime stats, settings (remap, reduced motion, HUD scale) | Global leaderboard (CF Workers + D1), daily challenge, achievements |
 | Accessibility | Labelled hit types, flash cap, volume sliders | Reduced motion, remapping, large HUD | Practice slow-motion mode, Rookie mode |
+
+## 2.1 Requested post-release feature: local Vs AI
+
+The single-player wording above records the original v1 MVP and remains accurate for that release.
+The requested post-release addition keeps **Single Player** and adds **Vs AI** to the initial
+screen. In Vs AI, the human plays the normal pinball half-inning; after each human inning, the
+opponent's baseball score for that inning is simulated locally. The player chooses Easy, Medium or
+Hard. This is local play and requires no online opponent, account or backend. The opponent does not
+play the pinball table, and this feature is distinct from implementing full head-to-head multiplayer
+with alternating pinball half-innings.
+
+The original MVP priorities and milestones below are historical scope; this addition is tracked as a
+post-M6 enhancement rather than silently rewriting the released MVP. Its acceptance requires both
+modes to be selectable from the initial screen, all three AI difficulties to affect opponent scoring,
+and a complete nine-inning result to show both line scores and the winner (or a tie).
 
 ## 3. Milestones and exit criteria
 

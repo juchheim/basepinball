@@ -77,6 +77,15 @@ Benefits: the rules engine is pure and fully unit-testable without graphics. The
 physics and rules headless in Node at hundreds of times real-time. Presentation is decoupled from
 logic.
 
+### 2.2 Local Vs AI mode
+
+The start menu selects Single Player or Vs AI. Vs AI reuses the human's existing pinball inning and
+adds a local baseball-score simulation for the opponent after each human inning. Easy, Medium and
+Hard select the opponent scoring profile. Keep that opponent simulator separate from the headless
+physics sim bot: the bot is a developer balance tool, while the opponent simulator runs as part of a
+player's local game and contributes the opposing line score. No network service or backend is
+required for this mode; it is not online multiplayer.
+
 ## 3. Game loop
 
 - `requestAnimationFrame` drives frames. Each frame:
@@ -229,6 +238,7 @@ Storage errors (private mode, quota) are caught, and the game still runs without
   and fits within Worker CPU limits for a 10-minute game, which must be verified. Before that, use
   rate limiting and plausibility checks.
 - **Daily challenge:** a shared seed for the pitch sequence each day, stored in KV.
-- **Multiplayer (much later):** Durable Objects for turn-based head-to-head (alternating half-innings).
+- **Online multiplayer (future):** Durable Objects for turn-based head-to-head (alternating
+  playable half-innings). This is separate from the local Vs AI mode described in § 2.2.
 - **Koyeb** only if a requirement ever exceeds what Workers can do (for example, long-running
   processes).

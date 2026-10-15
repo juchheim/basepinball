@@ -262,21 +262,37 @@ inning to get him to throw it back.
 
 ## 5. Game flow
 
-1. **Attract mode**: lamp light show, slow camera orbit, high score table, "Press Start / Tap to
-   Play."
+1. **Attract mode / start screen**: lamp light show, slow camera orbit and high score table. The
+   initial screen lets the player choose **Single Player** or **Vs AI**.
 2. **Lights-on intro** (≈4 s, skippable): the stadium light towers clunk on bank by bank, the crowd
    swells, the camera settles into the player view.
-3. **Inning card** ("**INNING 1**", not "Top of the 1st", because only one team bats), then the
+3. **Inning card** ("**INNING 1**", not "Top of the 1st", because the human always bats), then the
    leadoff launch.
-4. **Play** PAs until 3 outs. **Side retired** sequence: the out lamps flash, runners jog off, the
-   line score updates.
+4. **Play** PAs until 3 outs. In **Vs AI**, after each human inning the opponent's runs for that
+   inning are simulated locally and added to the line score. The side-retired sequence shows the
+   inning result before play continues. In Single Player, the inning result is the human score only.
 5. **7th-inning stretch** (P1): a short crowd wave and organ interlude before the 7th.
 6. **Final**: after the 9th, "FINAL" on the scoreboard, a fireworks show scaled to the result, then
-   the **box score** (line score, R, H, 2B, 3B, HR, K, LOB, longest rally).
-7. **High score entry**: classic 3-letter initials, then the local top 10 table, then back to attract.
+   the **box score** (line score, R, H, 2B, 3B, HR, K, LOB, longest rally). Vs AI also declares
+   the winner by total runs; equal totals are a tie after nine innings.
+7. **High score entry**: Single Player games can enter classic 3-letter initials in the local top 10.
+   Vs AI games show the match result and continue without entering the solo high-score table.
 
 **Pause:** Esc/P or the on-screen button. The game auto-pauses when the tab is hidden or loses focus.
 A paused game shows a resume countdown (3-2-1) before physics restarts.
+
+### 5.1 Game modes
+
+- **Single Player** is the original solo 9-inning run challenge: the human team bats, with no
+  opponent score. This is the mode described by the original MVP definition.
+- **Vs AI** is local versus-AI play, not online multiplayer. The human still plays Steel Diamond's
+  pinball half-inning each inning. The opponent does not play the pinball table; its baseball runs
+  are simulated after each human inning. Select **Easy**, **Medium** or **Hard** for the opponent's
+  scoring difficulty. The mode uses the same nine-inning game and compares total runs.
+- The solo top-10 remains a Single Player leaderboard. Lifetime batting totals record the human
+  player's stats in either mode; simulated AI stats never enter the player's totals.
+- The AI's inning simulation is separate from the headless sim bot used for balance analysis. The
+  latter is a development tool, not an opponent or online service.
 
 ## 6. Controls
 
