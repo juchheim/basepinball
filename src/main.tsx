@@ -2,6 +2,7 @@ import { render } from 'preact';
 import * as THREE from 'three/webgpu';
 import { BRAND } from './app/brand';
 import { DiagLog } from './app/diag';
+import { hideLoader, loadProgress } from './app/loader';
 import { FixedLoop } from './app/loop';
 import { FramePacer, frameInterval, INPUT_BOOST_MS, type PaceMode } from './app/pacing';
 import {
@@ -89,6 +90,7 @@ async function main(): Promise<void> {
   let cfg: Settings = loadSettings();
   const forceWebGL = query.has('webgl') || (cfg.graphics === 'compat' && !query.has('webgpu'));
   let stage: Stage;
+  loadProgress(0.1, 'Turning on the lights');
   try {
     stage = new Stage(container, forceWebGL);
     await stage.init();
@@ -98,6 +100,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  loadProgress(0.3, 'Building the ballpark');
   const params = loadParams();
   const freePlay = query.get('table') === 'm0';
   const table = freePlay ? m0TestTable : v1Table;
@@ -172,10 +175,17 @@ async function main(): Promise<void> {
   let textureWidth = 0;
   // Compile all shaders once the textures are in (see `Stage.warmUp`), while the title screen is up.
   let pendingLoads = freePlay ? 1 : 2;
+  const totalLoads = pendingLoads;
   let warmPending = false;
+  // The loading screen stays up until the shaders are warm and a real frame has been drawn.
+  let booting = true;
   const loaded = (): void => {
-    if (--pendingLoads !== 0) return;
+    --pendingLoads;
+    if (booting && pendingLoads >= 0)
+      loadProgress(0.45 + (0.4 * (totalLoads - pendingLoads)) / totalLoads, 'Painting the field');
+    if (pendingLoads !== 0) return;
     warmPending = true;
+    if (booting) loadProgress(0.9, 'Warming up');
   };
   // `live`: the adaptive controller stepping down mid-game. That changes only the resolution and
   // the crowd; effects that change shaders (bloom, shadows, reflections) stay as they were.
@@ -214,6 +224,7 @@ async function main(): Promise<void> {
   // Battery saver holds the game to Medium (not a forced ?quality=).
   let saverOn = cfg.batterySaver;
   if (saverOn && !query.has('quality')) quality.tier = capTier(quality.tier, 'medium');
+  loadProgress(0.45, 'Painting the field');
   applyQuality(quality.tier);
   void loadSlot('standees', 600).then((tex) => {
     if (tex) {
@@ -314,6 +325,7 @@ async function main(): Promise<void> {
 
   // ---- game flow
   const start = (): void => {
+    if (booting) return;
     ui('uiConfirm');
     diag.log('game start');
     world.reset();
@@ -862,6 +874,9 @@ async function main(): Promise<void> {
       }, 250);
     } else requestAnimationFrame(tick);
   };
+  // A texture that never arrives doesn't hold the loading screen up for good.
+  const BOOT_TIMEOUT_MS = 15000;
+  const bootStart = performance.now();
   let lastFrameAt = performance.now();
   let slowLogged = 0;
   let framesSeen = 0;
@@ -933,6 +948,12 @@ async function main(): Promise<void> {
         }
       }
       stage.render(dt);
+      // The first frame drawn after the warm-up (or a stuck load, see below): show the title.
+      if (booting && (pendingLoads <= 0 || now - bootStart > BOOT_TIMEOUT_MS)) {
+        booting = false;
+        diag.log(`loading screen down at ${now.toFixed(0)} ms`);
+        hideLoader(isReducedMotion(cfg));
+      }
     }
     // Stalls go in the `?debug` timeline: a slow frame, and a slow draw (a shader compiling, say).
     const drawMs = performance.now() - drawStart;

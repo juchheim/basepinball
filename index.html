@@ -29,6 +29,25 @@
   </head>
   <body>
     <div id="app"></div>
+    <div
+      id="loader"
+      role="progressbar"
+      aria-label="Loading Steel Diamond"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+    >
+      <img
+        class="loader-logo"
+        src="/steel-diamond.webp"
+        alt=""
+        width="585"
+        height="613"
+        fetchpriority="high"
+      />
+      <div class="loader-bar"><i></i></div>
+      <p class="loader-status">Loading…</p>
+    </div>
     <noscript>
       <p style="padding: 24px; color: #f4f1e8; font-family: system-ui">
         Steel Diamond needs JavaScript and a WebGL2- or WebGPU-capable browser.
