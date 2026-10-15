@@ -780,8 +780,9 @@ export class GameRules {
     for (const [lamp, drop] of LAMP_KEYS.drops) out[lamp] = on(this.bat.has(drop) || this.hotBat);
     for (const [lamp, target] of LAMP_KEYS.walk) out[lamp] = on(this.walkLetters.has(target));
     for (let i = 1; i <= 5; i++) out[LAMP_KEYS.rally[i - 1]!] = on(this.rally >= i);
-    // The Bleachers: lit while a souvenir waits there; blinking through THROW IT BACK.
-    out['lamp.bleachers'] = this.throwBack ? 'blink' : on(this.souvenirReady);
+    // The Bleachers (its lamp and the scoop's border): blinking while a souvenir waits there and
+    // through THROW IT BACK.
+    out['lamp.bleachers'] = this.throwBack || this.souvenirReady ? 'blink' : 'off';
     // HUSTLE: a lamp per two bumper hits; all five blink while it waits for a runner.
     const full = this.hustle >= HUSTLE_TARGET;
     for (let i = 1; i <= 5; i++) {

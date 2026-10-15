@@ -702,7 +702,7 @@ const elements: ElementDef[] = [
     color: LAMP.violet,
   })),
   { type: 'lamp', id: 'lamp.hotbat', x: 95, y: 520, radius: 8, color: LAMP.red },
-  // The Bleachers lamp, below the scoop: lit while a souvenir waits there.
+  // The Bleachers lamp, below the scoop: blinks while a souvenir waits there.
   { type: 'lamp', id: 'lamp.bleachers', x: 392, y: 905, radius: 7, color: LAMP.amber },
   { type: 'lamp', id: 'lamp.kickback', x: 20, y: 170, radius: 6, color: LAMP.gold },
 ];
