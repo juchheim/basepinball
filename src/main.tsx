@@ -762,13 +762,23 @@ async function main(): Promise<void> {
     window.addEventListener('pointerdown', once);
   }
 
-  // Auto-pause when the tab is hidden or the window loses focus (docs/MVP/01 § 5).
+  // Skip automatic pause on AI batting halves; human turns still auto-pause.
+  const pauseIfAway = (): void => {
+    const aiTurn =
+      rules?.vsAi &&
+      rules.battingSide === 'ai' &&
+      rules.state !== 'INNING_BREAK' &&
+      rules.state !== 'GAME_OVER';
+    if (!debug && !aiTurn) pauseGame();
+  };
+
+  // Auto-pause human play when the tab is hidden or the window loses focus.
   window.addEventListener('blur', () => {
-    if (!debug) pauseGame();
+    pauseIfAway();
   });
   document.addEventListener('visibilitychange', () => {
     diag.log(document.hidden ? 'tab hidden' : 'tab visible');
-    if (document.hidden) pauseGame();
+    if (document.hidden) pauseIfAway();
     else {
       loop.resync();
       probeSchedule.wake(performance.now());

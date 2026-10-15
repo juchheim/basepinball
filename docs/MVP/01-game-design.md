@@ -283,8 +283,9 @@ inning to get him to throw it back.
 7. **High score entry**: Single Player games can enter classic 3-letter initials in the local top 10.
    Vs AI games show the match result and continue without entering the solo high-score table.
 
-**Pause:** Esc/P or the on-screen button. The game auto-pauses when the tab is hidden or loses focus.
-A paused game shows a resume countdown (3-2-1) before physics restarts.
+**Pause:** Esc/P or the on-screen button. The game auto-pauses when the tab is hidden or loses focus,
+except during AI batting halves in Vs AI. A paused game shows a resume countdown (3-2-1) before
+physics restarts.
 
 ### 5.1 Game modes
 
