@@ -724,14 +724,6 @@ function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats |
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td class="team">{BRAND.teamShort.toUpperCase()}</td>
-            {innings.map((r) => (
-              <td>{r}</td>
-            ))}
-            <td class="total">{stats.runs}</td>
-            <td class="total">{stats.hits}</td>
-          </tr>
           {opponent && (
             <tr>
               <td class="team">AI · {activeAiDifficulty.value.toUpperCase()}</td>
@@ -742,6 +734,14 @@ function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats |
               <td class="total">{opponent.hits}</td>
             </tr>
           )}
+          <tr>
+            <td class="team">{BRAND.teamShort.toUpperCase()}</td>
+            {innings.map((r) => (
+              <td>{r}</td>
+            ))}
+            <td class="total">{stats.runs}</td>
+            <td class="total">{stats.hits}</td>
+          </tr>
         </tbody>
       </table>
       <div class="statline">
