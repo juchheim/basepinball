@@ -2,9 +2,12 @@ import * as THREE from 'three/webgpu';
 import {
   abs,
   dot,
+  exp,
   float,
+  instancedBufferAttribute,
   instanceIndex,
   normalView,
+  positionLocal,
   positionViewDirection,
   pow,
   sin,
@@ -129,10 +132,25 @@ export class Stadium {
     const rng = new Rng(42);
     const geo = new THREE.PlaneGeometry(0.007, 0.011);
     geo.rotateX(Math.PI / 2);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshStandardNodeMaterial({
       roughness: 0.8,
       emissive: new THREE.Color(0x141414),
     });
+    // The bounce and the wave run on the GPU (docs/MVP/efficiency-audit F8): each fan hops on their
+    // own rhythm (`phase`, from the instance index) as excited as `crowdEnergy`, and rises as the
+    // wave's front passes their seat (`seatX`, the fan's x). The instance matrices never change.
+    const seatX = new Float32Array(count);
+    const phase = float(instanceIndex).mul(0.618).fract();
+    const hop = sin(this.time.mul(phase.mul(3).add(5)).add(phase.mul(6.28)))
+      .max(0)
+      .mul(this.crowdEnergy.mul(0.005));
+    const seat = instancedBufferAttribute(
+      new THREE.InstancedBufferAttribute(seatX, 1),
+      'float',
+    ) as unknown as THREE.Node<'float'>;
+    const dx = seat.sub(this.waveFront).div(0.07);
+    const rise = exp(dx.mul(dx).negate()).mul(0.012);
+    mat.positionNode = positionLocal.add(vec3(0, 0, hop.add(rise)));
     const mesh = new THREE.InstancedMesh(geo, mat, count);
     this.crowdBase = [];
     const m = new THREE.Matrix4();
@@ -150,6 +168,7 @@ export class Stadium {
       const z = 0.27 + row * 0.018 + rng.range(0, 0.004);
       m.makeTranslation(x, y, z);
       mesh.setMatrixAt(i, m);
+      seatX[i] = x;
       this.crowdBase.push(m.clone());
       mesh.setColorAt(i, color.setHex(shirts[Math.floor(rng.next() * shirts.length)]!));
     }
@@ -265,37 +284,23 @@ export class Stadium {
       this.towerLamp.emissiveIntensity = 6 * this.towerLevel * flicker;
     }
 
-    // The crowd bounces with excitement, each fan on their own rhythm.
-    const crowd = this.crowd;
+    // The crowd bounces with excitement, each fan on their own rhythm (animated in the crowd's
+    // vertex shader, see `setCrowd`).
     if (this.waveX !== null) {
       this.waveX += dt * 0.28;
       if (this.waveX > W + 0.4) this.waveX = null;
     }
-    const wave = this.waveX;
-    if (crowd && (this.energy > 0.005 || this.wasBouncing || wave !== null)) {
-      const m = new THREE.Matrix4();
-      const e = this.energy;
-      for (let i = 0; i < this.crowdBase.length; i++) {
-        const base = this.crowdBase[i]!;
-        const phase = (i * 0.618) % 1;
-        const hop =
-          e > 0.005
-            ? Math.max(0, Math.sin(this.clock * (5 + phase * 3) + phase * 6.28)) * 0.005 * e
-            : 0;
-        m.copy(base);
-        const dx = wave === null ? 9 : (base.elements[12] - wave) / 0.07;
-        m.elements[14] += hop + Math.exp(-dx * dx) * 0.012;
-        crowd.setMatrixAt(i, m);
-      }
-      crowd.instanceMatrix.needsUpdate = true;
-      this.wasBouncing = e > 0.005 || wave !== null;
-      this.energy = Math.max(0, this.energy - dt * 0.25);
-    }
+    this.crowdEnergy.value = this.energy > 0.005 ? this.energy : 0;
+    // No wave: a front far off the stands lifts nobody.
+    this.waveFront.value = this.waveX ?? 1000;
+    this.energy = Math.max(0, this.energy - dt * 0.25);
   }
 
-  private wasBouncing = false;
   /** The 7th-inning crowd wave: the front's x (m), or null. */
   private waveX: number | null = null;
+  /** The crowd's bounce and the wave's front, for its vertex shader. */
+  private readonly crowdEnergy = uniform(0);
+  private readonly waveFront = uniform(1000);
 
   /** A crowd wave across the stands, left to right (the 7th-inning stretch). */
   wave(): void {

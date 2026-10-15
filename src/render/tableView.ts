@@ -3,17 +3,14 @@ import {
   abs,
   cubeTexture,
   dot,
-  exp,
   float,
   mix,
   normalView,
   positionViewDirection,
   pow,
-  smoothstep,
   texture,
   uniform,
   uv,
-  vec2,
   vec3,
 } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -77,6 +74,49 @@ const GI_POOLS: [number, number, number, number][] = [
 const giLevel = uniform(1);
 const playfieldMap = texture(new THREE.Texture());
 
+/** GLSL's smoothstep (also for edge0 > edge1). */
+function smooth(edge0: number, edge1: number, x: number): number {
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/**
+ * The static part of the GI, baked once (docs/MVP/efficiency-audit F7): R = shade toward the top of
+ * the field and along the side rails, G = the sum of the pools. The playfield covers most of the
+ * screen, so this saves seven `exp`s and the shading curves per pixel; the maps are smooth, so a
+ * bilinear 128×256 texture reproduces them exactly. Sampled at texel centres, as the GPU filters.
+ */
+function bakeGI(width: number, length: number): THREE.DataTexture {
+  const W = 128;
+  const H = 256;
+  const data = new Uint16Array(W * H * 4);
+  for (let j = 0; j < H; j++) {
+    const y = ((j + 0.5) / H) * length;
+    for (let i = 0; i < W; i++) {
+      const x = ((i + 0.5) / W) * width;
+      let pools = 0;
+      for (const [px, py, r, w] of GI_POOLS) {
+        const dx = (x - px) / r;
+        const dy = (y - py) / r;
+        pools += Math.exp(-(dx * dx + dy * dy)) * w;
+      }
+      const shade =
+        (1 + (0.68 - 1) * smooth(560, length, y)) *
+        (0.8 + 0.2 * smooth(0, 70, x) * smooth(width, width - 70, x));
+      const k = (j * W + i) * 4;
+      data[k] = THREE.DataUtils.toHalfFloat(shade);
+      data[k + 1] = THREE.DataUtils.toHalfFloat(pools);
+      data[k + 3] = THREE.DataUtils.toHalfFloat(1);
+    }
+  }
+  const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.HalfFloatType);
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
+  tex.needsUpdate = true;
+  return tex;
+}
+
 function playfieldMaterial(width: number, length: number): THREE.MeshPhysicalNodeMaterial {
   const m = new THREE.MeshPhysicalNodeMaterial({
     roughness: 0.6,
@@ -84,18 +124,10 @@ function playfieldMaterial(width: number, length: number): THREE.MeshPhysicalNod
     clearcoat: 1,
     clearcoatRoughness: 0.04,
   });
-  const p = uv().mul(vec2(width, length));
-  const pools = GI_POOLS.map(([x, y, r, w]) => {
-    const d = p.sub(vec2(x, y)).div(r);
-    return exp(dot(d, d).negate()).mul(w);
-  }).reduce((a, b) => a.add(b));
-  // Shade toward the top of the field and along the side rails.
-  const shade = mix(float(1), float(0.68), smoothstep(560, length, p.y)).mul(
-    mix(float(0.8), float(1), smoothstep(0, 70, p.x).mul(smoothstep(width, width - 70, p.x))),
-  );
+  const baked = texture(bakeGI(width, length), uv());
   // With the GI out the field falls to 40 % (the towers still light it); the pools go entirely.
   const lit = mix(float(0.4), float(1), giLevel.min(1));
-  const gi = vec3(shade.mul(lit)).add(vec3(1, 0.86, 0.66).mul(pools).mul(giLevel));
+  const gi = vec3(baked.r.mul(lit)).add(vec3(1, 0.86, 0.66).mul(baked.g).mul(giLevel));
   m.colorNode = playfieldMap.mul(gi);
   return m;
 }

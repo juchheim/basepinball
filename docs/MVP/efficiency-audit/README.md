@@ -15,7 +15,12 @@ the fix does to visuals, effort, and how confident the finding is.
   - The menus draw at 10 fps rather than stopping entirely.
   - F5 keeps `willReadFrequently` until the probe can be tested on Safari without it.
   - F6's idle shutdown of attract mode after 2 minutes is not done.
-- **F7–F18:** open.
+- **F7, F8:** done.
+  - F7: the GI is baked into a 128×256 half-float texture. The rendered frame matches the original
+    to a mean of 0.0015/255.
+  - F8: the crowd's bounce and wave run in its vertex shader. They match the old CPU motion within
+    capture noise.
+- **F9–F18:** open.
 
 ## Headline
 
