@@ -86,12 +86,13 @@ rules and physics event path. The bot keeps a ball-specific plan for each flippe
 up to 240 ms ahead with gravity and rolling resistance, ranks arrivals by time and drain urgency,
 and schedules a response for the predicted contact. It replans at a difficulty-specific rate while
 servicing press/release deadlines every physics step. Before a scheduled press it checks that the
-same ball still has a plausible arrival, so a bounce or ball reset cancels stale actions. Easy,
-Medium and Hard vary planning cadence, response delay, timing noise, attention, and the likelihood
-of attempting a slow-ball catch. A catch is held only after slow physical contact is confirmed, then
-released once; it does not issue a blind second flip. The same controller is used by the headless
-balance simulator. This is local play; no network service or backend is required, and it is not
-online multiplayer.
+same ball still has a plausible arrival, so a bounce or ball reset cancels stale tracking actions;
+a ball impact during a paddle stroke does not interrupt that stroke. A close-range safety trigger
+also reacts to contact or rolling motion on a resting bat between forecast updates. Easy, Medium and
+Hard vary planning cadence and bounded timing error while keeping the paddle's stroke lead ahead of
+contact. Player-facing AI does not use cradle releases until a controlled release shot is available.
+The same controller is used by the headless balance simulator. This is local play; no network
+service or backend is required, and it is not online multiplayer.
 
 ## 3. Game loop
 

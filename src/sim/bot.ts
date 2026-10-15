@@ -39,31 +39,31 @@ export const PROFILES: Record<string, BotProfile> = {
   expert: { name: 'expert', jitter: 0.006, attention: 1, cradle: 0.2 },
 };
 
-/** Player-facing levels vary response speed, attention and cradling. */
+/** Player-facing levels vary planning cadence and timing precision; they do not use blind cradles. */
 export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
   easy: {
     name: 'easy',
-    jitter: 0.012,
-    attention: 0.9,
-    reactionDelay: 0.018,
-    cradle: 0.06,
-    thinkInterval: 0.04,
+    jitter: 0.004,
+    attention: 1,
+    reactionDelay: 0.005,
+    cradle: 0,
+    thinkInterval: 0.02,
   },
   medium: {
     name: 'medium',
-    jitter: 0.006,
-    attention: 0.96,
-    reactionDelay: 0.01,
-    cradle: 0.16,
-    thinkInterval: 0.02,
+    jitter: 0.002,
+    attention: 1,
+    reactionDelay: 0.002,
+    cradle: 0,
+    thinkInterval: 0.012,
   },
   hard: {
     name: 'hard',
-    jitter: 0.002,
-    attention: 0.995,
-    reactionDelay: 0.004,
-    cradle: 0.28,
-    thinkInterval: 0.01,
+    jitter: 0.001,
+    attention: 1,
+    reactionDelay: 0.001,
+    cradle: 0,
+    thinkInterval: 0.008,
   },
 };
 
@@ -111,11 +111,25 @@ interface BallSnapshot {
   active: boolean;
 }
 
+interface IgnoredEncounter {
+  /** If the ball never reaches the paddle neighborhood, let the planned encounter expire. */
+  until: number;
+  /** Once seen at the paddle, keep ignoring only until it physically leaves contact range. */
+  sawContact: boolean;
+}
+
+interface BallChanges {
+  reset: Set<Ball>;
+  trajectory: Set<Ball>;
+}
+
 const LIVE_STATES = new Set(['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT']);
 const CONTACT_STEP = 0.002;
 const CONTACT_HORIZON = 0.24;
-const FLIPPER_LEAD = 0.012;
+// Default coil torque/inertia needs about 19 ms for a full stroke; leave a little margin.
+const FLIPPER_LEAD = 0.026;
 const CONTACT_TOLERANCE = 0.002;
+const LOCAL_SAFETY_MARGIN = 0.012;
 
 export class Bot {
   private readonly rng: Rng;
@@ -123,10 +137,10 @@ export class Bot {
     L: null,
     R: null,
   };
-  /** Ignore a ball until it leaves this flipper's encounter area after a missed or completed plan. */
-  private readonly ignoredBalls: Record<FlipperSide, Set<Ball>> = {
-    L: new Set(),
-    R: new Set(),
+  /** Suppress duplicate decisions for one physical encounter without hiding a later return. */
+  private readonly ignoredBalls: Record<FlipperSide, Map<Ball, IgnoredEncounter>> = {
+    L: new Map(),
+    R: new Map(),
   };
   private readonly ballSnapshots = new WeakMap<Ball, BallSnapshot>();
   private plungeAt = -1;
@@ -144,7 +158,7 @@ export class Bot {
   /** Called once per physics step. Paddle deadlines are serviced each step; planning is throttled. */
   update(world: World, rules: GameRules): void {
     const now = world.time;
-    const resetBalls = this.trackBallEncounters(world);
+    const ballChanges = this.trackBallEncounters(world);
 
     // Plunger: on the leadoff, pull for a random time and release.
     const b = world.balls.find((x) => x.active);
@@ -179,11 +193,25 @@ export class Bot {
       const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
       const plan = this.plans[side];
       this.pruneIgnoredBalls(side, f, now);
-      if (plan && resetBalls.has(plan.ball)) {
+      if (plan && ballChanges.reset.has(plan.ball)) {
         this.setPressed(world, rules, side, f, false);
         this.plans[side] = null;
+      } else if (
+        plan &&
+        ballChanges.trajectory.has(plan.ball) &&
+        (plan.phase === 'tracking' || plan.phase === 'committed')
+      ) {
+        // A rebound invalidates a forecast, but a ball impact during a strike must not cancel the
+        // coil stroke that caused it.
+        this.plans[side] = null;
+        this.nextThinkAt = now;
       } else {
         this.advancePlan(world, rules, side, f, now);
+      }
+      const pending = this.plans[side];
+      if (!pending || pending.phase === 'tracking' || pending.phase === 'committed') {
+        // The physical near-contact check may override a pending forecast that has gone stale.
+        this.tryLocalSafetyPress(world, rules, side, f, now);
       }
     }
 
@@ -193,21 +221,25 @@ export class Bot {
     }
   }
 
-  private trackBallEncounters(world: World): Set<Ball> {
+  private trackBallEncounters(world: World): BallChanges {
     const reset = new Set<Ball>();
+    const trajectory = new Set<Ball>();
     for (const ball of world.balls) {
       const previous = this.ballSnapshots.get(ball);
-      if (
+      const teleported =
         previous &&
-        (previous.active !== ball.active ||
-          (ball.active &&
-            (Math.hypot(ball.px - previous.x, ball.py - previous.y, ball.pz - previous.z) > 0.08 ||
-              Math.hypot(ball.vx - previous.vx, ball.vy - previous.vy, ball.vz - previous.vz) >
-                0.8)))
-      ) {
+        ball.active &&
+        Math.hypot(ball.px - previous.x, ball.py - previous.y, ball.pz - previous.z) > 0.08;
+      if (previous && (previous.active !== ball.active || teleported)) {
         reset.add(ball);
         this.ignoredBalls.L.delete(ball);
         this.ignoredBalls.R.delete(ball);
+      } else if (
+        previous &&
+        ball.active &&
+        Math.hypot(ball.vx - previous.vx, ball.vy - previous.vy, ball.vz - previous.vz) > 0.8
+      ) {
+        trajectory.add(ball);
       }
       this.ballSnapshots.set(ball, {
         x: ball.px,
@@ -219,7 +251,7 @@ export class Bot {
         active: ball.active,
       });
     }
-    return reset;
+    return { reset, trajectory };
   }
 
   private setPressed(
@@ -235,9 +267,18 @@ export class Bot {
   }
 
   private pruneIgnoredBalls(side: FlipperSide, f: Flipper, now: number): void {
-    for (const ball of this.ignoredBalls[side]) {
-      if (!ball.active || Math.hypot(ball.px - f.px, ball.py - f.py) > f.length + 0.09)
+    for (const [ball, ignored] of this.ignoredBalls[side]) {
+      if (!ball.active) {
         this.ignoredBalls[side].delete(ball);
+        continue;
+      }
+      f.distance(ball.px, ball.py, this.probe);
+      const near =
+        ball.pz - ball.radius <= f.height && this.probe.d <= ball.radius + LOCAL_SAFETY_MARGIN;
+      if (near) ignored.sawContact = true;
+      if ((ignored.sawContact && !near) || (!ignored.sawContact && now >= ignored.until)) {
+        this.ignoredBalls[side].delete(ball);
+      }
     }
     const plan = this.plans[side];
     if (plan && (!plan.ball.active || now - plan.pressAt > 2)) this.plans[side] = null;
@@ -298,13 +339,14 @@ export class Bot {
     }
 
     if (plan.phase === 'recovering') {
+      // Replan as soon as the bat is physically at rest, after a short debounce. The encounter
+      // ignore marker independently prevents duplicate presses while the same ball still touches.
       if (now >= plan.releaseAt && f.phase <= 0.025) this.plans[side] = null;
       return;
     }
 
     if (plan.phase === 'cradled') {
       if (!this.isTouching(plan.ball, f, 0.008) || now >= plan.releaseAt) {
-        this.ignoredBalls[side].add(plan.ball);
         this.finishAction(world, rules, side, f, plan, now);
       }
       return;
@@ -342,9 +384,69 @@ export class Bot {
     now: number,
   ): void {
     this.setPressed(world, rules, side, f, false);
-    this.ignoredBalls[side].add(plan.ball);
+    this.ignoreEncounter(side, plan.ball, now + 0.04, plan.contactSeen);
     plan.phase = 'recovering';
-    plan.releaseAt = now + 0.12;
+    plan.releaseAt = now + 0.02;
+  }
+
+  private ignoreEncounter(side: FlipperSide, ball: Ball, until: number, sawContact: boolean): void {
+    this.ignoredBalls[side].set(ball, { until, sawContact });
+  }
+
+  /**
+   * Last-resort reaction for a ball that reaches the resting bat between forecast updates or after
+   * an unmodelled table bounce. Physical contact is authoritative, even if its prior plan expired.
+   */
+  private tryLocalSafetyPress(
+    world: World,
+    rules: GameRules,
+    side: FlipperSide,
+    f: Flipper,
+    now: number,
+  ): void {
+    if (f.pressed || f.phase > 0.06) return;
+    const c = dcos(f.theta);
+    const s = dsin(f.theta);
+    let chosen: Ball | null = null;
+    let chosenGap = Infinity;
+
+    for (const ball of world.balls) {
+      if (!ball.active || ball.pz - ball.radius > f.height || this.ignoredBalls[side].has(ball))
+        continue;
+      f.distance(ball.px, ball.py, this.probe);
+      const gap = this.probe.d - ball.radius;
+      const normalSpeed = ball.vx * this.probe.nx + ball.vy * this.probe.ny;
+      const along = ((ball.px - f.px) * c + (ball.py - f.py) * s) / f.length;
+      const rollingSpeed = ball.vx * c + ball.vy * s;
+      const touching = gap <= 0.003;
+      const arriving = gap <= 0.025 && normalSpeed < -0.1;
+      const rollingOffBat =
+        gap <= 0.008 && Math.abs(normalSpeed) <= 0.25 && rollingSpeed > 0.02 && along >= 0.05;
+      if ((touching || arriving || rollingOffBat) && gap < chosenGap) {
+        chosen = ball;
+        chosenGap = gap;
+      }
+    }
+
+    if (!chosen) return;
+    this.setPressed(world, rules, side, f, true);
+    this.plans[side] = {
+      ball: chosen,
+      phase: 'striking',
+      targetAlong: 0.72,
+      responseOffset: 0,
+      catch: false,
+      pressAt: now,
+      contactAt: now,
+      contactX: chosen.px,
+      contactY: chosen.py,
+      contactZ: chosen.pz,
+      releaseAt: -1,
+      minReleaseAt: now + 0.055,
+      contactDeadline: now + 0.18,
+      contactSeen: true,
+      contactSince: -1,
+    };
   }
 
   private isTouching(ball: Ball, f: Flipper, margin: number): boolean {
@@ -386,10 +488,12 @@ export class Bot {
     }
 
     if (!best) return;
-    const targetAlong = best.rolling ? this.rng.range(0.58, 0.82) : 0.72;
+    // Player levels use a stable roll strike point; random target selection made paddle timing
+    // look arbitrary without a calibrated shot map to explain the variation.
+    const targetAlong = 0.7;
     const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
     if (this.rng.next() > this.profile.attention) {
-      this.ignoredBalls[side].add(selected.ball);
+      this.ignoreEncounter(side, selected.ball, now + selected.eta + 0.06, false);
       return;
     }
 
