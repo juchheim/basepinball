@@ -16,6 +16,7 @@ import {
   vec3,
 } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { BRAND } from '../app/brand';
 import { Rng } from '../core/rng';
 import { Particles, type Palette } from '../fx/particles';
 import { toBackdrop } from './layers';
@@ -309,7 +310,7 @@ export class Stadium {
 
   private drawScoreboard(g: GameSnapshot | null, title: string): void {
     const key = g
-      ? `${g.inning}|${g.outs}|${g.stats.runsByInning.join(',')}|${g.stats.hits}|${g.bases.join()}|${g.state}`
+      ? `${g.inning}|${g.battingSide}|${g.outs}|${g.humanStats?.runsByInning.join(',')}|${g.aiStats?.runsByInning.join(',')}|${g.humanStats?.hits}|${g.aiStats?.hits}|${g.bases.join()}|${g.state}`
       : `title:${title}`;
     const msg = this.message;
     if (msg) {
@@ -362,25 +363,35 @@ export class Stadium {
     for (let i = 0; i < 9; i++) ctx.fillText(String(i + 1), col(i), 50);
     ctx.fillText('R', col(9) + 20, 50);
     ctx.fillText('H', col(10) + 20, 50);
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#f4f1e8';
-    ctx.fillText('SILVERBALLS', 22, 118);
-    ctx.textAlign = 'center';
-    for (let i = 0; i < 9; i++) {
-      const runs = g.stats.runsByInning[i];
-      ctx.fillStyle = i + 1 === g.inning ? '#f2b33d' : '#f4f1e8';
-      ctx.fillText(runs === undefined ? '' : String(runs), col(i), 118);
+    const vsAi = g.vsAi === true && !!g.aiStats;
+    const human = g.humanStats ?? g.stats;
+    const drawLine = (label: string, stats: GameSnapshot['stats'], y: number, active: boolean) => {
+      ctx.textAlign = 'left';
+      ctx.fillStyle = active ? '#f2b33d' : '#f4f1e8';
+      ctx.fillText(label, 22, y, 190);
+      ctx.textAlign = 'center';
+      for (let i = 0; i < 9; i++) {
+        const runs = stats.runsByInning[i];
+        ctx.fillStyle = active && i + 1 === g.inning ? '#f2b33d' : '#f4f1e8';
+        ctx.fillText(runs === undefined ? '' : String(runs), col(i), y);
+      }
+      ctx.fillStyle = active ? '#f2b33d' : '#f4f1e8';
+      ctx.fillText(String(stats.runs), col(9) + 20, y);
+      ctx.fillText(String(stats.hits), col(10) + 20, y);
+    };
+    if (vsAi && g.aiStats) {
+      drawLine('AI', g.aiStats, 92, g.battingSide === 'ai');
+      drawLine(BRAND.teamShort.toUpperCase(), human, 138, g.battingSide !== 'ai');
+    } else {
+      drawLine('SILVERBALLS', g.stats, 118, true);
     }
-    ctx.fillStyle = '#f2b33d';
-    ctx.fillText(String(g.stats.runs), col(9) + 20, 118);
-    ctx.fillText(String(g.stats.hits), col(10) + 20, 118);
     // Outs and the at-bat line.
     ctx.textAlign = 'left';
     ctx.fillStyle = '#9aa6c4';
-    ctx.fillText('OUT', 22, 196);
+    ctx.fillText('OUT', 22, 204);
     for (let i = 0; i < 3; i++) {
       ctx.beginPath();
-      ctx.arc(120 + i * 40, 196, 13, 0, Math.PI * 2);
+      ctx.arc(120 + i * 40, 204, 13, 0, Math.PI * 2);
       ctx.fillStyle = i < g.outs ? '#ff3b3b' : '#1a1f2c';
       ctx.fill();
     }
@@ -389,7 +400,7 @@ export class Stadium {
     ctx.fillText(
       onBase ? `ON BASE: ${onBase}` : g.state === 'INNING_BREAK' ? 'SIDE RETIRED' : 'BASES EMPTY',
       300,
-      196,
+      204,
     );
     texture.needsUpdate = true;
   }

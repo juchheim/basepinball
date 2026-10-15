@@ -6,6 +6,7 @@ import {
   DEFAULT_TIMING,
   emptyStats,
   type BallState,
+  type BattingSide,
   type GameSnapshot,
   type GameStats,
   type HitType,
@@ -70,6 +71,7 @@ export const THROW_BACK_DELAY = 0.6;
 export interface GameOptions {
   seed?: number;
   innings?: number;
+  vsAi?: boolean;
   timing?: Partial<RulesTiming>;
 }
 
@@ -80,11 +82,14 @@ interface Timer {
 
 export class GameRules {
   readonly events: RulesEvent[] = [];
-  readonly stats: GameStats = emptyStats();
+  readonly humanStats: GameStats = emptyStats();
+  readonly aiStats: GameStats = emptyStats();
   readonly innings: number;
+  readonly vsAi: boolean;
 
   state: BallState = 'DEAD';
   inning = 0;
+  battingSide: BattingSide = 'human';
   outs = 0;
   bases: Bases = EMPTY;
   rally = 0;
@@ -141,7 +146,13 @@ export class GameRules {
   ) {
     this.rng = new Rng(opts.seed ?? 1);
     this.innings = opts.innings ?? 9;
+    this.vsAi = opts.vsAi ?? false;
     this.timing = { ...DEFAULT_TIMING, ...opts.timing };
+  }
+
+  /** Stats for the side currently batting; `humanStats` remains the player's lifetime/high-score row. */
+  get stats(): GameStats {
+    return this.battingSide === 'ai' ? this.aiStats : this.humanStats;
   }
 
   // ---------------------------------------------------------------- inputs
@@ -154,7 +165,7 @@ export class GameRules {
     this.moundUp = false;
     this.machine.setMoundBumper(false);
     this.emit({ type: 'gameStart' });
-    this.startInning(1);
+    this.startInning(1, this.vsAi ? 'ai' : 'human');
   }
 
   /** Flipper buttons: lane change during the skill shot; suppress ball search while held. */
@@ -499,8 +510,9 @@ export class GameRules {
 
   // ---------------------------------------------------------------- innings
 
-  private startInning(n: number): void {
+  private startInning(n: number, battingSide: BattingSide): void {
     this.inning = n;
+    this.battingSide = battingSide;
     this.outs = 0;
     this.bases = EMPTY;
     this.stats.runsByInning[n - 1] = 0;
@@ -512,7 +524,7 @@ export class GameRules {
     this.state = 'LEADOFF_LAUNCH';
     this.lastActivity = this.now;
     this.machine.serveToPlunger();
-    this.emit({ type: 'inningStart', inning: n });
+    this.emit({ type: 'inningStart', inning: n, battingSide });
   }
 
   private endInning(): void {
@@ -528,6 +540,7 @@ export class GameRules {
       inning: this.inning,
       runs: this.stats.runsByInning[this.inning - 1] ?? 0,
       lob,
+      battingSide: this.battingSide,
     });
     this.bases = EMPTY;
     this.endThrowBack(true);
@@ -541,17 +554,30 @@ export class GameRules {
       this.bat.clear();
       this.machine.resetDropTargets();
     }
+    // No pitch, curve magnet, or delayed device action from this side may leak into the next one.
+    this.timers.length = 0;
+    this.machine.setMagnet(0);
+    this.machine.setMoundBumper(false);
+    this.moundUp = false;
+    this.buttons.L = false;
+    this.buttons.R = false;
     this.machine.holdBall();
     this.state = 'INNING_BREAK';
     this.after(this.timing.inningBreak, () => {
-      if (this.inning >= this.innings) this.gameOver();
-      else this.startInning(this.inning + 1);
+      if (this.vsAi && this.battingSide === 'ai') {
+        this.startInning(this.inning, 'human');
+      } else if (this.inning >= this.innings) {
+        this.gameOver();
+      } else {
+        this.startInning(this.inning + 1, this.vsAi ? 'ai' : 'human');
+      }
     });
   }
 
   private gameOver(): void {
     this.state = 'GAME_OVER';
-    this.stats.duration = this.now - this.startTime;
+    this.humanStats.duration = this.now - this.startTime;
+    if (this.vsAi) this.aiStats.duration = this.now - this.startTime;
     this.emit({ type: 'gameOver' });
   }
 
@@ -733,8 +759,12 @@ export class GameRules {
       state: this.state,
       inning: this.inning,
       innings: this.innings,
+      vsAi: this.vsAi,
+      battingSide: this.battingSide,
       outs: this.outs,
       bases: this.bases,
+      humanStats: this.humanStats,
+      aiStats: this.aiStats,
       stats: this.stats,
       rally: this.rally,
       hotBat: this.hotBat,

@@ -206,11 +206,20 @@ export class Director {
         o.excite(0.6);
         return;
       case 'inningStart':
-        o.stinger(e.inning === 7 ? 'stretch' : 'inningStart');
-        o.scoreboard(e.inning === 7 ? 'STRETCH!' : `INNING ${e.inning}`, '', '#f2b33d', 2.2);
-        o.crowd('cheer', 0.3);
-        o.excite(e.inning === 7 ? 0.8 : 0.3);
-        if (e.inning === 7) o.wave();
+        {
+          const stretch = e.inning === 7 && e.battingSide !== 'ai';
+          const label =
+            g?.vsAi === true
+              ? `${e.battingSide === 'ai' ? 'TOP' : 'BOTTOM'} ${e.inning} · ${e.battingSide === 'ai' ? 'AI' : 'YOU'}`
+              : stretch
+                ? 'STRETCH!'
+                : `INNING ${e.inning}`;
+          o.stinger(stretch ? 'stretch' : 'inningStart');
+          o.scoreboard(label, '', '#f2b33d', 2.2);
+          o.crowd('cheer', 0.3);
+          o.excite(stretch ? 0.8 : 0.3);
+          if (stretch) o.wave();
+        }
         return;
       case 'pitchTell':
         o.sound(`tell${e.pitch}`);
@@ -402,11 +411,18 @@ export class Director {
         o.crowd(e.runs > 0 ? 'cheer' : 'groan', 0.3);
         return;
       case 'gameOver': {
-        const runs = g?.stats.runs ?? 0;
+        const humanRuns = g?.humanStats?.runs ?? g?.stats.runs ?? 0;
+        const aiRuns = g?.aiStats?.runs ?? 0;
+        const runs = humanRuns + aiRuns;
         o.stinger('gameOver');
         o.show('gameOver');
         o.fireworks(this.reduced ? 1 : Math.min(12, 2 + runs));
-        o.scoreboard('FINAL', `${runs} RUN${runs === 1 ? '' : 'S'}`, '#f2b33d', 6);
+        o.scoreboard(
+          'FINAL',
+          g?.vsAi ? `YOU ${humanRuns} · AI ${aiRuns}` : `${runs} RUN${runs === 1 ? '' : 'S'}`,
+          '#f2b33d',
+          6,
+        );
         o.crowd('cheer', 0.7);
         o.excite(0.7);
         return;

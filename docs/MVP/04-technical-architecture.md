@@ -79,12 +79,12 @@ logic.
 
 ### 2.2 Local Vs AI mode
 
-The start menu selects Single Player or Vs AI. Vs AI reuses the human's existing pinball inning and
-adds a local baseball-score simulation for the opponent after each human inning. Easy, Medium and
-Hard select the opponent scoring profile. Keep that opponent simulator separate from the headless
-physics sim bot: the bot is a developer balance tool, while the opponent simulator runs as part of a
-player's local game and contributes the opposing line score. No network service or backend is
-required for this mode; it is not online multiplayer.
+The start menu selects Single Player or Vs AI. Vs AI alternates top and bottom halves in the same
+`GameRules` and `World`: a physics-driven bot operates the AI's top half, then the human plays the
+bottom half. `GameRules` tracks batting side and independent team stats while preserving the usual
+rules and physics event path. Easy, Medium and Hard vary the bot's reaction likelihood. The same bot
+controller is also used by the headless balance simulator. This is local play; no network service or
+backend is required, and it is not online multiplayer.
 
 ## 3. Game loop
 

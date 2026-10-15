@@ -7,6 +7,7 @@ export type BallState =
 
 export type HitType = '1B' | '2B' | '3B' | 'HR';
 export type OutHow = 'K' | 'foul' | 'fielder' | 'tilt';
+export type BattingSide = 'human' | 'ai';
 
 /** Fielding positions and their scorebook numbers. */
 export const POSITIONS = {
@@ -25,7 +26,7 @@ export type Position = keyof typeof POSITIONS;
 /** What the game tells presentation (HUD, lamps, sound, animation). */
 export type RulesEvent =
   | { type: 'gameStart' }
-  | { type: 'inningStart'; inning: number }
+  | { type: 'inningStart'; inning: number; battingSide?: BattingSide }
   /** The windup: `lead` seconds before release, the pitch type and target flipper are shown. */
   | { type: 'pitchTell'; pitch: PitchType; side: Side; lead: number }
   | { type: 'pitch'; pitch: PitchType }
@@ -60,7 +61,7 @@ export type RulesEvent =
   | { type: 'tilt' }
   | { type: 'ballSearch' }
   | { type: 'ballRescued' }
-  | { type: 'inningEnd'; inning: number; runs: number; lob: number }
+  | { type: 'inningEnd'; inning: number; runs: number; lob: number; battingSide?: BattingSide }
   | { type: 'gameOver' };
 
 export interface GameStats {
@@ -117,8 +118,12 @@ export interface GameSnapshot {
   state: BallState;
   inning: number;
   innings: number;
+  vsAi?: boolean;
+  battingSide?: BattingSide;
   outs: number;
   bases: Bases;
+  humanStats?: GameStats;
+  aiStats?: GameStats;
   stats: GameStats;
   rally: number;
   hotBat: boolean;

@@ -5,6 +5,7 @@ import type { Flipper } from '../physics/flipper';
 import { World } from '../physics/world';
 import { GameRules } from '../rules/game';
 import type { GameStats, RulesEvent } from '../rules/types';
+import type { AiDifficulty } from '../rules/match';
 import { WorldMachine } from '../rules/worldMachine';
 import type { TableDef } from '../table/schema';
 import { v1Table } from '../table/v1Table';
@@ -31,6 +32,13 @@ export const PROFILES: Record<string, BotProfile> = {
   // The bot cannot yet aim from a cradle (that needs a shot map per release timing), so its
   // "expert" is a sharper, more attentive reactor rather than a cradle-and-aim player.
   expert: { name: 'expert', jitter: 0.006, attention: 1, cradle: 0.2 },
+};
+
+/** Player-facing levels vary reaction rate while keeping shot timing and cradling consistent. */
+export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
+  easy: { name: 'easy', jitter: 0.016, attention: 0.35, cradle: 0.35 },
+  medium: { name: 'medium', jitter: 0.016, attention: 0.7, cradle: 0.35 },
+  hard: { name: 'hard', jitter: 0.016, attention: 0.95, cradle: 0.35 },
 };
 
 interface FlipperPlan {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { BRAND } from '../app/brand';
-import type { AiDifficulty, GameMode, OpponentScore } from '../rules/aiOpponent';
+import type { AiDifficulty, GameMode } from '../rules/match';
 import type { GameSnapshot, GameStats } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 import { battingAverage } from '../storage/lifetime';
@@ -30,7 +30,6 @@ import {
   settingsNote,
   settingsOpen,
   snapshot,
-  opponentScore,
 } from './store';
 
 /** The DOM overlay: HUD, callouts and menus (docs/MVP/05 § 8). Basic M2 styling; art is M3. */
@@ -137,11 +136,17 @@ function Hud() {
         {g.state === 'LEADOFF_LAUNCH' && g.skillLane && (
           <span class="chip info">SKILL SHOT: {g.skillLane} LANE</span>
         )}
-        {activeGameMode.value === 'vs-ai' && (
-          <span class="chip opponent-score">
-            YOU {g.stats.runs} · AI {opponentScore.value?.runs ?? 0} ·{' '}
-            {activeAiDifficulty.value.toUpperCase()}
-          </span>
+        {g.vsAi && (
+          <>
+            <span class="chip opponent-score">
+              {g.battingSide === 'ai' ? 'TOP' : 'BOTTOM'} {g.inning} ·{' '}
+              {g.battingSide === 'ai' ? 'AI PLAYING' : 'YOUR TURN'}
+            </span>
+            <span class="chip opponent-score">
+              YOU {g.humanStats?.runs ?? 0} · AI {g.aiStats?.runs ?? 0} ·{' '}
+              {activeAiDifficulty.value.toUpperCase()}
+            </span>
+          </>
         )}
       </div>
     </div>
@@ -183,8 +188,10 @@ function PitchIndicator({ paused }: { paused: boolean }) {
 function LineScore() {
   const g: GameSnapshot | null = snapshot.value;
   if (!g) return null;
-  const vsAi = activeGameMode.value === 'vs-ai';
-  const opponent = opponentScore.value;
+  const vsAi = g.vsAi ?? activeGameMode.value === 'vs-ai';
+  const human = g.humanStats ?? g.stats;
+  const ai = g.aiStats;
+  const aiActive = g.battingSide === 'ai';
   return (
     <div class="linescore">
       <table>
@@ -199,28 +206,32 @@ function LineScore() {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <th scope="row" class="team">
-              {vsAi ? BRAND.teamShort.toUpperCase() : ''}
-            </th>
-            {Array.from({ length: 9 }, (_, i) => (
-              <td class={i + 1 === g.inning ? 'now' : ''}>{g.stats.runsByInning[i] ?? ''}</td>
-            ))}
-            <td class="total">{g.stats.runs}</td>
-            <td class="total">{g.stats.hits}</td>
-          </tr>
-          {vsAi && (
+          {vsAi && ai && (
             <tr>
               <th scope="row" class="team">
                 AI · {activeAiDifficulty.value.toUpperCase()}
               </th>
               {Array.from({ length: 9 }, (_, i) => (
-                <td class={i + 1 === g.inning ? 'now' : ''}>{opponent?.runsByInning[i] ?? ''}</td>
+                <td class={aiActive && i + 1 === g.inning ? 'now' : ''}>
+                  {ai.runsByInning[i] ?? ''}
+                </td>
               ))}
-              <td class="total">{opponent?.runs ?? 0}</td>
-              <td class="total">{opponent?.hits ?? 0}</td>
+              <td class="total">{ai.runs}</td>
+              <td class="total">{ai.hits}</td>
             </tr>
           )}
+          <tr>
+            <th scope="row" class="team">
+              {vsAi ? BRAND.teamShort.toUpperCase() : ''}
+            </th>
+            {Array.from({ length: 9 }, (_, i) => (
+              <td class={!aiActive && i + 1 === g.inning ? 'now' : ''}>
+                {human.runsByInning[i] ?? ''}
+              </td>
+            ))}
+            <td class="total">{human.runs}</td>
+            <td class="total">{human.hits}</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -254,8 +265,8 @@ function HowToPlay() {
       </p>
       <p>
         Choose <b>Single Player</b> for the solo challenge, or <b>Multiplayer vs AI</b> to play
-        against an opponent with Easy, Medium or Hard scoring. The AI's baseball inning is simulated
-        locally after each of yours.
+        against an opponent with Easy, Medium or Hard skill. The AI plays the pinball table at the
+        top of each inning; you play the bottom half and bat last.
       </p>
       <h3>Hits</h3>
       <table class="shots">
@@ -583,7 +594,7 @@ function Title({ actions }: { actions: UiActions }) {
       ) : (
         <div class="difficulty-choice">
           <h2>Choose AI difficulty</h2>
-          <p>The AI plays a simulated baseball half-inning after each of your innings.</p>
+          <p>The AI plays the table in the top half. You play the bottom half and bat last.</p>
           <div class="difficulty-buttons">
             {(['easy', 'medium', 'hard'] as const).map((difficulty) => (
               <button onClick={() => actions.start('vs-ai', difficulty)}>
@@ -652,7 +663,7 @@ function Pause({ actions }: { actions: UiActions }) {
 function GameOver({ actions }: { actions: UiActions }) {
   const stats = finalStats.value;
   const vsAi = activeGameMode.value === 'vs-ai';
-  const opponent = opponentScore.value;
+  const opponent = vsAi ? (snapshot.value?.aiStats ?? null) : null;
   const [initials, setInitials] = useState('');
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
@@ -696,7 +707,7 @@ function GameOver({ actions }: { actions: UiActions }) {
   );
 }
 
-function BoxScore({ stats, opponent }: { stats: GameStats; opponent: OpponentScore | null }) {
+function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats | null }) {
   const innings = Array.from({ length: 9 }, (_, i) => stats.runsByInning[i] ?? 0);
   return (
     <div class="boxscore">
@@ -722,9 +733,9 @@ function BoxScore({ stats, opponent }: { stats: GameStats; opponent: OpponentSco
           </tr>
           {opponent && (
             <tr>
-              <td class="team">AI · {opponent.difficulty.toUpperCase()}</td>
-              {opponent.runsByInning.map((runs) => (
-                <td>{runs ?? ''}</td>
+              <td class="team">AI · {activeAiDifficulty.value.toUpperCase()}</td>
+              {Array.from({ length: 9 }, (_, i) => (
+                <td>{opponent.runsByInning[i] ?? ''}</td>
               ))}
               <td class="total">{opponent.runs}</td>
               <td class="total">{opponent.hits}</td>

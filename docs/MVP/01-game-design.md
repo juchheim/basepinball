@@ -266,11 +266,12 @@ inning to get him to throw it back.
    initial screen lets the player choose **Single Player** or **Vs AI**.
 2. **Lights-on intro** (≈4 s, skippable): the stadium light towers clunk on bank by bank, the crowd
    swells, the camera settles into the player view.
-3. **Inning card** ("**INNING 1**", not "Top of the 1st", because the human always bats), then the
+3. **Inning card**: in Vs AI, the AI bats in the **top** half and the human bats in the **bottom**
+   half of each inning. In Single Player, the human starts directly. Each half begins with its own
    leadoff launch.
-4. **Play** PAs until 3 outs. In **Vs AI**, after each human inning the opponent's runs for that
-   inning are simulated locally and added to the line score. The side-retired sequence shows the
-   inning result before play continues. In Single Player, the inning result is the human score only.
+4. **Play** PAs until 3 outs. In Vs AI, the AI physically plays the same pinball table during the
+   top half; the human plays the bottom half and bats last. The side-retired sequence separates the
+   two halves. Single Player remains one human half per inning.
 5. **7th-inning stretch** (P1): a short crowd wave and organ interlude before the 7th.
 6. **Final**: after the 9th, "FINAL" on the scoreboard, a fireworks show scaled to the result, then
    the **box score** (line score, R, H, 2B, 3B, HR, K, LOB, longest rally). Vs AI also declares
@@ -285,14 +286,15 @@ A paused game shows a resume countdown (3-2-1) before physics restarts.
 
 - **Single Player** is the original solo 9-inning run challenge: the human team bats, with no
   opponent score. This is the mode described by the original MVP definition.
-- **Vs AI** is local versus-AI play, not online multiplayer. The human still plays Steel Diamond's
-  pinball half-inning each inning. The opponent does not play the pinball table; its baseball runs
-  are simulated after each human inning. Select **Easy**, **Medium** or **Hard** for the opponent's
-  scoring difficulty. The mode uses the same nine-inning game and compares total runs.
+- **Vs AI** is local versus-AI play, not online multiplayer. The AI bats first in each top half and
+  uses the same physics table, flippers, plunger, switches and baseball rules as the human. The
+  human bats in each bottom half, so the player always plays last. Select **Easy**, **Medium** or
+  **Hard** for the AI's table-playing skill. The mode plays nine full innings and compares total
+  runs.
 - The solo top-10 remains a Single Player leaderboard. Lifetime batting totals record the human
-  player's stats in either mode; simulated AI stats never enter the player's totals.
-- The AI's inning simulation is separate from the headless sim bot used for balance analysis. The
-  latter is a development tool, not an opponent or online service.
+  player's stats in either mode; AI batting stats are kept on the opponent row only.
+- The live opponent reuses the physics-driven pinball controller from the headless balance bot. It
+  is a local CPU opponent and does not require an online service.
 
 ## 6. Controls
 

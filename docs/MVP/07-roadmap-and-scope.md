@@ -28,16 +28,16 @@
 
 The single-player wording above records the original v1 MVP and remains accurate for that release.
 The requested post-release addition keeps **Single Player** and adds **Vs AI** to the initial
-screen. In Vs AI, the human plays the normal pinball half-inning; after each human inning, the
-opponent's baseball score for that inning is simulated locally. The player chooses Easy, Medium or
-Hard. This is local play and requires no online opponent, account or backend. The opponent does not
-play the pinball table, and this feature is distinct from implementing full head-to-head multiplayer
-with alternating pinball half-innings.
+screen. In Vs AI, the AI plays the actual pinball table during each top half and the human plays the
+bottom half, so the player bats last. The player chooses Easy, Medium or Hard. This is local play
+and requires no online opponent, account or backend. It uses the existing physics-driven bot in the
+live game; future online head-to-head play remains a separate feature.
 
 The original MVP priorities and milestones below are historical scope; this addition is tracked as a
 post-M6 enhancement rather than silently rewriting the released MVP. Its acceptance requires both
-modes to be selectable from the initial screen, all three AI difficulties to affect opponent scoring,
-and a complete nine-inning result to show both line scores and the winner (or a tie).
+modes to be selectable from the initial screen, the AI to control the table in each top half, the
+human to play each bottom half, all three AI difficulties to affect table-playing skill, and a
+complete nine-inning result to show both line scores and the winner (or a tie).
 
 ## 3. Milestones and exit criteria
 

@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 import type { PitchType, Side } from '../rules/pitching';
-import type { AiDifficulty, GameMode, OpponentScore } from '../rules/aiOpponent';
+import type { AiDifficulty, GameMode } from '../rules/match';
 import type { GameSnapshot, GameStats, RulesEvent } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 import { EMPTY_LIFETIME, type Lifetime } from '../storage/lifetime';
@@ -38,7 +38,6 @@ export const callout = signal<Callout | null>(null);
 export const finalStats = signal<GameStats | null>(null);
 export const activeGameMode = signal<GameMode>('single');
 export const activeAiDifficulty = signal<AiDifficulty>('medium');
-export const opponentScore = signal<OpponentScore | null>(null);
 export const highScores = signal<HighScore[]>([]);
 /** Rank of the score just entered (to highlight it), or -1. */
 export const lastRank = signal(-1);

@@ -25,10 +25,11 @@ import { createOutput } from './fx/output';
 import { loadParams } from './debug/params';
 import { Input, vibrate, type InputEvent } from './input/input';
 import { World } from './physics/world';
-import { AiOpponent, type AiDifficulty, type GameMode } from './rules/aiOpponent';
+import { type AiDifficulty, type GameMode, type BattingSide } from './rules/match';
 import { BLEACHERS, GameRules } from './rules/game';
 import type { GameSnapshot, RulesEvent } from './rules/types';
 import { WorldMachine } from './rules/worldMachine';
+import { Bot, PLAYER_PROFILES } from './sim/bot';
 import {
   AdaptiveQuality,
   capTier,
@@ -75,7 +76,6 @@ import {
   settingsNote,
   settingsOpen,
   publishSnapshot,
-  opponentScore,
 } from './ui/store';
 
 /**
@@ -244,7 +244,11 @@ async function main(): Promise<void> {
   });
 
   let rules: GameRules | null = null;
-  let opponent: AiOpponent | null = null;
+  let bot: Bot | null = null;
+  let controllerRules: GameRules | null = null;
+  let controllerSide: BattingSide | null = null;
+  let gameSeed = 1;
+  let input: Input | null = null;
   const timers: { at: number; run: () => void }[] = [];
   const after = (seconds: number, run: () => void): void => {
     timers.push({ at: world.time + seconds, run });
@@ -263,11 +267,46 @@ async function main(): Promise<void> {
   idleBall();
 
   // ---- haptics: gamepad rumble (flips, bumpers, outs) and phone vibration (Android)
-  let input: Input | null = null;
   const haptic = (strength: number, rumbleMs: number, vibrateMs: number): void => {
     if (!cfg.haptics) return;
     input?.rumble(strength, rumbleMs);
     if (vibrateMs > 0) vibrate(vibrateMs);
+  };
+
+  const releaseTableControls = (activeRules: GameRules): void => {
+    input?.releaseAll();
+    for (const side of ['L', 'R'] as const) {
+      world.setFlipper(`flipper.${side}`, false);
+      activeRules.onButton(side, false);
+    }
+    // Clear the held state without releasing the plunger, which could launch a ball across halves.
+    if (world.plunger) {
+      world.plunger.pressed = false;
+      world.plunger.pull = 0;
+      world.plunger.pullTarget = 0;
+    }
+    world.setMagnet('magnet.curve', 0);
+  };
+
+  const syncBattingController = (): void => {
+    if (!rules) {
+      bot = null;
+      controllerRules = null;
+      controllerSide = null;
+      return;
+    }
+    const side = rules.battingSide;
+    if (controllerRules === rules && controllerSide === side) return;
+    releaseTableControls(rules);
+    controllerRules = rules;
+    controllerSide = side;
+    bot =
+      rules.vsAi && side === 'ai'
+        ? new Bot(
+            PLAYER_PROFILES[activeAiDifficulty.value],
+            (gameSeed ^ (rules.inning * 0x9e3779b9)) >>> 0,
+          )
+        : null;
   };
 
   // ---- presentation of rules events
@@ -278,27 +317,28 @@ async function main(): Promise<void> {
     calloutFor(e);
     pitchCueFor(e);
     director.rules(e, rules?.snapshot() ?? null);
-    if (e.type === 'inningEnd' && opponent) {
-      const inning = opponent.playInning(e.inning);
-      const score = opponent.snapshot();
-      opponentScore.value = score;
+    if (e.type === 'inningStart' && rules?.vsAi) {
       showCallout(
-        `AI INNING ${inning.inning}`,
-        `${inning.runs} run${inning.runs === 1 ? '' : 's'} · ${score.runs} total`,
+        e.battingSide === 'ai' ? `TOP ${e.inning}` : `BOTTOM ${e.inning}`,
+        e.battingSide === 'ai' ? 'AI AT BAT' : 'YOUR TURN · YOU BAT LAST',
         'info',
-        1800,
+        1600,
       );
+    }
+    if (e.type === 'inningEnd' && rules) {
+      bot = null;
+      releaseTableControls(rules);
     }
     if (e.type === 'gameOver') {
       const completedRules = rules;
       after(2.2, () => {
         if (!completedRules || rules !== completedRules) return;
-        lifetime.value = recordGame(completedRules.stats);
+        lifetime.value = recordGame(completedRules.humanStats);
         finalStats.value = {
-          ...completedRules.stats,
-          runsByInning: [...completedRules.stats.runsByInning],
+          ...completedRules.humanStats,
+          runsByInning: [...completedRules.humanStats.runsByInning],
         };
-        qualified.value = activeGameMode.value === 'single' && qualifies(completedRules.stats);
+        qualified.value = activeGameMode.value === 'single' && qualifies(completedRules.humanStats);
         screen.value = 'gameover';
       });
     }
@@ -327,6 +367,17 @@ async function main(): Promise<void> {
       for (let i = timers.length - 1; i >= 0; i--) {
         if (world.time >= timers[i]!.at) timers.splice(i, 1)[0]!.run();
       }
+      syncBattingController();
+      if (
+        bot &&
+        rules?.vsAi &&
+        rules.battingSide === 'ai' &&
+        rules.state !== 'INNING_BREAK' &&
+        rules.state !== 'GAME_OVER' &&
+        screen.value === 'playing'
+      ) {
+        bot.update(world, rules);
+      }
     },
     performance.now(),
     // Up to 120 steps a frame, so the menus' 10 fps drawing (see `frameInterval`) still keeps
@@ -354,12 +405,13 @@ async function main(): Promise<void> {
     diag.log('game start');
     world.reset();
     timers.length = 0;
-    const seed = (Date.now() & 0x7fffffff) >>> 0;
-    rules = new GameRules(machine, { seed });
+    gameSeed = (Date.now() & 0x7fffffff) >>> 0;
+    rules = new GameRules(machine, { seed: gameSeed, vsAi: mode === 'vs-ai' });
     activeGameMode.value = mode;
     activeAiDifficulty.value = difficulty;
-    opponent = mode === 'vs-ai' ? new AiOpponent(difficulty, (seed ^ 0x9e3779b9) >>> 0) : null;
-    opponentScore.value = opponent?.snapshot() ?? null;
+    bot = null;
+    controllerRules = null;
+    controllerSide = null;
     audio.unlock();
     shows.stop('attract');
     view.figures.sync([false, false, false]);
@@ -373,8 +425,9 @@ async function main(): Promise<void> {
   };
   const toTitle = (): void => {
     rules = null;
-    opponent = null;
-    opponentScore.value = null;
+    bot = null;
+    controllerRules = null;
+    controllerSide = null;
     attract();
     world.reset();
     idleBall();
@@ -446,7 +499,9 @@ async function main(): Promise<void> {
         highScores.value = loadHighScores();
       }
       rules = null;
-      opponent = null;
+      bot = null;
+      controllerRules = null;
+      controllerSide = null;
       attract();
       world.reset();
       idleBall();
@@ -532,6 +587,7 @@ async function main(): Promise<void> {
 
   // ---- input
   const playing = (): boolean => screen.value === 'playing' || freePlay || screen.value === 'title';
+  const humanTurn = (): boolean => !rules?.vsAi || rules.battingSide === 'human';
   // Any input brings attract mode up to the play frame rate for a moment (see `frameInterval`).
   let lastInputAt = -Infinity;
   const onInput = (e: InputEvent): void => {
@@ -541,7 +597,7 @@ async function main(): Promise<void> {
     switch (e.action) {
       case 'flipperL':
       case 'flipperR': {
-        if (!playing()) return;
+        if (!playing() || !humanTurn()) return;
         const side = e.action === 'flipperL' ? 'L' : 'R';
         // Heard at once, from the button (the coil fires with the press).
         if (world.flippersEnabled) {
@@ -549,6 +605,7 @@ async function main(): Promise<void> {
           if (e.pressed) haptic(0.25, 40, 12);
         }
         at((w) => {
+          if (!humanTurn()) return;
           w.setFlipper(`flipper.${side}`, e.pressed);
           rules?.onButton(side, e.pressed);
         });
@@ -561,21 +618,28 @@ async function main(): Promise<void> {
           return start('single');
         if (e.pressed && e.value === undefined && s === 'scores' && !freePlay)
           return start(activeGameMode.value, activeAiDifficulty.value);
-        if (s !== 'playing') return;
-        if (e.pressed && e.value !== undefined) at((w) => w.setPlungerPull(e.value!));
-        else at((w) => w.setPlunger(e.pressed));
+        if (s !== 'playing' || !humanTurn()) return;
+        if (e.pressed && e.value !== undefined)
+          at((w) => {
+            if (humanTurn()) w.setPlungerPull(e.value!);
+          });
+        else
+          at((w) => {
+            if (humanTurn()) w.setPlunger(e.pressed);
+          });
         return;
       case 'nudgeL':
       case 'nudgeR':
       case 'nudgeUp':
-        if (s !== 'playing' || !e.pressed) return;
+        if (s !== 'playing' || !e.pressed || !humanTurn()) return;
         director.nudge();
-        at((w) =>
+        at((w) => {
+          if (!humanTurn()) return;
           w.nudge(
             e.action === 'nudgeL' ? -1 : e.action === 'nudgeR' ? 1 : 0,
             e.action === 'nudgeUp' ? 1 : 0,
-          ),
-        );
+          );
+        });
         return;
       case 'pause':
         if (!e.pressed) return;
@@ -593,7 +657,7 @@ async function main(): Promise<void> {
         showCallout(cfg.muted ? 'SOUND OFF' : 'SOUND ON', undefined, 'info', 900);
         return;
     }
-    if (!debug || !e.pressed) return;
+    if (!debug || !e.pressed || !humanTurn()) return;
     // Debug keys.
     if (e.action === 'serve') at(() => world.serveBall());
     if (e.action === 'pitch') at(() => world.pitchBall(0.221, 0.175, 1.2));
