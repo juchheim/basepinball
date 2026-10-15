@@ -14,7 +14,10 @@ export interface Quality {
   /** Shadow-casting key lights (0-2) and shadow map size. */
   shadowLights: number;
   shadowMapSize: number;
-  /** Dynamic ball reflections: cube size (0 = static environment only) and update interval (frames). */
+  /**
+   * Dynamic ball reflections: cube size (0 = static environment only) and frames per full refresh
+   * (the six faces are drawn round robin, `6 / reflectionEvery` a frame: 1, 2, 3 or 6).
+   */
   reflectionSize: number;
   reflectionEvery: number;
   bloom: boolean;
@@ -50,7 +53,7 @@ export const TIERS: Record<TierName, Quality> = {
     shadowLights: 1,
     shadowMapSize: 1024,
     reflectionSize: 64,
-    reflectionEvery: 2,
+    reflectionEvery: 3,
     bloom: true,
     msaa: 0,
     fxaa: true,
@@ -64,7 +67,7 @@ export const TIERS: Record<TierName, Quality> = {
     shadowLights: 2,
     shadowMapSize: 2048,
     reflectionSize: 128,
-    reflectionEvery: 1,
+    reflectionEvery: 2,
     bloom: true,
     msaa: 0,
     fxaa: true,

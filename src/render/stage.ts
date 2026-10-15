@@ -20,6 +20,7 @@ import {
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import type { Quality } from './quality';
+import { BACKDROP_LAYER } from './layers';
 
 /**
  * Renderer, scene, lights, camera and post-processing. WebGPU when available, otherwise Three.js
@@ -90,6 +91,7 @@ export class Stage {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(this.renderer.domElement);
+    this.camera.layers.enable(BACKDROP_LAYER);
 
     this.scene.background = new THREE.Color(0x03050c);
 
@@ -112,6 +114,10 @@ export class Stage {
       cam.far = 5;
       light.shadow.bias = -0.0005;
       light.shadow.radius = 2.5;
+      // Redrawn once per frame (`refreshShadows`), not on every render call: three redraws an
+      // auto-updating shadow map in each of the reflection cube's six renders too.
+      light.shadow.autoUpdate = false;
+      light.shadow.needsUpdate = true;
       this.keyLights.push(light);
       this.scene.add(light, light.target);
     }
@@ -308,6 +314,14 @@ export class Stage {
     // Drawing-buffer size only: CSS sizes the canvas, so a stale size can't pin it smaller.
     this.renderer.setDrawingBufferSize(s.w, s.h, s.pr);
     this.onResize?.(s.w, s.h, s.pr);
+  }
+
+  /**
+   * Redraw the key lights' shadow maps at the next render. Called once a frame, right before the
+   * main draw (after the ball's reflection), so the reflection reuses the last frame's maps.
+   */
+  refreshShadows(): void {
+    for (const light of this.keyLights) light.shadow.needsUpdate = true;
   }
 
   /** The WebGPU device, if that is the backend in use. */

@@ -15,6 +15,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
 import { Particles, type Palette } from '../fx/particles';
+import { toBackdrop } from './layers';
 import type { GameSnapshot } from '../rules/types';
 
 /**
@@ -86,7 +87,9 @@ export class Stadium {
     this.buildBackboard();
     this.buildTowers();
     this.buildSky();
-    this.group.add(this.particles.group);
+    // The ball's reflection sees the cabinet, backboard, scoreboard, marquee and tower lamps; the
+    // rest of the ballpark is on the backdrop layer, which it skips (see `layers.ts`).
+    this.group.add(toBackdrop(this.particles.group));
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
     canvas.height = 256;
@@ -151,7 +154,7 @@ export class Stadium {
       mesh.setColorAt(i, color.setHex(shirts[Math.floor(rng.next() * shirts.length)]!));
     }
     this.crowd = mesh;
-    this.group.add(mesh);
+    this.group.add(toBackdrop(mesh));
     this.buildFlashes();
   }
 
@@ -470,11 +473,11 @@ export class Stadium {
     for (const x of [-0.016, W + 0.016]) {
       const side = new THREE.Mesh(new THREE.BoxGeometry(0.026, L + 0.06, depth), armour);
       side.position.set(x, L / 2, -0.015 - depth / 2);
-      this.group.add(side);
+      this.group.add(toBackdrop(side));
     }
     const front = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.026, depth), armour);
     front.position.set(W / 2, -0.03, -0.015 - depth / 2);
-    this.group.add(front);
+    this.group.add(toBackdrop(front));
     // Chrome legs at the corners.
     const chrome = new THREE.MeshStandardMaterial({
       color: 0xd8dce4,
@@ -490,7 +493,7 @@ export class Stadium {
     ] as const) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, legLength), chrome);
       leg.position.set(x, y, FLOOR + legLength / 2);
-      this.group.add(leg);
+      this.group.add(toBackdrop(leg));
     }
     // The grass.
     const c = document.createElement('canvas');
@@ -529,7 +532,7 @@ export class Stadium {
       new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92 }),
     );
     ground.position.set(W / 2, L / 2, FLOOR);
-    this.group.add(ground);
+    this.group.add(toBackdrop(ground));
   }
 
   private buildBackboard(): void {
@@ -713,7 +716,7 @@ export class Stadium {
     this.flashLife.length = 0;
     for (let i = 0; i < n; i++) this.flashLife.push(0);
     this.flashes = mesh;
-    this.group.add(mesh);
+    this.group.add(toBackdrop(mesh));
   }
 
   private tickFlashes(dt: number): void {
@@ -767,7 +770,7 @@ export class Stadium {
         bulb.position.set(-0.033 + (i % 3) * 0.033, -0.008, i < 3 ? 0.012 : -0.012);
         bank.add(bulb);
       }
-      this.group.add(this.lightShaft(head, target));
+      this.group.add(toBackdrop(this.lightShaft(head, target)));
     }
   }
 
@@ -812,19 +815,21 @@ export class Stadium {
       const tier = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.044, 0.04), concrete);
       tier.position.set(W / 2, y, z);
       tier.receiveShadow = true;
-      this.group.add(tier);
+      this.group.add(toBackdrop(tier));
       strips.push(
         new THREE.BoxGeometry(W + 0.5, 0.0008, 0.0008).translate(W / 2, y - 0.023, z + 0.019),
       );
     }
     this.group.add(
-      new THREE.Mesh(
-        mergeGeometries(strips),
-        new THREE.MeshStandardMaterial({
-          color: 0x000000,
-          emissive: new THREE.Color(0xffc98a),
-          emissiveIntensity: 0.9,
-        }),
+      toBackdrop(
+        new THREE.Mesh(
+          mergeGeometries(strips),
+          new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            emissive: new THREE.Color(0xffc98a),
+            emissiveIntensity: 0.9,
+          }),
+        ),
       ),
     );
     // A distant star field.
@@ -838,9 +843,11 @@ export class Stadium {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(stars, 3));
     this.group.add(
-      new THREE.Points(
-        g,
-        new THREE.PointsMaterial({ color: 0xc9d6ff, size: 2, sizeAttenuation: false }),
+      toBackdrop(
+        new THREE.Points(
+          g,
+          new THREE.PointsMaterial({ color: 0xc9d6ff, size: 2, sizeAttenuation: false }),
+        ),
       ),
     );
   }

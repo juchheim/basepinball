@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import {
   abs,
+  cubeTexture,
   dot,
   exp,
   float,
@@ -23,6 +24,7 @@ import { rampBumperMesh, type Tri } from '../table/rampBumper';
 import { Spring } from '../fx/anim';
 import { Particles } from '../fx/particles';
 import { Figures } from './figures';
+import { toBackdrop } from './layers';
 
 /**
  * Whitebox meshes built from the table definition (M1: grey materials, coloured lamp discs,
@@ -141,8 +143,12 @@ const mats = {
   }),
   popBody: new THREE.MeshStandardMaterial({ color: 0xe8ebf0, roughness: 0.12, metalness: 1 }),
   sensor: new THREE.MeshStandardMaterial({ color: 0x9aa6c4, roughness: 0.3, metalness: 0.9 }),
-  ball: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.04, metalness: 1 }),
+  // A node material, so the dynamic reflection can be set as its `envNode` (see `setReflections`).
+  ball: new THREE.MeshStandardNodeMaterial({ color: 0xffffff, roughness: 0.04, metalness: 1 }),
 };
+
+/** Scratch vector for the ball's position in `updateReflections`. */
+const reflectionPos = new THREE.Vector3();
 
 /** A soft round glow (white centre fading to nothing), shared by every lamp and pop halo. */
 let haloTexture: THREE.Texture | null = null;
@@ -301,8 +307,14 @@ export class TableView {
   private ballEnv: {
     camera: THREE.CubeCamera;
     target: THREE.CubeRenderTarget;
-    every: number;
-    frame: number;
+    /** Cube faces drawn per frame (6 / the tier's frames per full refresh). */
+    facesPerFrame: number;
+    /** The next face to draw (round robin). */
+    face: number;
+    /** Where the faces were last drawn from; null at first and after the ball was hidden. */
+    at: THREE.Vector3 | null;
+    /** Frames since the last face was drawn (a still ball refreshes slowly). */
+    idle: number;
   } | null = null;
   /** Static geometry waiting to be merged, per material. */
   private readonly pending = new Map<THREE.Material, THREE.BufferGeometry[]>();
@@ -323,7 +335,7 @@ export class TableView {
     for (const f of world.flippers) this.addFlipper(f);
     this.flushStatic();
     this.figures = new Figures(table, this.standeeSpots, this.particles);
-    this.group.add(this.particles.group, this.figures.group);
+    this.group.add(toBackdrop(this.particles.group), this.figures.group);
 
     this.colliderLines = this.buildColliderLines();
     this.colliderLines.visible = false;
@@ -388,32 +400,72 @@ export class TableView {
   /**
    * Dynamic ball reflections (docs/MVP/05 § 4): a cube camera follows the ball and renders the
    * table around it, so the chrome ball mirrors lamps, rails and flippers. Size 0 uses the static
-   * scene environment instead.
+   * scene environment instead. `every` is the frames per full refresh: the six faces are drawn
+   * round robin, `6 / every` a frame.
+   *
+   * Kept cheap: the cube cameras see only layer 0 (no stands, crowd, stars or particles; see
+   * `layers.ts`) out to 1.6 m (the backboard and tower lamps, nothing behind them), and the ball
+   * samples the cube directly. As a plain `envMap` it would be filtered into a PMREM after every
+   * update, a chain of blur passes a near-mirror ball (roughness 0.04) has no use for.
    */
   setReflections(size: number, every: number): void {
     if (this.ballEnv) {
       this.ballEnv.target.dispose();
       this.ballEnv = null;
     }
-    mats.ball.envMap = null;
+    mats.ball.envNode = null;
     if (size > 0) {
       const target = new THREE.CubeRenderTarget(size);
-      const camera = new THREE.CubeCamera(0.005, 5, target);
-      this.ballEnv = { camera, target, every: Math.max(1, every), frame: 0 };
-      mats.ball.envMap = target.texture;
+      const camera = new THREE.CubeCamera(0.005, 1.6, target);
+      const facesPerFrame = [1, 2, 3, 6].find((n) => n * Math.max(1, every) >= 6) ?? 6;
+      this.ballEnv = { camera, target, facesPerFrame, face: 0, at: null, idle: 0 };
+      // Not a texture node (`.rgb`), so the environment lighting samples it as it is instead of
+      // wrapping it in a PMREM; it still picks up the reflection vector from the lighting context.
+      mats.ball.envNode = cubeTexture(target.texture).rgb;
     }
     mats.ball.needsUpdate = true;
   }
 
-  updateReflections(renderer: THREE.WebGPURenderer, scene: THREE.Scene): void {
+  /**
+   * Draw this frame's share of the reflection cube. Nothing while the game is paused (nothing
+   * moves); a ball that has barely moved (under 2 mm) refreshes only every fourth frame, so lamp
+   * changes still show; a ball that has just appeared or jumped gets all six faces at once.
+   */
+  updateReflections(renderer: THREE.WebGPURenderer, scene: THREE.Scene, paused: boolean): void {
     const env = this.ballEnv;
     const ball = this.ballMeshes[0];
-    if (!env || !ball || !ball.visible) return;
-    if (env.frame++ % env.every !== 0) return;
-    ball.getWorldPosition(env.camera.position);
+    if (!env || !ball) return;
+    if (!ball.visible) env.at = null;
+    if (!ball.visible || paused) return;
+    const pos = ball.getWorldPosition(reflectionPos);
+    const moved = env.at ? env.at.distanceTo(pos) : Infinity;
+    let faces = env.facesPerFrame;
+    // Further than a ball rolls in a frame: it was placed (served, released from a lock).
+    if (moved > 0.25) faces = 6;
+    else if (moved < 0.002 && ++env.idle < 4) return;
+    env.idle = 0;
+    env.camera.position.copy(pos);
+    env.camera.updateMatrixWorld();
+    if (env.camera.coordinateSystem !== renderer.coordinateSystem) {
+      env.camera.coordinateSystem = renderer.coordinateSystem;
+      env.camera.updateCoordinateSystem();
+    }
+    const cameras = env.camera.children as THREE.PerspectiveCamera[];
+    const prevTarget = renderer.getRenderTarget();
+    const prevFace = renderer.getActiveCubeFace();
+    const prevLevel = renderer.getActiveMipmapLevel();
     ball.visible = false;
-    env.camera.update(renderer, scene);
-    ball.visible = true;
+    try {
+      for (let i = 0; i < faces; i++) {
+        renderer.setRenderTarget(env.target, env.face);
+        renderer.render(scene, cameras[env.face]!);
+        env.face = (env.face + 1) % 6;
+      }
+    } finally {
+      ball.visible = true;
+      renderer.setRenderTarget(prevTarget, prevFace, prevLevel);
+    }
+    env.at = (env.at ?? new THREE.Vector3()).copy(pos);
   }
 
   /** Brighten a device or lamp briefly. */
