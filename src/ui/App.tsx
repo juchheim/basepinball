@@ -709,15 +709,15 @@ function GameOver({ actions }: { actions: UiActions }) {
 }
 
 function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats | null }) {
-  const innings = Array.from({ length: 9 }, (_, i) => stats.runsByInning[i] ?? 0);
+  const innings = Array.from({ length: 9 }, (_, i) => i + 1);
   return (
     <div class="boxscore">
       <table>
         <thead>
           <tr>
             <th />
-            {innings.map((_, i) => (
-              <th>{i + 1}</th>
+            {innings.map((inning) => (
+              <th>{inning}</th>
             ))}
             <th>R</th>
             <th>H</th>
@@ -736,8 +736,8 @@ function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats |
           )}
           <tr>
             <td class="team">{BRAND.teamShort.toUpperCase()}</td>
-            {innings.map((r) => (
-              <td>{r}</td>
+            {innings.map((_, i) => (
+              <td>{stats.runsByInning[i] ?? ''}</td>
             ))}
             <td class="total">{stats.runs}</td>
             <td class="total">{stats.hits}</td>

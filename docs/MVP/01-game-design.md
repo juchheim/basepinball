@@ -275,9 +275,11 @@ inning to get him to throw it back.
    top half; the human plays the bottom half and bats last. The side-retired sequence separates the
    two halves. Single Player remains one human half per inning.
 5. **7th-inning stretch** (P1): a short crowd wave and organ interlude before the 7th.
-6. **Final**: after the 9th, "FINAL" on the scoreboard, a fireworks show scaled to the result, then
-   the **box score** (line score, R, H, 2B, 3B, HR, K, LOB, longest rally). Vs AI also declares
-   the winner by total runs; equal totals are a tie after nine innings.
+6. **Final**: at the end of regulation play, show "FINAL" on the scoreboard, a fireworks show
+   scaled to the result, then the **box score** (line score, R, H, 2B, 3B, HR, K, LOB, longest
+   rally). In Vs AI, if the human leads after the AI's top half of the 9th, skip the bottom half and
+   end the game; otherwise play the human's bottom half. The winner is determined by total runs;
+   equal totals are a tie after nine innings.
 7. **High score entry**: Single Player games can enter classic 3-letter initials in the local top 10.
    Vs AI games show the match result and continue without entering the solo high-score table.
 
@@ -290,9 +292,10 @@ A paused game shows a resume countdown (3-2-1) before physics restarts.
   opponent score. This is the mode described by the original MVP definition.
 - **Vs AI** is local versus-AI play, not online multiplayer. The AI bats first in each top half and
   uses the same physics table, flippers, plunger, switches and baseball rules as the human. The
-  human bats in each bottom half, so the player always plays last. Select **Easy**, **Medium** or
-  **Hard** for the AI's table-playing skill. The mode plays nine full innings and compares total
-  runs.
+  human bats in each bottom half, so the player bats last when that half is needed. If the human
+  already leads after the top of the 9th, the game ends without playing the bottom half. Select
+  **Easy**, **Medium** or **Hard** for the AI's table-playing skill. The mode plays up to nine
+  innings and compares total runs.
 - The solo top-10 remains a Single Player leaderboard. Lifetime batting totals record the human
   player's stats in either mode; AI batting stats are kept on the opponent row only.
 - The live opponent reuses the physics-driven pinball controller from the headless balance bot. It

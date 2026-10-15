@@ -591,6 +591,19 @@ export class GameRules {
     this.buttons.L = false;
     this.buttons.R = false;
     this.machine.holdBall();
+
+    // The home team (human) does not bat in the bottom of the final inning when it already leads
+    // after the away team's top half is complete.
+    if (
+      this.vsAi &&
+      this.battingSide === 'ai' &&
+      this.inning >= this.innings &&
+      this.humanStats.runs > this.aiStats.runs
+    ) {
+      this.gameOver();
+      return;
+    }
+
     this.state = 'INNING_BREAK';
     this.after(this.timing.inningBreak, () => {
       if (this.vsAi && this.battingSide === 'ai') {
