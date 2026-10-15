@@ -122,9 +122,9 @@ describe('adaptive controller on a phone (sustained load)', () => {
 
   it('steps down one tier after about 5 s under 50 fps', () => {
     const { c, seen } = make(TIERS.medium);
-    let now = run(c, 250, 22); // ~5.5 s: the 1.5 s settle, then ~4 s of windows
+    const now = run(c, 250, 22); // ~5.5 s: the 1.5 s settle, then ~4 s of windows
     expect(seen).toEqual([]);
-    now = run(c, 150, 22, now);
+    run(c, 150, 22, now);
     expect(seen).toEqual(['low']);
   });
 
