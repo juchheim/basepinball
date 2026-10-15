@@ -63,7 +63,7 @@ import {
   settings,
   settingsNote,
   settingsOpen,
-  snapshot,
+  publishSnapshot,
 } from './ui/store';
 
 /**
@@ -826,7 +826,7 @@ async function main(): Promise<void> {
     if (now - lastHud > 100) {
       lastHud = now;
       const snap = rules ? rules.snapshot() : null;
-      if (snap) snapshot.value = snap;
+      if (snap) publishSnapshot(snap);
       stadium.update(snap, BRAND.game);
     }
     view.update(loop.alpha, dt);

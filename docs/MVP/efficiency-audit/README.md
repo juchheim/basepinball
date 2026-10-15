@@ -20,7 +20,13 @@ the fix does to visuals, effort, and how confident the finding is.
     to a mean of 0.0015/255.
   - F8: the crowd's bounce and wave run in its vertex shader. They match the old CPU motion within
     capture noise.
-- **F9–F18:** open.
+- **F9, F10:** done.
+  - F9: muted audio (or master volume at 0) suspends the audio context. The roll loop and crowd bed
+    only schedule changes.
+  - F10: the HUD gets a snapshot only when it changed. The title button's glow animates
+    `opacity` instead of `box-shadow`.
+  - Left out: stopping a bus's sources when that bus alone is at 0.
+- **F11–F18:** open.
 
 ## Headline
 

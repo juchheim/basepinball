@@ -610,19 +610,36 @@ canvas {
   border-radius: 999px;
   background: rgba(242, 179, 61, 0.08);
   text-shadow: 0 0 12px rgba(242, 179, 61, 0.7);
+  position: relative;
   animation: cta-glow 1.2s ease-in-out infinite alternate;
+}
+/* The glow is a fixed shadow on a layer of its own that fades in and out: animating opacity runs on
+   the compositor, where animating box-shadow repainted every frame (docs/MVP/efficiency-audit F10). */
+.cta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 22px rgba(242, 179, 61, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  animation: cta-halo 1.2s ease-in-out infinite alternate;
 }
 @keyframes cta-glow {
   from {
     opacity: 0.6;
-    box-shadow: 0 0 0 rgba(242, 179, 61, 0);
   }
   to {
     opacity: 1;
-    box-shadow: 0 0 22px rgba(242, 179, 61, 0.45);
+  }
+}
+@keyframes cta-halo {
+  to {
+    opacity: 1;
   }
 }
 .ui.reduced .cta,
+.ui.reduced .cta::after,
 .ui.reduced .chip.hot,
 .ui.reduced .chip.throwback,
 .ui.reduced .chip.hustle.ready {

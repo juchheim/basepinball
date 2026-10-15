@@ -18,6 +18,21 @@ export interface Callout {
 
 export const screen = signal<Screen>('title');
 export const snapshot = signal<GameSnapshot | null>(null);
+
+let snapshotKey = '';
+
+/**
+ * Hand the HUD a new game snapshot, only if something in it changed. `GameRules.snapshot()`
+ * builds a fresh object every call, so publishing each one re-rendered the HUD ten times a second
+ * for nothing (docs/MVP/efficiency-audit F10). The snapshot is small and has plain values, so
+ * comparing its JSON is cheap and catches every field, including the stats mutated in place.
+ */
+export function publishSnapshot(g: GameSnapshot): void {
+  const key = JSON.stringify(g);
+  if (key === snapshotKey) return;
+  snapshotKey = key;
+  snapshot.value = g;
+}
 export const callout = signal<Callout | null>(null);
 export const finalStats = signal<GameStats | null>(null);
 export const highScores = signal<HighScore[]>([]);
