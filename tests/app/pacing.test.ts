@@ -76,6 +76,15 @@ describe('frameInterval', () => {
     expect(frameInterval({ ...base, mode: 'attract', tier: 'medium', boosted: true })).toBe(0);
   });
 
+  it('Battery saver caps play at 60 and slows the title screen on every tier', () => {
+    expect(frameInterval({ ...base, mode: 'play', setting: 'max', saver: true })).toBeCloseTo(
+      1000 / 60,
+    );
+    expect(frameInterval({ ...base, mode: 'attract', tier: 'high', saver: true })).toBeCloseTo(
+      1000 / 30,
+    );
+  });
+
   it('draws the menus at 10 fps', () => {
     expect(frameInterval({ ...base, mode: 'idle' })).toBe(100);
     expect(frameInterval({ ...base, mode: 'idle', boosted: true })).toBe(100);

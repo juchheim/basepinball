@@ -21,6 +21,7 @@ import { rampBumperMesh, type Tri } from '../table/rampBumper';
 import { Spring } from '../fx/anim';
 import { Particles } from '../fx/particles';
 import { Figures } from './figures';
+import { LampBatch } from './lampBatch';
 import { toBackdrop } from './layers';
 
 /**
@@ -181,6 +182,10 @@ const mats = {
 
 /** Scratch vector for the ball's position in `updateReflections`. */
 const reflectionPos = new THREE.Vector3();
+/** Per-frame scratch for the balls and the trail (nothing allocated a frame, efficiency audit F11). */
+const scratchQa = new THREE.Quaternion();
+const scratchQb = new THREE.Quaternion();
+const scratchMatrix = new THREE.Matrix4();
 
 /** A soft round glow (white centre fading to nothing), shared by every lamp and pop halo. */
 let haloTexture: THREE.Texture | null = null;
@@ -239,21 +244,6 @@ function popCapTexture(color: number, label: string): THREE.Texture {
   return t;
 }
 
-/**
- * Light spilling from a lit insert onto the clear coat round it (docs/MVP/05 § 6: glow decals):
- * an additive disc whose strength follows the lamp.
- */
-function haloMaterial(color: number): THREE.MeshBasicMaterial {
-  return new THREE.MeshBasicMaterial({
-    color,
-    map: getHaloTexture(),
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-}
-
 function materialFor(name: string): THREE.Material {
   if (name === 'wood') return mats.wood;
   if (name.startsWith('rubber')) return mats.rubber;
@@ -262,18 +252,29 @@ function materialFor(name: string): THREE.Material {
 
 export type LampMode = 'off' | 'on' | 'blink';
 
-/** An emissive material that can flash (pop caps, sling rubbers, targets, lamps). */
+/** Something emissive that can flash (pop caps, sling rubbers, targets, lamps). */
 interface Light {
-  material: THREE.MeshStandardMaterial;
+  /** Sets its emissive intensity: a material's own, or a batched lamp's (see `LampBatch`). */
+  glow: (intensity: number) => void;
   base: number;
   level: number;
   /** Steady state (lamps); 'blink' flashes at 2.5 Hz (under the 3 Hz photosensitivity cap). */
   mode: LampMode;
   /** Emissive intensity added while lit (default 1.6). */
   boost?: number;
-  /** The glow on the playfield round it, and its strength at full brightness. */
-  halo?: THREE.MeshBasicMaterial;
+  /** Sets the opacity of the glow on the playfield round it; its strength at full brightness. */
+  halo?: (opacity: number) => void;
   haloMax?: number;
+}
+
+/**
+ * The intensity setter for a material of its own. Only a changed value is written: most lamps are
+ * steady most of the time, and each write means a uniform upload (efficiency audit F12).
+ */
+function glowOf(m: THREE.MeshStandardMaterial): (intensity: number) => void {
+  return (v) => {
+    if (m.emissiveIntensity !== v) m.emissiveIntensity = v;
+  };
 }
 
 /** A mesh from triangles given in mm (the wedge on the mound). */
@@ -296,21 +297,6 @@ function glowMaterial(color: number, base = 0): THREE.MeshStandardMaterial {
   return m;
 }
 
-/**
- * A playfield insert: tinted plastic that is dark (but clearly coloured) when off and burns
- * bright when lit, so lit and unlit lamps read apart at a glance.
- */
-function insertMaterial(color: number): THREE.MeshPhysicalMaterial {
-  return new THREE.MeshPhysicalMaterial({
-    color: new THREE.Color(color).multiplyScalar(0.22),
-    roughness: 0.2,
-    clearcoat: 1,
-    clearcoatRoughness: 0.04,
-    emissive: new THREE.Color(color),
-    emissiveIntensity: 0.12,
-  });
-}
-
 export class TableView {
   readonly group = new THREE.Group();
   readonly floor: THREE.Mesh;
@@ -330,6 +316,8 @@ export class TableView {
   private readonly spinnerMeshes = new Map<string, THREE.Object3D>();
   private plungerRod: THREE.Object3D | null = null;
   private readonly lights = new Map<string, Light[]>();
+  /** Lamp inserts and halos, drawn as three instanced meshes. */
+  private readonly lamps = new LampBatch();
   private readonly ballMeshes: THREE.Mesh[] = [];
   /** A short streak behind a fast ball (docs/MVP/05 § 4), built on the first ball. */
   private trail: THREE.InstancedMesh | null = null;
@@ -366,6 +354,7 @@ export class TableView {
     for (const el of table.elements) this.addElement(el);
     for (const f of world.flippers) this.addFlipper(f);
     this.flushStatic();
+    this.lamps.build(this.group, getHaloTexture());
     this.figures = new Figures(table, this.standeeSpots, this.particles);
     this.group.add(toBackdrop(this.particles.group), this.figures.group);
 
@@ -562,11 +551,12 @@ export class TableView {
       for (const l of list) {
         const lit = l.mode === 'on' || (l.mode === 'blink' && blinkOn);
         const extra = (lit ? (l.boost ?? 1.6) : 0) + l.level * 4;
-        l.material.emissiveIntensity = l.base + extra;
-        if (l.halo) l.halo.opacity = Math.min(1, extra / (l.boost ?? 1.6)) * (l.haloMax ?? 0.8);
+        l.glow(l.base + extra);
+        l.halo?.(Math.min(1, extra / (l.boost ?? 1.6)) * (l.haloMax ?? 0.8));
         l.level = Math.max(0, l.level - dtSeconds * 6);
       }
     }
+    this.lamps.flush();
 
     // Balls: create meshes on demand, interpolate between physics states.
     const balls = this.world.balls;
@@ -577,8 +567,8 @@ export class TableView {
       this.ballMeshes.push(m);
       this.group.add(m);
     }
-    const qa = new THREE.Quaternion();
-    const qb = new THREE.Quaternion();
+    const qa = scratchQa;
+    const qb = scratchQb;
     this.ballMeshes.forEach((m, i) => {
       const b = balls[i];
       // A parked ball (the souvenir in the Bleachers) is on show too.
@@ -630,7 +620,7 @@ export class TableView {
     if (!this.trail.visible || !b || !mesh) return;
     // 40 ms of travel back along the velocity (~12 cm at 3 m/s), never more than 14 cm.
     const back = Math.min(0.04, 0.14 / speed);
-    const m = new THREE.Matrix4();
+    const m = scratchMatrix;
     for (let i = 0; i < N; i++) {
       const t = ((i + 1) / N) * back;
       const s = (1 - t / back) * k * 0.95;
@@ -751,7 +741,7 @@ export class TableView {
           mats.plastic,
         );
         const rubber = glowMaterial(0xf2f2f2);
-        this.addLight(el.id, { material: rubber, base: 0, level: 0, mode: 'off' });
+        this.addLight(el.id, { glow: glowOf(rubber), base: 0, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.boxGeometry(el.top, el.bottom, 6, 22), rubber);
         m.castShadow = true;
         this.group.add(m);
@@ -781,20 +771,19 @@ export class TableView {
         const cap = glowMaterial(0xffffff, 0.3);
         cap.map = cap.emissiveMap = popCapTexture(el.color ?? 0xf4efe1, el.label ?? '');
         cap.roughness = 0.15;
-        // The flash lights up the playfield round the bumper.
-        const halo = haloMaterial(el.color ?? 0xf4efe1);
-        const pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), halo);
-        pool.scale.setScalar(el.radius * MM * 6);
-        pool.position.set(el.x * MM, el.y * MM, 0.0006);
-        pool.renderOrder = 1;
-        this.group.add(pool);
+        // The flash lights up the playfield round the bumper (a halo in the lamp batch).
         this.addLight(el.id, {
-          material: cap,
+          glow: glowOf(cap),
           base: 0.3,
           level: 0,
           mode: 'off',
           boost: 1.6,
-          halo,
+          halo: this.lamps.addHalo({
+            x: el.x,
+            y: el.y,
+            size: el.radius * MM * 6,
+            color: el.color ?? 0xf4efe1,
+          }),
           haloMax: 0.35,
         });
         const m = new THREE.Mesh(this.cylinderGeometry(el.x, el.y, el.radius + 8, 8, 32), cap);
@@ -816,7 +805,7 @@ export class TableView {
         // The bumper glows all the time (more when it fires), so it reads from the flippers.
         const face = glowMaterial(el.color ?? 0xf4efe1, 1.4);
         face.side = THREE.DoubleSide;
-        this.addLight(el.id, { material: face, base: 1.4, level: 0, mode: 'off' });
+        this.addLight(el.id, { glow: glowOf(face), base: 1.4, level: 0, mode: 'off' });
         const band = new THREE.Mesh(triGeometry(mesh.skirt), face);
         band.castShadow = true;
         holder.add(ramp, band);
@@ -831,7 +820,7 @@ export class TableView {
         const mat = glowMaterial(color, 0.05);
         // Standups glow strongly once lit, so a hit letter is easy to see from the flippers.
         this.addLight(el.id, {
-          material: mat,
+          glow: glowOf(mat),
           base: 0.05,
           level: 0,
           mode: 'off',
@@ -864,14 +853,20 @@ export class TableView {
           const pad = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.94, 0.017), padMat);
           pad.position.set(0, side * 0.015, 0.0007);
           holder.add(pad);
-          this.addLight(el.id, { material: padMat, base: 0, level: 0, mode: 'off', boost: 3.5 });
+          this.addLight(el.id, {
+            glow: glowOf(padMat),
+            base: 0,
+            level: 0,
+            mode: 'off',
+            boost: 3.5,
+          });
           this.lampLink.set(`lamp.${el.id}`, el.id);
         }
         break;
       }
       case 'kicker': {
         const mat = glowMaterial(0xff9f1c, 0.15);
-        this.addLight(el.id, { material: mat, base: 0.15, level: 0, mode: 'off' });
+        this.addLight(el.id, { glow: glowOf(mat), base: 0.15, level: 0, mode: 'off' });
         const m = new THREE.Mesh(this.boxGeometry(el.a, el.b, 6, 25), mat);
         this.group.add(m);
         {
@@ -1011,39 +1006,27 @@ export class TableView {
         break;
       }
       case 'lamp': {
-        const mat = insertMaterial(el.color);
-        const halo = haloMaterial(el.color);
-        const glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), halo);
-        glow.scale.setScalar(el.radius * MM * (el.arrow !== undefined ? 6 : 5.5));
-        glow.position.set(el.x * MM, el.y * MM, 0.0006);
-        glow.renderOrder = 1;
-        this.group.add(glow);
+        // Batched with the other lamps (see `LampBatch`): a round or arrow insert and its halo.
         this.addLight(el.id, {
-          material: mat,
+          glow: this.lamps.addInsert({
+            x: el.x,
+            y: el.y,
+            r: el.radius,
+            arrow: el.arrow,
+            color: el.color,
+          }),
           base: 0.12,
           level: 0,
           mode: 'off',
           boost: 2.6,
-          halo,
+          halo: this.lamps.addHalo({
+            x: el.x,
+            y: el.y,
+            size: el.radius * MM * (el.arrow !== undefined ? 6 : 5.5),
+            color: el.color,
+          }),
           haloMax: 0.55,
         });
-        let geom: THREE.BufferGeometry;
-        if (el.arrow !== undefined) {
-          const r = el.radius * MM;
-          const s = new THREE.Shape();
-          s.moveTo(r * 1.4, 0);
-          s.lineTo(-r, r);
-          s.lineTo(-r * 0.4, 0);
-          s.lineTo(-r, -r);
-          s.closePath();
-          geom = new THREE.ShapeGeometry(s);
-          geom.rotateZ((el.arrow * Math.PI) / 180);
-        } else {
-          geom = new THREE.CircleGeometry(el.radius * MM, 24);
-        }
-        const m = new THREE.Mesh(geom, mat);
-        m.position.set(el.x * MM, el.y * MM, 0.0004);
-        this.group.add(m);
         break;
       }
       case 'magnet':

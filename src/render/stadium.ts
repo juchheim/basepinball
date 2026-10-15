@@ -416,20 +416,25 @@ export class Stadium {
       emissiveIntensity: 0.55,
       roughness: 0.4,
     });
+    const rails: THREE.Mesh[] = [];
+    const trims: THREE.Mesh[] = [];
+    const pins: THREE.Mesh[] = [];
     for (const x of [-0.016, W + 0.016]) {
       const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, L + 0.06, 0.07), armour);
       rail.position.set(x, L / 2, 0.02);
-      rail.castShadow = true;
-      rail.receiveShadow = true;
-      this.group.add(rail);
+      rails.push(rail);
       const inner = x < 0 ? x + 0.012 : x - 0.012;
       const trim = new THREE.Mesh(new THREE.BoxGeometry(0.006, L + 0.06, 0.004), chrome);
       trim.position.set(inner, L / 2, 0.056);
-      this.group.add(trim);
+      trims.push(trim);
       const pin = new THREE.Mesh(new THREE.BoxGeometry(0.0016, L + 0.06, 0.001), stripe);
       pin.position.set(x < 0 ? inner + 0.0048 : inner - 0.0048, L / 2, 0.0552);
-      this.group.add(pin);
+      pins.push(pin);
     }
+    const railMesh = merged(rails);
+    railMesh.castShadow = true;
+    railMesh.receiveShadow = true;
+    this.group.add(railMesh, merged(trims), merged(pins));
     // Brushed rather than mirror chrome on the lockdown bar, so it does not flare at the bottom
     // of the screen.
     const brushed = new THREE.MeshStandardMaterial({
@@ -475,14 +480,16 @@ export class Stadium {
     });
     // Body: sides and front under the rails, down to the legs.
     const depth = 0.3;
+    const body: THREE.Mesh[] = [];
     for (const x of [-0.016, W + 0.016]) {
       const side = new THREE.Mesh(new THREE.BoxGeometry(0.026, L + 0.06, depth), armour);
       side.position.set(x, L / 2, -0.015 - depth / 2);
-      this.group.add(toBackdrop(side));
+      body.push(side);
     }
     const front = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.026, depth), armour);
     front.position.set(W / 2, -0.03, -0.015 - depth / 2);
-    this.group.add(toBackdrop(front));
+    body.push(front);
+    this.group.add(toBackdrop(merged(body)));
     // Chrome legs at the corners.
     const chrome = new THREE.MeshStandardMaterial({
       color: 0xd8dce4,
@@ -490,6 +497,7 @@ export class Stadium {
       metalness: 1,
     });
     const legLength = -FLOOR - depth;
+    const legs: THREE.Mesh[] = [];
     for (const [x, y] of [
       [0.01, 0.02],
       [W - 0.01, 0.02],
@@ -498,8 +506,9 @@ export class Stadium {
     ] as const) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, legLength), chrome);
       leg.position.set(x, y, FLOOR + legLength / 2);
-      this.group.add(toBackdrop(leg));
+      legs.push(leg);
     }
+    this.group.add(toBackdrop(merged(legs)));
     // The grass.
     const c = document.createElement('canvas');
     c.width = c.height = 1024;
@@ -724,13 +733,15 @@ export class Stadium {
     this.group.add(toBackdrop(mesh));
   }
 
+  private readonly flashMatrix = new THREE.Matrix4();
+
   private tickFlashes(dt: number): void {
     const mesh = this.flashes;
     if (!mesh || this.crowdBase.length === 0) return;
     // A steady trickle, a storm when the crowd is on its feet.
     this.flashBudget += dt * (this.flashesEnabled ? 1.2 + this.energy * 30 : 0);
     let changed = false;
-    const m = new THREE.Matrix4();
+    const m = this.flashMatrix;
     for (let i = 0; i < this.flashLife.length; i++) {
       if (this.flashLife[i]! > 0) {
         this.flashLife[i]! -= dt;
@@ -761,22 +772,25 @@ export class Stadium {
     });
     const lamp = this.towerLamp;
     const target = new THREE.Vector3(W / 2, L * 0.55, 0);
+    const steelParts: THREE.Mesh[] = [];
+    const bulbs: THREE.Mesh[] = [];
     for (const head of this.towerHeads) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.009, head.z, 10), steel);
       pole.rotation.x = Math.PI / 2;
       pole.position.set(head.x, head.y, head.z / 2);
-      this.group.add(pole);
       const bank = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.05), steel);
       bank.position.copy(head);
       bank.lookAt(target);
-      this.group.add(bank);
+      steelParts.push(pole, bank);
       for (let i = 0; i < 6; i++) {
         const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.004, 0.012), lamp);
         bulb.position.set(-0.033 + (i % 3) * 0.033, -0.008, i < 3 ? 0.012 : -0.012);
         bank.add(bulb);
+        bulbs.push(bulb);
       }
       this.group.add(toBackdrop(this.lightShaft(head, target)));
     }
+    this.group.add(merged(steelParts), merged(bulbs));
   }
 
   /**
@@ -814,17 +828,20 @@ export class Stadium {
     // concourse lights along its front edge.
     const concrete = new THREE.MeshStandardMaterial({ color: 0x070b17, roughness: 0.95 });
     const strips: THREE.BufferGeometry[] = [];
+    const tiers: THREE.Mesh[] = [];
     for (let row = 0; row < 7; row++) {
       const y = L + 0.07 + row * 0.044;
       const z = 0.24 + row * 0.036;
       const tier = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.044, 0.04), concrete);
       tier.position.set(W / 2, y, z);
-      tier.receiveShadow = true;
-      this.group.add(toBackdrop(tier));
+      tiers.push(tier);
       strips.push(
         new THREE.BoxGeometry(W + 0.5, 0.0008, 0.0008).translate(W / 2, y - 0.023, z + 0.019),
       );
     }
+    const stands = merged(tiers);
+    stands.receiveShadow = true;
+    this.group.add(toBackdrop(stands));
     this.group.add(
       toBackdrop(
         new THREE.Mesh(
@@ -856,4 +873,17 @@ export class Stadium {
       ),
     );
   }
+}
+
+/**
+ * Static parts that share a material, baked into one mesh (docs/MVP/efficiency-audit F13): each
+ * part's transform (with its parent's, for parts on a detached holder) goes into the geometry, so
+ * the parts draw once, in every pass, instead of once each.
+ */
+function merged(parts: THREE.Mesh[]): THREE.Mesh {
+  const geometries = parts.map((p) => {
+    p.updateWorldMatrix(true, false);
+    return p.geometry.clone().applyMatrix4(p.matrixWorld);
+  });
+  return new THREE.Mesh(mergeGeometries(geometries)!, parts[0]!.material);
 }

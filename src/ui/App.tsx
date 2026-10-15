@@ -414,6 +414,9 @@ function SettingsPanel({ actions }: { actions: UiActions }) {
         ],
         (frameRate) => actions.updateSettings({ frameRate }),
       )}
+      {toggle('Battery saver', st.batterySaver, (batterySaver) =>
+        actions.updateSettings({ batterySaver }),
+      )}
       {choice(
         'Graphics',
         st.graphics,

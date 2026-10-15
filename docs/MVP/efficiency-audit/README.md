@@ -26,7 +26,18 @@ the fix does to visuals, effort, and how confident the finding is.
   - F10: the HUD gets a snapshot only when it changed. The title button's glow animates
     `opacity` instead of `box-shadow`.
   - Left out: stopping a bus's sources when that bus alone is at 0.
-- **F11–F18:** open.
+- **F11, F13, F16:** done.
+  - F11: the frame loop no longer allocates. Lamp state, lamp shows, scratch vectors and
+    matrices are reused, and the game snapshot is built ~10 times a second.
+  - F13: the lamp inserts and halos are batched into three instanced meshes (`src/render/lampBatch.ts`),
+    and the static stadium parts are merged. Medium draws went from 242 to 154 a frame, and the
+    image is unchanged apart from the clock-driven marquee.
+  - F16: on phones, quality steps down after about 5 s under 50 fps. There's a new Settings option,
+    Battery saver: Medium quality at most, 60 fps at most, a 30 fps title screen and a slower
+    reflection refresh.
+  - Partly from F12: a light's material is only written when its intensity changes.
+  - Left out of F16: GPU-timestamp measurement and the `getBattery()` suggestion.
+- **F14, F15, F17, F18:** open.
 
 ## Headline
 

@@ -11,6 +11,8 @@ import type { TierName } from '../render/quality';
  *   anyway; any input brings back the play rate for a few seconds, so the flippers stay crisp.
  * - Idle (paused, settings, how to play, game over, high scores): 10 fps. Nothing in play moves;
  *   the stadium details (marquee chase, blinking lamps at 2.5 Hz, camera flashes) still read.
+ * - Battery saver caps play at 60 whatever the Frame rate setting, and slows attract mode on every
+ *   tier.
  */
 
 export type FrameRateSetting = 'auto' | '60' | 'max';
@@ -30,10 +32,13 @@ export function frameInterval(o: {
   tier: TierName;
   /** An input arrived within the last `INPUT_BOOST_MS`. */
   boosted: boolean;
+  /** The Battery saver setting. */
+  saver?: boolean;
 }): number {
   if (o.mode === 'idle') return FPS10;
-  if (o.mode === 'attract' && !o.boosted && (o.tier === 'low' || o.tier === 'medium')) return FPS30;
-  return o.setting === '60' || (o.setting === 'auto' && o.mobile) ? FPS60 : 0;
+  const lowTier = o.tier === 'low' || o.tier === 'medium';
+  if (o.mode === 'attract' && !o.boosted && (lowTier || o.saver)) return FPS30;
+  return o.saver || o.setting === '60' || (o.setting === 'auto' && o.mobile) ? FPS60 : 0;
 }
 
 /**

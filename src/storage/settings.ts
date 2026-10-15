@@ -34,6 +34,11 @@ export interface Settings {
   quality: QualitySetting;
   /** Drawing rate: '60' caps it (saves battery on 90/120 Hz screens); 'auto' caps phones only. */
   frameRate: FrameRateSetting;
+  /**
+   * Battery saver: Medium quality at most, 60 fps at most, a slower title screen and a less
+   * frequently refreshed ball reflection.
+   */
+  batterySaver: boolean;
   /** 'compat' forces the WebGL2 backend (a reload applies it); 'auto' prefers WebGPU. */
   graphics: 'auto' | 'compat';
   /** Vibration (Android) and gamepad rumble. */
@@ -63,6 +68,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hudScale: 'normal',
   quality: 'auto',
   frameRate: 'auto',
+  batterySaver: false,
   graphics: 'auto',
   haptics: true,
   motionNudge: false,
@@ -120,6 +126,7 @@ export function sanitize(data: unknown): Settings {
   if (o.frameRate === 'auto' || o.frameRate === '60' || o.frameRate === 'max')
     d.frameRate = o.frameRate;
   if (o.graphics === 'auto' || o.graphics === 'compat') d.graphics = o.graphics;
+  if (typeof o.batterySaver === 'boolean') d.batterySaver = o.batterySaver;
   if (typeof o.haptics === 'boolean') d.haptics = o.haptics;
   if (typeof o.motionNudge === 'boolean') d.motionNudge = o.motionNudge;
   const keys = (o.keys ?? {}) as Record<string, unknown>;
