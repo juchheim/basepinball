@@ -651,7 +651,10 @@ export class TableView {
       const merged = mergeGeometries(geometries, false);
       if (!merged) continue;
       const mesh = new THREE.Mesh(merged, material);
-      mesh.castShadow = material !== mats.rampHR && material !== mats.rampSteal;
+      // Clear ramps cast no shadow; nor do the rollover sensors, 0.6 mm tall, whose shadow is
+      // smaller than a shadow-map texel (one draw fewer in every shadow pass).
+      mesh.castShadow =
+        material !== mats.rampHR && material !== mats.rampSteal && material !== mats.sensor;
       mesh.receiveShadow = true;
       this.group.add(mesh);
     }

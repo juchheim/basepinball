@@ -13,6 +13,8 @@ import type { TierName } from '../render/quality';
  *   the stadium details (marquee chase, blinking lamps at 2.5 Hz, camera flashes) still read.
  * - Battery saver caps play at 60 whatever the Frame rate setting, and slows attract mode on every
  *   tier.
+ * - Attract mode left alone for two minutes stops drawing altogether until the next key, tap or
+ *   button, as a cabinet dims its attract show (docs/MVP/efficiency-audit F6).
  */
 
 export type FrameRateSetting = 'auto' | '60' | 'max';
@@ -23,8 +25,10 @@ const FPS30 = 1000 / 30;
 const FPS10 = 1000 / 10;
 /** How long an input keeps attract mode at the play rate (ms). */
 export const INPUT_BOOST_MS = 3000;
+/** How long attract mode runs with nobody there before it stops drawing (ms). */
+export const ATTRACT_SLEEP_MS = 120_000;
 
-/** The minimum time between drawn frames (ms), 0 = every display frame. */
+/** The minimum time between drawn frames (ms): 0 = every display frame, Infinity = none. */
 export function frameInterval(o: {
   mode: PaceMode;
   setting: FrameRateSetting;
@@ -34,8 +38,11 @@ export function frameInterval(o: {
   boosted: boolean;
   /** The Battery saver setting. */
   saver?: boolean;
+  /** Time since the player last did anything (ms). */
+  sinceActivity?: number;
 }): number {
   if (o.mode === 'idle') return FPS10;
+  if (o.mode === 'attract' && (o.sinceActivity ?? 0) >= ATTRACT_SLEEP_MS) return Infinity;
   const lowTier = o.tier === 'low' || o.tier === 'medium';
   if (o.mode === 'attract' && !o.boosted && (lowTier || o.saver)) return FPS30;
   return o.saver || o.setting === '60' || (o.setting === 'auto' && o.mobile) ? FPS60 : 0;
@@ -51,6 +58,7 @@ export class FramePacer {
   private next = -Infinity;
 
   shouldDraw(now: number, interval: number): boolean {
+    if (interval === Infinity) return false;
     if (interval <= 0) {
       this.next = -Infinity;
       return true;

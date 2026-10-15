@@ -172,6 +172,19 @@ interface DropTarget {
 
 const MM = 0.001;
 
+/** Still steps (0.1 s at 1 kHz) before the world may sleep (see `World.idle`). */
+const SLEEP_AFTER = 100;
+
+/**
+ * Whether the first `n` values of two state fingerprints agree to within 1e-12. A resting ball is
+ * not quite a fixed point: contact solving leaves it flickering between two states a last bit (or
+ * 1e-19 m/s) apart. That is far below anything physical, and the world sleeps through it.
+ */
+function sameState(a: number[], b: number[], n: number): boolean {
+  for (let i = 0; i < n; i++) if (Math.abs(a[i]! - b[i]!) > 1e-12) return false;
+  return true;
+}
+
 /** A ball out of touch with a flipper this long (s) touches it afresh (a new swing). */
 const SWING_GAP = 0.05;
 
@@ -536,6 +549,8 @@ export class World {
 
   step(): void {
     const dt = this.dt;
+    const events = this.events.length;
+    const impacts = this.impacts.length;
     for (const b of this.balls) b.savePrevious();
     for (const f of this.flippers) f.prevTheta = f.theta;
 
@@ -559,7 +574,127 @@ export class World {
     }
     this.updateDevices(dt);
     this.stepCount++;
+    // A step that changed nothing and raised nothing counts toward sleep (see `idle`).
+    const fpN = this.fingerprint(this.fpNow);
+    const still =
+      this.events.length === events &&
+      this.impacts.length === impacts &&
+      fpN === this.fpLength &&
+      sameState(this.fpNow, this.fpLast, fpN);
+    // This step's state becomes the one to compare against.
+    const last = this.fpLast;
+    this.fpLast = this.fpNow;
+    this.fpNow = last;
+    this.fpLength = fpN;
+    this.restingSteps = still ? this.restingSteps + 1 : 0;
   }
+
+  /**
+   * Physics sleep (docs/MVP/efficiency-audit F17). A step is a function of the world's state, so
+   * once steps stop changing anything (a ball resting on the plunger, or held in a saucer, with the
+   * flippers down), the next one would change nothing either, and simulating it is wasted work:
+   * a thousand steps a second through attract mode, the pitch windup and the gaps between balls.
+   *
+   * After {@link SLEEP_AFTER} still steps, `idle()` advances time by one step without simulating,
+   * and returns true. It returns false (the caller then steps for real) the moment anything is
+   * different from the last real step: an input, a rules command (a pitch, a saucer kick, a magnet),
+   * a reset or a new ball. It also refuses while time itself could change a step's outcome: while
+   * any cooldown is pending, or a flipper is held (swing timing). So sleeping gives the state and
+   * the events stepping would have, to within 1e-12 (and the ball's orientation, which no step
+   * reads, stays put).
+   */
+  idle(): boolean {
+    if (this.restingSteps < SLEEP_AFTER) return false;
+    for (const f of this.flippers) if (f.pressed) return false;
+    for (const until of this.cooldowns.values()) if (until > this.time) return false;
+    const n = this.fingerprint(this.fpNow);
+    if (n !== this.fpLength || !sameState(this.fpNow, this.fpLast, n)) {
+      this.restingSteps = 0;
+      return false;
+    }
+    this.time += this.dt;
+    this.stepCount++;
+    return true;
+  }
+
+  /** Steps in a row that changed nothing (see `idle`). */
+  restingSteps = 0;
+  private fpNow: number[] = [];
+  private fpLast: number[] = [];
+  private fpLength = -1;
+
+  /**
+   * Everything a step reads that can change, written into `out`; returns how many values. Balls,
+   * flippers, plunger, spinners, risers, magnets, kickbacks, drop targets, saucers, the tilt bob,
+   * and the switches and settings rules and the debug panel can change.
+   */
+  private fingerprint(out: number[]): number {
+    this.fpOut = out;
+    this.fpI = 0;
+    const put = this.put;
+    put(this.balls.length);
+    for (const b of this.balls) {
+      put(b.px);
+      put(b.py);
+      put(b.pz);
+      put(b.vx);
+      put(b.vy);
+      put(b.vz);
+      put(b.wx);
+      put(b.wy);
+      put(b.wz);
+      // Not the orientation: a sphere's orientation changes nothing in a step, and a ball resting
+      // on the plunger turns in place by about a degree a minute, which would keep it awake.
+      put(b.active ? 1 : 0);
+      put(b.parkedIn === null ? 0 : 1);
+    }
+    for (const f of this.flippers) {
+      put(f.theta);
+      put(f.omega);
+      put(f.pressed ? 1 : 0);
+    }
+    const pl = this.plunger;
+    if (pl) {
+      put(pl.pull);
+      put(pl.pullTarget);
+      put(pl.pressed ? 1 : 0);
+    }
+    for (const s of this.spinners.values()) {
+      put(s.angle);
+      put(s.omega);
+    }
+    for (const r of this.retractables) {
+      put(r.lift);
+      put(r.raised ? 1 : 0);
+    }
+    for (const m of this.magnets) put(m.power);
+    for (const k of this.kickbacks) put(k.armed ? 1 : 0);
+    for (const d of this.drops.values()) put(d.down ? 1 : 0);
+    for (const s of this.saucers) {
+      put(s.settle);
+      put(s.holding ? 1 : 0);
+      put(s.settling ? this.balls.indexOf(s.settling) : -1);
+      put(s.ball ? this.balls.indexOf(s.ball) : -1);
+    }
+    for (const v of this.popKicks.values()) put(v);
+    put(this.bob.x);
+    put(this.bob.y);
+    put(this.bob.vx);
+    put(this.bob.vy);
+    put(this.gx);
+    put(this.gy);
+    put(this.gz);
+    put(this.actuatorsEnabled ? 1 : 0);
+    put(this.flippersEnabled ? 1 : 0);
+    return this.fpI;
+  }
+
+  private fpOut: number[] = [];
+  private fpI = 0;
+  /** Writes the next fingerprint value (an arrow field: bound once, no closure per step). */
+  private readonly put = (v: number): void => {
+    this.fpOut[this.fpI++] = v;
+  };
 
   private substep(h: number): void {
     const p = this.params;

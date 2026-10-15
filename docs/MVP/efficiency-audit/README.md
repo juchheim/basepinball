@@ -37,7 +37,16 @@ the fix does to visuals, effort, and how confident the finding is.
     reflection refresh.
   - Partly from F12: a light's material is only written when its intensity changes.
   - Left out of F16: GPU-timestamp measurement and the `getBattery()` suggestion.
-- **F14, F15, F17, F18:** open.
+- **F6 (rest), F17, and part of F18:** done.
+  - F6: the title screen stops drawing after 2 minutes with no input. The crowd goes quiet,
+    and the loop checks four times a second instead of every refresh. A key, a tap, a gamepad
+    button or the tab coming back wakes it.
+  - F17: physics sleeps once 100 steps in a row change nothing (to within 1e-12) and raise no
+    events. Only time advances, and the per-step rules and timers keep running. Any change wakes
+    it. It won't sleep while a cooldown is pending or a flipper is held.
+  - F18: gamepads are only polled after one connects. The 0.6 mm rollover sensors no longer cast
+    shadows (no visible change). The apron keeps its shadow: the A/B test showed it's visible.
+- **F14, F15, rest of F18:** open. F15 is waiting for on-device measurements.
 
 ## Headline
 

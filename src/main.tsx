@@ -791,6 +791,24 @@ async function main(): Promise<void> {
   // a slower stretch), so a deliberately slow menu never reads as a struggling device.
   let judge = false;
   let wasFullRate = false;
+  // Attract mode with nobody there stops drawing (see `ATTRACT_SLEEP_MS`); the crowd goes quiet
+  // and the loop checks in four times a second (for a gamepad button) instead of every refresh.
+  // A key, a tap or the tab coming back wakes it at once.
+  let lastActivity = performance.now();
+  let attractAsleep = false;
+  let sleepTimer: ReturnType<typeof setTimeout> | undefined;
+  const noteActivity = (): void => {
+    lastActivity = performance.now();
+    if (sleepTimer === undefined) return;
+    clearTimeout(sleepTimer);
+    sleepTimer = undefined;
+    requestAnimationFrame(tick);
+  };
+  window.addEventListener('pointerdown', noteActivity, true);
+  window.addEventListener('keydown', noteActivity, true);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) noteActivity();
+  });
   const tick = (now: number): void => {
     if (stopped) return;
     try {
@@ -803,7 +821,21 @@ async function main(): Promise<void> {
         tier: quality.tier.name,
         boosted: now - lastInputAt < INPUT_BOOST_MS,
         saver: cfg.batterySaver,
+        sinceActivity: now - Math.max(lastActivity, lastInputAt),
       });
+      const asleep = interval === Infinity;
+      if (asleep !== attractAsleep) {
+        attractAsleep = asleep;
+        diag.log(asleep ? 'attract asleep' : 'attract awake');
+        if (asleep) {
+          audio.setPaused(true);
+          wasFullRate = false;
+        } else {
+          if (!document.hidden) audio.setPaused(false);
+          loop.resync(now);
+          probeSchedule.wake(now);
+        }
+      }
       if (pacer.shouldDraw(now, interval)) {
         const fullRate = interval <= 1000 / 60 + 0.01;
         judge = fullRate && wasFullRate;
@@ -823,7 +855,12 @@ async function main(): Promise<void> {
         return;
       }
     }
-    requestAnimationFrame(tick);
+    if (attractAsleep) {
+      sleepTimer = setTimeout(() => {
+        sleepTimer = undefined;
+        requestAnimationFrame(tick);
+      }, 250);
+    } else requestAnimationFrame(tick);
   };
   let lastFrameAt = performance.now();
   let slowLogged = 0;

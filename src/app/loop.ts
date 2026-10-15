@@ -57,8 +57,13 @@ export class FixedLoop {
     while (this.simWall + stepMs <= now) {
       const stepEnd = this.simWall + stepMs;
       // Apply every input whose timestamp falls before the end of this step, in order.
-      while (this.queue.length > 0 && this.queue[0]!.time <= stepEnd) this.queue.shift()!.apply(w);
-      w.step();
+      let input = false;
+      while (this.queue.length > 0 && this.queue[0]!.time <= stepEnd) {
+        this.queue.shift()!.apply(w);
+        input = true;
+      }
+      // A resting world only advances its clock (see `World.idle`); anything new steps it.
+      if (input || !w.idle()) w.step();
       this.afterStep();
       this.simWall = stepEnd;
       if (++steps >= this.maxStepsPerFrame) {
