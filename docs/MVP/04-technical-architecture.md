@@ -89,8 +89,9 @@ servicing press/release deadlines every physics step. Before a scheduled press i
 same ball still has a plausible arrival, so a bounce or ball reset cancels stale tracking actions;
 a ball impact during a paddle stroke does not interrupt that stroke. A close-range safety trigger
 also reacts to contact or rolling motion on a resting bat between forecast updates. Easy, Medium and
-Hard vary planning cadence and bounded timing error while keeping the paddle's stroke lead ahead of
-contact. Player-facing AI does not use cradle releases until a controlled release shot is available.
+Hard vary planning cadence, bounded timing error, and target contact point while keeping the paddle's
+stroke lead ahead of contact. Easy aims closer to the flipper pivot for lower-power shots. Player-
+facing AI does not use cradle releases until a controlled release shot is available.
 The same controller is used by the headless balance simulator. This is local play; no network
 service or backend is required, and it is not online multiplayer.
 

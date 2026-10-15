@@ -29,7 +29,7 @@ export interface BotProfile {
   cradle: number;
   /** How often the bot refreshes trajectory plans (s). Paddle deadlines still run every step. */
   thinkInterval?: number;
-  /** Target along the bat for a controlled slow roll, in fractions of its length. */
+  /** Target contact point along the bat for planned strikes and controlled slow rolls. */
   rollTarget?: number;
 }
 
@@ -50,7 +50,8 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
     reactionDelay: 0.09,
     cradle: 0,
     thinkInterval: 0.02,
-    rollTarget: 0.55,
+    // Contact nearer the pivot produces lower-power shots and fewer home runs.
+    rollTarget: 0.4,
   },
   medium: {
     name: 'medium',
