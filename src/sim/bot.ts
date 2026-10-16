@@ -33,6 +33,10 @@ export interface BotProfile {
   rollTarget?: number;
   /** Target contact point for the deliberate shot after releasing a cradle. */
   cradleTarget?: number;
+  /** Hard-only contact target when no runners are on, favoring frequent singles and doubles. */
+  emptyBasesTarget?: number;
+  /** Hard-only contact target with runners on, favoring extra-base hits. */
+  occupiedBasesTarget?: number;
   /** Use bat-supported roll physics when forecasting a ball already resting on a flipper. */
   supportedRollPrediction?: boolean;
   /** Permit a local safety press for a measured near-term contact or tip exit. */
@@ -80,6 +84,8 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
     thinkInterval: 0.004,
     rollTarget: 0.75,
     cradleTarget: 0.76,
+    emptyBasesTarget: 0.6,
+    occupiedBasesTarget: 0.82,
     supportedRollPrediction: true,
     urgentSafety: true,
     catchRange: [0.2, 0.7],
@@ -254,7 +260,7 @@ export class Bot {
 
     for (const side of ['L', 'R'] as const) {
       const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
-      this.updatePaddleOpportunities(world, side, f, now);
+      this.updatePaddleOpportunities(world, rules, side, f, now);
       const plan = this.plans[side];
       if (plan && ballChanges.reset.has(plan.ball)) {
         this.setPressed(world, rules, side, f, false);
@@ -283,7 +289,7 @@ export class Bot {
     }
 
     if (now >= this.nextThinkAt) {
-      for (const side of ['L', 'R'] as const) this.refreshPlan(world, side, now);
+      for (const side of ['L', 'R'] as const) this.refreshPlan(world, rules, side, now);
       this.nextThinkAt = now + (this.profile.thinkInterval ?? 0.02);
     }
   }
@@ -361,8 +367,15 @@ export class Bot {
     return opportunity;
   }
 
+  private targetAlong(rules: GameRules): number {
+    const fallback = this.profile.rollTarget ?? 0.7;
+    if (rules.bases.some(Boolean)) return this.profile.occupiedBasesTarget ?? fallback;
+    return this.profile.emptyBasesTarget ?? fallback;
+  }
+
   private updatePaddleOpportunities(
     world: World,
+    rules: GameRules,
     side: FlipperSide,
     f: Flipper,
     now: number,
@@ -426,7 +439,7 @@ export class Bot {
       opportunity.supported = now - opportunity.lastSupportedAt <= SUPPORT_GAP_GRACE;
       if (!opportunity.supported) opportunity.supportedSince = -1;
 
-      const targetAlong = this.profile.rollTarget ?? 0.7;
+      const targetAlong = this.targetAlong(rules);
       const dwell = opportunity.supportedSince < 0 ? 0 : now - opportunity.supportedSince;
       opportunity.obvious =
         this.profile.attention > 0 &&
@@ -622,7 +635,10 @@ export class Bot {
         plan.catch = false;
         plan.followUp = true;
         plan.targetAlong =
-          this.profile.cradleTarget ?? Math.max(0.7, this.profile.rollTarget ?? 0.7);
+          this.profile.emptyBasesTarget !== undefined ||
+          this.profile.occupiedBasesTarget !== undefined
+            ? this.targetAlong(rules)
+            : (this.profile.cradleTarget ?? Math.max(0.7, this.profile.rollTarget ?? 0.7));
         plan.pressAt = now;
         plan.releaseAt = now + 0.02;
       }
@@ -733,7 +749,7 @@ export class Bot {
         opportunity.contactEta <= lead + 0.006;
       const urgentSafety = this.profile.urgentSafety && (tipUrgent || incomingUrgent);
       const targetNotReached =
-        stillSupported && contact.along < (this.profile.rollTarget ?? 0.7) - 0.012;
+        stillSupported && contact.along < this.targetAlong(rules) - 0.012;
       if (
         this.profile.supportedRollPrediction &&
         targetNotReached &&
@@ -773,7 +789,7 @@ export class Bot {
     this.plans[side] = {
       ball: chosen,
       phase: 'striking',
-      targetAlong: this.profile.rollTarget ?? 0.7,
+      targetAlong: this.targetAlong(rules),
       catch: false,
       followUp: false,
       pressAt: now,
@@ -796,7 +812,7 @@ export class Bot {
     return this.probe.d <= ball.radius + margin;
   }
 
-  private refreshPlan(world: World, side: FlipperSide, now: number): void {
+  private refreshPlan(world: World, rules: GameRules, side: FlipperSide, now: number): void {
     const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
     const existing = this.plans[side];
     if (existing && existing.phase !== 'tracking' && existing.phase !== 'committed') return;
@@ -809,7 +825,7 @@ export class Bot {
         world,
         ball,
         f,
-        existing?.ball === ball ? existing.targetAlong : (this.profile.rollTarget ?? 0.7),
+        existing?.ball === ball ? existing.targetAlong : this.targetAlong(rules),
         existing?.followUp && existing.ball === ball
           ? CRADLE_ROLLOUT_HORIZON
           : CONTACT_HORIZON,
@@ -864,7 +880,7 @@ export class Bot {
     }
 
     if (!best) return;
-    const targetAlong = this.profile.rollTarget ?? 0.7;
+    const targetAlong = this.targetAlong(rules);
     const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
     const opportunity = this.getPaddleOpportunity(side, selected.ball, now);
     if (!opportunity.attentionAccepted && !opportunity.obvious) return;
