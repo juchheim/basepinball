@@ -29,15 +29,16 @@ export interface BotProfile {
   cradle: number;
   /** How often the bot refreshes trajectory plans (s). Paddle deadlines still run every step. */
   thinkInterval?: number;
-  /** Target contact point along the bat for planned strikes and controlled slow rolls. */
+  /** Target contact point along the bat for planned hits and controlled rolls. */
   rollTarget?: number;
+  /** Target contact point for the deliberate shot after releasing a cradle. */
+  cradleTarget?: number;
 }
 
 export const PROFILES: Record<string, BotProfile> = {
   rookie: { name: 'rookie', jitter: 0.03, attention: 0.85, cradle: 0 },
   average: { name: 'average', jitter: 0.016, attention: 0.95, cradle: 0.35 },
-  // The bot cannot yet aim from a cradle (that needs a shot map per release timing), so its
-  // "expert" is a sharper, more attentive reactor rather than a cradle-and-aim player.
+  // Expert stays a sharper, more attentive reactor than the average balance profile.
   expert: { name: 'expert', jitter: 0.006, attention: 1, cradle: 0.2 },
 };
 
@@ -48,33 +49,43 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
     jitter: 0.01,
     attention: 1,
     reactionDelay: 0.09,
-    cradle: 0,
+    cradle: 0.1,
     thinkInterval: 0.02,
     // Contact nearer the pivot produces lower-power shots and fewer home runs.
     rollTarget: 0.4,
+    cradleTarget: 0.56,
   },
   medium: {
     name: 'medium',
     jitter: 0.005,
     attention: 1,
     reactionDelay: 0.065,
-    cradle: 0,
+    cradle: 0.35,
     thinkInterval: 0.012,
     rollTarget: 0.65,
+    cradleTarget: 0.7,
   },
   hard: {
     name: 'hard',
     jitter: 0.002,
     attention: 1,
     reactionDelay: 0.04,
-    cradle: 0,
+    cradle: 0.65,
     thinkInterval: 0.008,
     rollTarget: 0.75,
+    cradleTarget: 0.8,
   },
 };
 
 type FlipperSide = 'L' | 'R';
-type PlanPhase = 'tracking' | 'committed' | 'striking' | 'catching' | 'cradled' | 'recovering';
+type PlanPhase =
+  | 'tracking'
+  | 'committed'
+  | 'striking'
+  | 'catching'
+  | 'cradled'
+  | 'releasing'
+  | 'recovering';
 
 interface EncounterCandidate {
   ball: Ball;
@@ -93,6 +104,8 @@ interface FlipperPlan {
   /** Along-bat strike target used only when the ball is already rolling on the bat. */
   targetAlong: number;
   catch: boolean;
+  /** A cradle is being released and must reach its deliberate follow-up shot before replanning. */
+  followUp: boolean;
   pressAt: number;
   contactAt: number;
   contactX: number;
@@ -153,6 +166,7 @@ interface BallChanges {
 const LIVE_STATES = new Set(['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT']);
 const CONTACT_STEP = 0.002;
 const CONTACT_HORIZON = 0.24;
+const CRADLE_ROLLOUT_HORIZON = 0.5;
 const CONTACT_TOLERANCE = 0.002;
 const OPPORTUNITY_RANGE = 0.09;
 const OPPORTUNITY_ABSENCE = 0.08;
@@ -163,6 +177,10 @@ const OBVIOUS_DWELL = 0.08;
 const RETRY_COOLDOWN = 0.065;
 const MIN_STRIKE_PRESS = 0.05;
 const MAX_STRIKE_PRESS = 0.12;
+const CRADLE_SETUP_LEAD = 0.08;
+const CRADLE_DWELL = 0.075;
+const CRADLE_HOLD_MIN = 0.35;
+const CRADLE_HOLD_MAX = 0.65;
 const STRIKE_FACING_DOT = 0.35;
 const ROLL_MIN_ALONG = 0.15;
 const ROLL_MAX_ALONG = 1.04;
@@ -240,7 +258,8 @@ export class Bot {
       ) {
         // A rebound invalidates a forecast, but a ball impact during a strike must not cancel the
         // coil stroke that caused it.
-        this.plans[side] = null;
+        if (plan.followUp) plan.phase = 'tracking';
+        else this.plans[side] = null;
         this.nextThinkAt = now;
       } else {
         this.advancePlan(world, rules, side, f, now);
@@ -469,6 +488,34 @@ export class Bot {
     );
   }
 
+  /** Raise early for a catch only when there's enough time to settle before contact. */
+  private plannedPressAt(
+    world: World,
+    f: Flipper,
+    plan: FlipperPlan,
+    candidate: EncounterCandidate,
+    opportunity: PaddleOpportunity,
+    now: number,
+  ): number {
+    const lead = flipperLead(world, f);
+    if (plan.catch && (candidate.rolling || candidate.speed > 0.6)) plan.catch = false;
+    const recognizedAt = opportunity.firstSeenAt + (this.profile.reactionDelay ?? 0);
+    const pressAt = (): number =>
+      Math.max(
+        now,
+        now + candidate.eta - lead - (plan.catch ? CRADLE_SETUP_LEAD : 0) + opportunity.timingError,
+        recognizedAt,
+      );
+
+    let scheduled = pressAt();
+    if (plan.catch && scheduled + lead > now + candidate.eta - 0.01) {
+      // Recognition or timing noise left too little time for a settled catch. Make it a normal hit.
+      plan.catch = false;
+      scheduled = pressAt();
+    }
+    return scheduled;
+  }
+
   private advancePlan(
     world: World,
     rules: GameRules,
@@ -488,9 +535,16 @@ export class Bot {
       if (now < plan.pressAt) return;
       // A planned contact can become stale after a bounce, catch, drain or multiball collision.
       // Re-predict immediately before pressing and move the deadline if the arrival shifted.
-      const current = this.predictEncounter(world, plan.ball, f, plan.targetAlong);
+      const current = this.predictEncounter(
+        world,
+        plan.ball,
+        f,
+        plan.targetAlong,
+        plan.followUp ? CRADLE_ROLLOUT_HORIZON : CONTACT_HORIZON,
+      );
       if (!current || current.eta > 0.12) {
-        this.plans[side] = null;
+        if (plan.followUp) plan.phase = 'tracking';
+        else this.plans[side] = null;
         return;
       }
       const expectedEta = Math.max(0, plan.contactAt - now);
@@ -502,16 +556,12 @@ export class Bot {
       if (Math.abs(current.eta - expectedEta) > 0.06 || contactShift > 0.06) {
         // The contact moved materially since the last plan update. Drop it and let the next
         // planning tick make a fresh encounter decision from the new path.
-        this.plans[side] = null;
+        if (plan.followUp) plan.phase = 'tracking';
+        else this.plans[side] = null;
         return;
       }
       const opportunity = this.getPaddleOpportunity(side, plan.ball, now);
-      const recognizedAt = opportunity.firstSeenAt + (this.profile.reactionDelay ?? 0);
-      const revisedPressAt = Math.max(
-        now,
-        now + current.eta - flipperLead(world, f) + opportunity.timingError,
-        recognizedAt,
-      );
+      const revisedPressAt = this.plannedPressAt(world, f, plan, current, opportunity, now);
       if (revisedPressAt > now + world.dt) {
         plan.pressAt = revisedPressAt;
         plan.contactAt = now + current.eta;
@@ -522,6 +572,7 @@ export class Bot {
       }
       this.setPressed(world, rules, side, f, true);
       this.markAttempt(side, plan.ball, now);
+      plan.followUp = false;
       plan.phase = plan.catch ? 'catching' : 'striking';
       plan.contactSeen = false;
       plan.contactSince = -1;
@@ -539,7 +590,29 @@ export class Bot {
 
     if (plan.phase === 'cradled') {
       if (!this.isTouching(plan.ball, f, 0.008) || now >= plan.releaseAt) {
-        this.finishAction(world, rules, side, f, plan, now);
+        this.setPressed(world, rules, side, f, false);
+        plan.phase = 'releasing';
+        plan.catch = false;
+        plan.followUp = true;
+        plan.targetAlong =
+          this.profile.cradleTarget ?? Math.max(0.7, this.profile.rollTarget ?? 0.7);
+        plan.pressAt = now;
+        plan.releaseAt = now + 0.02;
+      }
+      return;
+    }
+
+    if (plan.phase === 'releasing') {
+      if (!plan.ball.active) {
+        this.plans[side] = null;
+      } else if (now >= plan.releaseAt && f.phase <= 0.025) {
+        // The ball is free to roll outward on the resting bat. Keep the plan while a forecast
+        // waits for the deliberate contact point.
+        plan.phase = 'tracking';
+        plan.pressAt = now;
+        plan.contactSeen = false;
+        plan.contactSince = -1;
+        this.nextThinkAt = now;
       }
       return;
     }
@@ -547,17 +620,23 @@ export class Bot {
     const touching = this.isTouching(plan.ball, f, 0.004);
     if (touching) {
       plan.contactSeen = true;
-      if (plan.ball.speed() <= 0.45) {
+      if (plan.ball.speed() <= 0.45 && f.phase >= f.stroke - 0.025) {
         if (plan.contactSince < 0) plan.contactSince = now;
       } else {
         plan.contactSince = -1;
       }
+    } else {
+      plan.contactSince = -1;
     }
 
-    if (plan.phase === 'catching' && plan.contactSince >= 0 && now - plan.contactSince >= 0.075) {
+    if (
+      plan.phase === 'catching' &&
+      plan.contactSince >= 0 &&
+      now - plan.contactSince >= CRADLE_DWELL
+    ) {
       // A cradle only starts after sustained, slow, real contact with the raised bat.
       plan.phase = 'cradled';
-      plan.releaseAt = now + this.rng.range(0.45, 0.9);
+      plan.releaseAt = now + this.rng.range(CRADLE_HOLD_MIN, CRADLE_HOLD_MAX);
       return;
     }
 
@@ -617,6 +696,15 @@ export class Bot {
         contact.gap <= SUPPORT_GAP + 0.003 &&
         Math.abs(contact.normalSpeed) <= 0.3 &&
         ball.speed() <= 0.75;
+      const rollingOutOfCradle =
+        this.plans[side]?.followUp && this.plans[side]?.ball === ball;
+      if (
+        rollingOutOfCradle &&
+        !immediateTouch &&
+        !(stillSupported && contact.along >= ROLL_MAX_ALONG - 0.06)
+      ) {
+        continue;
+      }
       const readyToRetry = now - opportunity.lastAttemptAt >= RETRY_COOLDOWN;
       if (((!opportunity.obvious || !stillSupported) && !immediateTouch) || !readyToRetry) continue;
       const priority =
@@ -634,6 +722,7 @@ export class Bot {
       phase: 'striking',
       targetAlong: this.profile.rollTarget ?? 0.7,
       catch: false,
+      followUp: false,
       pressAt: now,
       contactAt: now,
       contactX: chosen.px,
@@ -668,6 +757,9 @@ export class Bot {
         ball,
         f,
         existing?.ball === ball ? existing.targetAlong : (this.profile.rollTarget ?? 0.7),
+        existing?.followUp && existing.ball === ball
+          ? CRADLE_ROLLOUT_HORIZON
+          : CONTACT_HORIZON,
       );
       if (!candidate) continue;
       const opportunity = this.getPaddleOpportunity(side, ball, now);
@@ -682,7 +774,13 @@ export class Bot {
         this.schedule(world, f, side, existing, sameBall, now);
         return;
       }
-      const current = this.predictEncounter(world, existing.ball, f, existing.targetAlong);
+      const current = this.predictEncounter(
+        world,
+        existing.ball,
+        f,
+        existing.targetAlong,
+        existing.followUp ? CRADLE_ROLLOUT_HORIZON : CONTACT_HORIZON,
+      );
       if (
         current &&
         (!best || this.encounterPriority(best) + 0.025 >= this.encounterPriority(current))
@@ -690,6 +788,7 @@ export class Bot {
         this.schedule(world, f, side, existing, current, now);
         return;
       }
+      if (existing.followUp && (!best || best.eta > 0.05)) return;
       this.plans[side] = null;
     }
 
@@ -698,12 +797,17 @@ export class Bot {
     const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
     const opportunity = this.getPaddleOpportunity(side, selected.ball, now);
     if (!opportunity.attentionAccepted && !opportunity.obvious) return;
-    const catchBall = selected.speed <= 0.6 && this.rng.next() < this.profile.cradle;
+    const canSettleForCatch =
+      !selected.rolling &&
+      selected.speed <= 0.6 &&
+      selected.eta > flipperLead(world, f) + CRADLE_SETUP_LEAD;
+    const catchBall = canSettleForCatch && this.rng.next() < this.profile.cradle;
     const plan: FlipperPlan = {
       ball: selected.ball,
       phase: 'tracking',
       targetAlong,
       catch: catchBall,
+      followUp: false,
       pressAt: 0,
       contactAt: 0,
       contactX: selected.x,
@@ -728,18 +832,12 @@ export class Bot {
     now: number,
   ): void {
     const opportunity = this.getPaddleOpportunity(side, candidate.ball, now);
-    const lead = flipperLead(world, f);
-    const recognizedAt = opportunity.firstSeenAt + (this.profile.reactionDelay ?? 0);
     plan.phase = candidate.eta <= 0.12 ? 'committed' : 'tracking';
     plan.contactAt = now + candidate.eta;
     plan.contactX = candidate.x;
     plan.contactY = candidate.y;
     plan.contactZ = candidate.z;
-    plan.pressAt = Math.max(
-      now,
-      now + candidate.eta - lead + opportunity.timingError,
-      recognizedAt,
-    );
+    plan.pressAt = this.plannedPressAt(world, f, plan, candidate, opportunity, now);
   }
 
   private encounterPriority(candidate: EncounterCandidate): number {
@@ -758,6 +856,7 @@ export class Bot {
     ball: Ball,
     f: Flipper,
     targetAlong: number,
+    horizon = CONTACT_HORIZON,
   ): EncounterCandidate | null {
     if (!ball.active) return null;
     const p = world.params;
@@ -774,7 +873,7 @@ export class Bot {
     let vx = ball.vx;
     let vy = ball.vy;
     let vz = ball.vz;
-    const steps = Math.ceil(CONTACT_HORIZON / CONTACT_STEP);
+    const steps = Math.ceil(horizon / CONTACT_STEP);
 
     for (let i = 0; i <= steps; i++) {
       const t = i * CONTACT_STEP;
