@@ -195,7 +195,7 @@ export class Director {
 
   // ---------------------------------------------------------------- rules
 
-  rules(e: RulesEvent, g: GameSnapshot | null): void {
+  rules(e: RulesEvent, g: GameSnapshot | null, hidePitchDetails = false): void {
     const o = this.out;
     switch (e.type) {
       case 'gameStart':
@@ -222,14 +222,16 @@ export class Director {
         }
         return;
       case 'pitchTell':
-        o.sound(`tell${e.pitch}`);
+        if (!hidePitchDetails) o.sound(`tell${e.pitch}`);
         o.figure({ kind: 'windup', lead: e.lead });
         return;
       case 'pitch':
         o.sound('pitch', { x: 0.5, y: 0.3 });
         o.figure({ kind: 'release' });
-        o.flash(`pitch.${e.pitch}`);
-        if (e.pitch === 'CB') o.sound('magnet', { x: 0.5, y: 0.25 });
+        if (!hidePitchDetails) {
+          o.flash(`pitch.${e.pitch}`);
+          if (e.pitch === 'CB') o.sound('magnet', { x: 0.5, y: 0.25 });
+        }
         return;
       case 'hit': {
         o.figure({ kind: 'hit', bases: e.bases });

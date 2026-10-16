@@ -169,30 +169,48 @@ function Hud() {
 const PITCH_NAMES = { FB: 'FASTBALL', CH: 'CHANGEUP', CB: 'CURVEBALL' } as const;
 
 /**
- * The pre-pitch indicator, low on the screen near the flippers: the pitch type, an arrow to the
- * flipper it is thrown at, and a countdown bar that empties at the moment of release.
+ * The pre-pitch alert normally shows the pitch type and target flipper. On hard vs-AI human turns,
+ * it keeps the countdown but only says a pitch is coming.
  */
 function PitchIndicator({ paused }: { paused: boolean }) {
   const c = pitchCue.value;
   if (!c) return null;
-  const left = c.side === 'L';
+  const g = snapshot.value;
+  const hideSpecifics = Boolean(
+    g && g.vsAi && g.battingSide === 'human' && activeAiDifficulty.value === 'hard',
+  );
+  const left = !hideSpecifics && c.side === 'L';
+  const cueClass = [
+    'pitch-cue',
+    c.phase,
+    hideSpecifics ? 'generic' : left ? 'left' : 'right',
+    paused ? 'paused' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
   return (
     <div
-      class={`pitch-cue ${c.phase} ${left ? 'left' : 'right'} ${paused ? 'paused' : ''}`}
+      class={cueClass}
       key={c.id}
       style={{ '--lead': `${c.lead}s` }}
+      role="alert"
+      aria-live="assertive"
     >
       <div class="pitch-cue-row">
-        <span class="pitch-cue-arrow">{left ? '◀' : ''}</span>
-        <span class="pitch-cue-name">{c.phase === 'release' ? 'PITCH!' : PITCH_NAMES[c.type]}</span>
-        <span class="pitch-cue-arrow">{left ? '' : '▶'}</span>
+        {!hideSpecifics && <span class="pitch-cue-arrow">{left ? '◀' : ''}</span>}
+        <span class="pitch-cue-name">
+          {c.phase === 'release' ? 'PITCH!' : hideSpecifics ? 'PITCH COMING' : PITCH_NAMES[c.type]}
+        </span>
+        {!hideSpecifics && <span class="pitch-cue-arrow">{left ? '' : '▶'}</span>}
       </div>
       {c.phase === 'windup' && (
         <div class="pitch-cue-bar">
           <i />
         </div>
       )}
-      {c.phase === 'windup' && <div class="pitch-cue-sub">{left ? 'left' : 'right'} flipper</div>}
+      {c.phase === 'windup' && !hideSpecifics && (
+        <div class="pitch-cue-sub">{left ? 'left' : 'right'} flipper</div>
+      )}
     </div>
   );
 }
@@ -324,8 +342,9 @@ function HowToPlay() {
       </p>
       <h3>Pitching</h3>
       <p>
-        Each at-bat starts with a pitch from the mound. The panel shows the pitch and the flipper
-        it's coming to, and counts down to the release: flip to hit it back up the field.
+        Each at-bat starts with a pitch from the mound. The panel usually shows the pitch and target
+        flipper as it counts down. On hard multiplayer vs AI, it only says a pitch is coming. Flip to
+        hit it back up the field.
       </p>
       <h3>Features</h3>
       <ul>

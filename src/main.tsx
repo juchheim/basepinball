@@ -247,6 +247,11 @@ async function main(): Promise<void> {
   let bot: Bot | null = null;
   let controllerRules: GameRules | null = null;
   let controllerSide: BattingSide | null = null;
+  const hideHumanPitchDetails = (): boolean =>
+    rules !== null &&
+    rules.vsAi &&
+    rules.battingSide === 'human' &&
+    activeAiDifficulty.value === 'hard';
   let gameSeed = 1;
   let input: Input | null = null;
   const timers: { at: number; run: () => void }[] = [];
@@ -316,7 +321,7 @@ async function main(): Promise<void> {
       haptic(e.bases >= 4 ? 1 : 0.5, e.bases >= 4 ? 400 : 120, e.bases >= 4 ? 120 : 0);
     calloutFor(e);
     pitchCueFor(e);
-    director.rules(e, rules?.snapshot() ?? null);
+    director.rules(e, rules?.snapshot() ?? null, hideHumanPitchDetails());
     if (e.type === 'inningStart' && rules?.vsAi) {
       showCallout(
         e.battingSide === 'ai' ? `TOP ${e.inning}` : `BOTTOM ${e.inning}`,
@@ -998,7 +1003,11 @@ async function main(): Promise<void> {
     shows.update(dt);
     const base = rules ? rules.lamps() : NO_LAMPS;
     const over = shows.overrides(showLamps);
-    for (const id of shows.lampIds) view.setLamp(id, over.get(id) ?? base[id] ?? 'off');
+    const hidePitchLamps = hideHumanPitchDetails() && rules?.pitchPhase != null;
+    for (const id of shows.lampIds) {
+      const mode = over.get(id) ?? base[id] ?? 'off';
+      view.setLamp(id, hidePitchLamps && id.startsWith('pitch.') ? 'off' : mode);
+    }
     // The game snapshot: ~10 a second is plenty for the HUD, the scoreboard, the runners and the
     // crowd's tension (it builds a fresh object, so not every frame); at once for a new game.
     if (now - lastHud > 100 || rules !== snapRules) {
