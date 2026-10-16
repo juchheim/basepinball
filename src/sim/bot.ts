@@ -41,6 +41,8 @@ export interface BotProfile {
   supportedRollPrediction?: boolean;
   /** Permit a local safety press for a measured near-term contact or tip exit. */
   urgentSafety?: boolean;
+  /** Advance ordinary-pitch strikes by this many ms before the forecast safety window. */
+  anticipatoryStrikeLeadMs?: number;
   /** Restrict catch attempts to this normalized along-bat interval. */
   catchRange?: readonly [number, number];
 }
@@ -88,6 +90,7 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
     occupiedBasesTarget: 0.82,
     supportedRollPrediction: true,
     urgentSafety: true,
+    anticipatoryStrikeLeadMs: 12,
     catchRange: [0.2, 0.7],
   },
 };
@@ -529,6 +532,8 @@ export class Bot {
   /** Raise early for a catch only when there's enough time to settle before contact. */
   private plannedPressAt(
     world: World,
+    rules: GameRules,
+    side: FlipperSide,
     f: Flipper,
     plan: FlipperPlan,
     candidate: EncounterCandidate,
@@ -538,6 +543,37 @@ export class Bot {
     const lead = flipperLead(world, f);
     if (plan.catch && (candidate.rolling || candidate.speed > 0.6)) plan.catch = false;
     const recognizedAt = opportunity.firstSeenAt + (this.profile.reactionDelay ?? 0);
+    if (
+      this.profile.anticipatoryStrikeLeadMs !== undefined &&
+      rules.pitchPhase === 'flight' &&
+      (rules.pitchType === 'FB' || rules.pitchType === 'CH') &&
+      rules.pitchSide === side &&
+      !plan.catch &&
+      !plan.followUp &&
+      !candidate.rolling &&
+      !f.pressed &&
+      f.phase <= 0.06 &&
+      world.balls.filter((ball) => ball.active).length === 1
+    ) {
+      const safetyOnset = this.predictEncounter(
+        world,
+        plan.ball,
+        f,
+        plan.targetAlong,
+        CONTACT_HORIZON,
+        lead,
+      );
+      if (safetyOnset) {
+        return Math.max(
+          now,
+          now +
+            safetyOnset.eta -
+            this.profile.anticipatoryStrikeLeadMs / 1000 +
+            opportunity.timingError,
+          recognizedAt,
+        );
+      }
+    }
     const pressAt = (): number =>
       Math.max(
         now,
@@ -601,7 +637,16 @@ export class Bot {
         return;
       }
       const opportunity = this.getPaddleOpportunity(side, plan.ball, now);
-      const revisedPressAt = this.plannedPressAt(world, f, plan, current, opportunity, now);
+      const revisedPressAt = this.plannedPressAt(
+        world,
+        rules,
+        side,
+        f,
+        plan,
+        current,
+        opportunity,
+        now,
+      );
       if (revisedPressAt > now + world.dt) {
         plan.pressAt = revisedPressAt;
         plan.contactAt = now + current.eta;
@@ -840,7 +885,7 @@ export class Bot {
     if (existing) {
       const sameBall = best?.ball === existing.ball ? best : null;
       if (sameBall) {
-        this.schedule(world, f, side, existing, sameBall, now);
+        this.schedule(world, rules, f, side, existing, sameBall, now);
         return;
       }
       const current = this.predictEncounter(
@@ -863,7 +908,7 @@ export class Bot {
           best.ball !== existing.ball &&
           best.eta + 0.025 < followUpEta;
         if (locallyRecoverable && !anotherBallIsMoreUrgent) {
-          if (current) this.schedule(world, f, side, existing, current, now);
+          if (current) this.schedule(world, rules, f, side, existing, current, now);
           return;
         }
         this.plans[side] = null;
@@ -872,7 +917,7 @@ export class Bot {
         current &&
         (!best || this.encounterPriority(best) + 0.025 >= this.encounterPriority(current))
       ) {
-        this.schedule(world, f, side, existing, current, now);
+        this.schedule(world, rules, f, side, existing, current, now);
         return;
       } else {
         this.plans[side] = null;
@@ -915,11 +960,12 @@ export class Bot {
       contactSince: -1,
     };
     this.plans[side] = plan;
-    this.schedule(world, f, side, plan, selected, now);
+    this.schedule(world, rules, f, side, plan, selected, now);
   }
 
   private schedule(
     world: World,
+    rules: GameRules,
     f: Flipper,
     side: FlipperSide,
     plan: FlipperPlan,
@@ -932,7 +978,16 @@ export class Bot {
     plan.contactX = candidate.x;
     plan.contactY = candidate.y;
     plan.contactZ = candidate.z;
-    plan.pressAt = this.plannedPressAt(world, f, plan, candidate, opportunity, now);
+    plan.pressAt = this.plannedPressAt(
+      world,
+      rules,
+      side,
+      f,
+      plan,
+      candidate,
+      opportunity,
+      now,
+    );
   }
 
   private encounterPriority(candidate: EncounterCandidate): number {
@@ -1009,10 +1064,15 @@ export class Bot {
     f: Flipper,
     targetAlong: number,
     horizon = CONTACT_HORIZON,
+    incomingSafetyLead?: number,
   ): EncounterCandidate | null {
     if (!ball.active) return null;
     const supported = this.supportedRollContact(ball, f);
-    if (supported && (this.profile.supportedRollPrediction || horizon > CONTACT_HORIZON)) {
+    if (
+      incomingSafetyLead === undefined &&
+      supported &&
+      (this.profile.supportedRollPrediction || horizon > CONTACT_HORIZON)
+    ) {
       // Keep a supported ball on the bat in the forecast rather than letting free-flight gravity
       // carry it through the flipper surface.
       return this.predictSupportedRoll(
@@ -1070,7 +1130,40 @@ export class Bot {
       const rollingSpeed = vx * c + vy * s;
       const facesStroke =
         this.probe.nx * (f.dir * -s) + this.probe.ny * (f.dir * c) > STRIKE_FACING_DOT;
+      if (incomingSafetyLead !== undefined) {
+        const cx = x - this.probe.nx * ball.radius;
+        const cy = y - this.probe.ny * ball.radius;
+        const surfaceVx = -f.omega * (cy - f.py);
+        const surfaceVy = f.omega * (cx - f.px);
+        const relativeNormalSpeed =
+          (vx - surfaceVx) * this.probe.nx + (vy - surfaceVy) * this.probe.ny;
+        const contactEta =
+          gap <= SUPPORT_GAP
+            ? 0
+            : relativeNormalSpeed < -0.01
+              ? gap / -relativeNormalSpeed
+              : Infinity;
+        if (
+          facesStroke &&
+          along >= ROLL_MIN_ALONG &&
+          along <= ROLL_MAX_ALONG &&
+          gap <= 0.025 &&
+          relativeNormalSpeed < -0.05 &&
+          contactEta <= incomingSafetyLead + 0.006
+        ) {
+          return {
+            ball,
+            eta: t,
+            x,
+            y,
+            z,
+            speed: Math.hypot(vx, vy, vz),
+            rolling: false,
+          };
+        }
+      }
       const impact = facesStroke && gap <= CONTACT_TOLERANCE && normalSpeed < -0.08;
+      if (incomingSafetyLead !== undefined && impact) return null;
       const onBatRoll =
         facesStroke &&
         gap <= 0.006 &&
@@ -1081,6 +1174,10 @@ export class Bot {
       // Aim at a useful point down the bat, rather than flicking as soon as the ball first enters
       // the paddle's neighborhood. A ball already beyond the target is still a valid rescue.
       const rolling = onBatRoll && along >= targetAlong;
+      if (incomingSafetyLead !== undefined) {
+        if (y < 0.035 && z < 0.05) return null;
+        continue;
+      }
       if (impact || rolling) {
         return {
           ball,
