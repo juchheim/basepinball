@@ -32,6 +32,8 @@ export type PhysicsEventType =
   | 'swing'
   /** A pitched ball met a flipper held out (not swung at it) before any swing struck it. */
   | 'bunt'
+  /** A pitched ball touched a flipper at rest (button up) before any swing struck it: taken. */
+  | 'take'
   | 'sensor'
   | 'spinner'
   | 'kickback'
@@ -272,7 +274,9 @@ export class World {
       reported: boolean;
     }
   >();
-  /** Pitched balls that no swing has struck yet (a bat held out to one of them bunts). */
+  /**
+   * Pitched balls that no swing has struck yet: a bat held out to one bunts, a bat at rest takes it.
+   */
   private readonly unstruck = new WeakSet<Ball>();
   private readonly rng: Rng;
   private grid: Grid;
@@ -1168,7 +1172,11 @@ export class World {
       // other ball score a hit off every bumper it touched). Only contact with the button held
       // counts as the touch: a ball rolling down the resting bat is flipped from rest by the press,
       // and that is a swing too (counting the passive roll as the touch used to swallow it).
-      if (!f.pressed) continue;
+      if (!f.pressed) {
+        // The batter let the pitch reach the bat without swinging. Once: the pitch is over.
+        if (this.unstruck.delete(b)) this.emit('take', f.id);
+        continue;
+      }
       const touch = this.flipperTouch.get(b) ?? new Map<string, number>();
       this.flipperTouch.set(b, touch);
       const last = touch.get(f.id) ?? -Infinity;
@@ -1214,6 +1222,8 @@ export class World {
     else if (c.heldSince < 0) c.heldSince = this.time;
     if (this.time - c.heldSince >= HELD_GRACE) {
       c.reported = true;
+      // One call per pitch: it is over.
+      this.unstruck.delete(b);
       this.emit('bunt', f.id);
     }
   }

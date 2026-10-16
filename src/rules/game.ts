@@ -65,6 +65,11 @@ const LIVE: BallState[] = ['LEADOFF_LAUNCH', 'PITCH', 'IN_PLAY', 'LIVE_AFTER_HIT
 export const BLEACHERS = 'saucer.BLEACHERS';
 /** Seconds the empty scoop holds a ball before kicking it back out. */
 export const BLEACHERS_HOLD = 1.2;
+/**
+ * A called strikeout leaves the ball to drain past dead flippers; if it has not left play after
+ * this many seconds (resting somewhere, or kicked back up), it is taken off the table.
+ */
+export const CALLED_BALL_TIMEOUT = 4;
 /** Seconds from touching the souvenir to the fan throwing it back (the scoop kicks it into play). */
 export const THROW_BACK_DELAY = 0.6;
 
@@ -146,11 +151,13 @@ export class GameRules {
   private readonly orbitUp = new Map<'L' | 'R', number>();
   private lastSwing = -Infinity;
   /**
-   * The pitched ball has touched nothing but the bats yet. Cradling it now is a bunt (docs/MVP/01
-   * § 4.1) if it meets a bat held out; once it is put in play (any other switch), that is ordinary
-   * pinball again.
+   * The pitched ball has touched nothing but the bats yet (docs/MVP/01 § 4.1): a bat held out to it
+   * is a bunt, a bat at rest a called strikeout. Once it is put in play (any other switch), that is
+   * ordinary pinball again.
    */
   private freshPitch = false;
+  /** A called strikeout: the flippers are dead until the taken pitch leaves play. */
+  private calledOut = false;
 
   constructor(
     private readonly machine: Machine,
@@ -162,8 +169,11 @@ export class GameRules {
     this.timing = { ...DEFAULT_TIMING, ...opts.timing };
   }
 
-  /** A held-out bat now would bunt: the pitched ball has touched nothing but the bats yet. */
-  get heldBatIsBunt(): boolean {
+  /**
+   * The pitch is live: it has touched nothing but the bats yet, so a bat held out to it now would
+   * bunt and a bat at rest would take it.
+   */
+  get pitchLive(): boolean {
     return this.freshPitch && (this.state === 'PITCH' || this.state === 'IN_PLAY');
   }
 
@@ -268,7 +278,8 @@ export class GameRules {
     // A search's own kick can fire the device the ball is resting against (a sling): that is not
     // progress, or the search would reset the count that leads to a rescue and repeat forever.
     const ownKick = this.now - this.lastSearch < 2;
-    const flipperOnly = e.type === 'eos' || e.type === 'swing' || e.type === 'bunt';
+    const flipperOnly =
+      e.type === 'eos' || e.type === 'swing' || e.type === 'bunt' || e.type === 'take';
     if (!flipperOnly && !ownKick) this.searches = 0;
     if (this.state === 'GAME_OVER' || this.state === 'INNING_BREAK') return;
     // Anything but the bats (or a nudge) puts the pitched ball in play.
@@ -277,6 +288,11 @@ export class GameRules {
     if (this.tilted) {
       // Only the ball leaving the playfield matters once tilted.
       if (e.type === 'drain' || e.type === 'saucer') this.afterTiltBallGone();
+      return;
+    }
+    if (this.calledOut) {
+      // Likewise after a called strikeout.
+      if (e.type === 'drain' || e.type === 'saucer') this.afterCalledBallGone();
       return;
     }
 
@@ -289,7 +305,10 @@ export class GameRules {
         this.swing();
         return;
       case 'bunt':
-        if (this.heldBatIsBunt) this.bunt();
+        if (this.pitchLive) this.bunt();
+        return;
+      case 'take':
+        if (this.pitchLive) this.calledStrikeout();
         return;
       case 'pop': {
         // The Gap pops (1B / 2B) score the hit for a batter who has swung. Every other bumper hit
@@ -380,6 +399,32 @@ export class GameRules {
     if (runs > 0) this.score(runs);
     // A walk-off squeeze: the winning run has ended the game.
     if (this.walkOff) return;
+    this.afterOut(this.timing.routeFromDrain);
+  }
+
+  /**
+   * The batter took the pitch: it reached a bat at rest before any swing struck it (docs/MVP/01
+   * § 4.1). Strike three, called, on that touch. The flippers go dead so the ball drains past them
+   * (rather than rolling across to the other bat for a free swing), and play goes on once it has.
+   */
+  private calledStrikeout(): void {
+    this.out('K', undefined, { looking: true });
+    this.calledOut = true;
+    this.machine.setFlippersEnabled(false);
+    if (!this.machine.ballInPlay()) {
+      this.afterCalledBallGone();
+      return;
+    }
+    this.after(CALLED_BALL_TIMEOUT, () => {
+      if (!this.calledOut) return;
+      this.machine.holdBall();
+      this.afterCalledBallGone();
+    });
+  }
+
+  private afterCalledBallGone(): void {
+    this.calledOut = false;
+    this.machine.setFlippersEnabled(true);
     this.afterOut(this.timing.routeFromDrain);
   }
 
@@ -512,7 +557,11 @@ export class GameRules {
     this.afterOut(this.timing.routeFromDrain);
   }
 
-  private out(how: OutHow, position?: Position, bunt?: { moved: number[]; runs: number }): void {
+  private out(
+    how: OutHow,
+    position?: Position,
+    detail?: { moved?: number[]; runs?: number; looking?: boolean },
+  ): void {
     this.outs++;
     this.stats.plateAppearances++;
     if (how === 'K') this.stats.strikeouts++;
@@ -528,7 +577,7 @@ export class GameRules {
       how,
       ...(position && { position }),
       outs: this.outs,
-      ...bunt,
+      ...detail,
     });
   }
 

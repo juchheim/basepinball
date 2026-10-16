@@ -287,7 +287,7 @@ export class Bot {
 
     if (now >= this.nextThinkAt) {
       for (const side of ['L', 'R'] as const)
-        this.refreshPlan(world, rules, side, now, rules.heldBatIsBunt);
+        this.refreshPlan(world, rules, side, now, rules.pitchLive);
       this.nextThinkAt = now + (this.profile.thinkInterval ?? 0.02);
     }
   }

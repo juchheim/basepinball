@@ -150,6 +150,8 @@ export function calloutFor(e: RulesEvent): void {
           `Caught by ${e.position} (${POS_NUM[e.position]}) · ${outs}`,
           'out',
         );
+      if (e.how === 'K' && e.looking)
+        return showCallout('STRIKE THREE, CALLED', `Took the pitch · ${outs}`, 'out', 1800);
       if (e.how === 'K') return showCallout('STRIKEOUT', outs, 'out');
       if (e.how === 'foul') return showCallout('FOUL OUT', outs, 'out');
       if (e.how === 'bunt') {
