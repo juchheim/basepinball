@@ -266,6 +266,17 @@ export class Director {
           o.flash('outlane.L');
           o.flash('outlane.R');
           o.scoreboard('FOUL OUT', `${e.outs} OUT`, '#ff9f1c', 1.4);
+        } else if (e.how === 'bunt') {
+          o.figure({ kind: 'umpire' });
+          if (e.moved?.length) {
+            // A sacrifice: the batter gives himself up and the runners move up.
+            o.figure({ kind: 'advance', moved: e.moved });
+            o.crowd(e.runs ? 'cheer' : 'groan', e.runs ? 0.5 : 0.3);
+            o.scoreboard('SAC BUNT', e.runs ? 'RUN SCORES' : `${e.outs} OUT`, '#f2b33d', 1.6);
+          } else {
+            o.crowd('groan', 0.5);
+            o.scoreboard('BUNT OUT', `${e.outs} OUT`, '#ff6b6b', 1.4);
+          }
         } else if (e.how === 'fielder') {
           o.figure({ kind: 'umpire' });
           o.crowd('groan', 0.4);

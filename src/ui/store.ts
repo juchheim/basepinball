@@ -152,6 +152,12 @@ export function calloutFor(e: RulesEvent): void {
         );
       if (e.how === 'K') return showCallout('STRIKEOUT', outs, 'out');
       if (e.how === 'foul') return showCallout('FOUL OUT', outs, 'out');
+      if (e.how === 'bunt') {
+        // A cradled pitch: the batter is out, but with runners on (and fewer than 3 out) they move up.
+        if (!e.moved?.length) return showCallout('BUNT OUT', `Cradled the pitch · ${outs}`, 'out');
+        const runs = e.runs ? `${e.runs} run scores` : 'Runners advance';
+        return showCallout('SACRIFICE BUNT', `${runs} · ${outs}`, 'out', 1800);
+      }
       return showCallout('TILT', outs, 'out', 2000);
     }
     case 'steal':

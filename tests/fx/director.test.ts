@@ -40,6 +40,8 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'out', how: 'foul', outs: 2 },
     { type: 'out', how: 'fielder', position: 'SS', outs: 1 },
     { type: 'out', how: 'tilt', outs: 1 },
+    { type: 'out', how: 'bunt', outs: 1, moved: [], runs: 0 },
+    { type: 'out', how: 'bunt', outs: 2, moved: [0, 2], runs: 1 },
   ],
   runs: [{ type: 'runs', runs: 2 }],
   steal: [

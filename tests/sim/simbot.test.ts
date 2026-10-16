@@ -11,9 +11,8 @@ describe('sim bot', () => {
       expect(g.completed).toBe(true);
       expect(g.rescues).toBe(0);
       expect(g.stats.plateAppearances).toBeGreaterThanOrEqual(27);
-      expect(g.stats.strikeouts + g.stats.foulOuts + g.stats.fielderOuts + g.stats.tiltOuts).toBe(
-        27,
-      );
+      const s = g.stats;
+      expect(s.strikeouts + s.foulOuts + s.fielderOuts + s.tiltOuts + s.buntOuts).toBe(27);
     }
     const runs = games.reduce((a, g) => a + g.stats.runs, 0) / games.length;
     const pa = games.reduce((a, g) => a + g.stats.plateAppearances, 0);

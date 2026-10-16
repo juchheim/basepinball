@@ -6,7 +6,8 @@ export type BallState =
   'LEADOFF_LAUNCH' | 'PITCH' | 'IN_PLAY' | 'LIVE_AFTER_HIT' | 'DEAD' | 'INNING_BREAK' | 'GAME_OVER';
 
 export type HitType = '1B' | '2B' | '3B' | 'HR';
-export type OutHow = 'K' | 'foul' | 'fielder' | 'tilt';
+/** `bunt`: the pitch was cradled (docs/MVP/01 § 4.1). */
+export type OutHow = 'K' | 'foul' | 'fielder' | 'tilt' | 'bunt';
 export type BattingSide = 'human' | 'ai';
 
 /** Fielding positions and their scorebook numbers. */
@@ -31,7 +32,18 @@ export type RulesEvent =
   | { type: 'pitchTell'; pitch: PitchType; side: Side; lead: number }
   | { type: 'pitch'; pitch: PitchType }
   | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
-  | { type: 'out'; how: OutHow; position?: Position; outs: number }
+  /**
+   * A bunt also says which bases' runners moved up (`moved`, 0 = first: empty unless it was a
+   * sacrifice) and how many `runs` scored.
+   */
+  | {
+      type: 'out';
+      how: OutHow;
+      position?: Position;
+      outs: number;
+      moved?: number[];
+      runs?: number;
+    }
   | { type: 'runs'; runs: number }
   | { type: 'steal'; from: number; runs: number }
   /** The HUSTLE meter filled: every runner took an extra base (`moved`: the bases they left). */
@@ -79,6 +91,8 @@ export interface GameStats {
   foulOuts: number;
   fielderOuts: number;
   tiltOuts: number;
+  /** Cradled pitches: bunt outs, sacrifices among them. */
+  buntOuts: number;
   plateAppearances: number;
   leftOnBase: number;
   longestRally: number;
@@ -104,6 +118,7 @@ export function emptyStats(): GameStats {
     foulOuts: 0,
     fielderOuts: 0,
     tiltOuts: 0,
+    buntOuts: 0,
     plateAppearances: 0,
     leftOnBase: 0,
     longestRally: 0,

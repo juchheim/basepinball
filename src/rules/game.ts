@@ -145,6 +145,11 @@ export class GameRules {
   private readonly buttons = { L: false, R: false };
   private readonly orbitUp = new Map<'L' | 'R', number>();
   private lastSwing = -Infinity;
+  /**
+   * The pitched ball has touched nothing but the bats yet. Cradling it now is a bunt (docs/MVP/01
+   * § 4.1); once it is put in play (any other switch), a cradle is ordinary pinball again.
+   */
+  private freshPitch = false;
 
   constructor(
     private readonly machine: Machine,
@@ -154,6 +159,11 @@ export class GameRules {
     this.innings = opts.innings ?? 9;
     this.vsAi = opts.vsAi ?? false;
     this.timing = { ...DEFAULT_TIMING, ...opts.timing };
+  }
+
+  /** A cradle now would be a bunt: the pitched ball has touched nothing but the bats yet. */
+  get cradleIsBunt(): boolean {
+    return this.freshPitch && (this.state === 'PITCH' || this.state === 'IN_PLAY');
   }
 
   /** Stats for the side currently batting; `humanStats` remains the player's lifetime/high-score row. */
@@ -257,8 +267,11 @@ export class GameRules {
     // A search's own kick can fire the device the ball is resting against (a sling): that is not
     // progress, or the search would reset the count that leads to a rescue and repeat forever.
     const ownKick = this.now - this.lastSearch < 2;
-    if (e.type !== 'eos' && e.type !== 'swing' && !ownKick) this.searches = 0;
+    const flipperOnly = e.type === 'eos' || e.type === 'swing' || e.type === 'cradle';
+    if (!flipperOnly && !ownKick) this.searches = 0;
     if (this.state === 'GAME_OVER' || this.state === 'INNING_BREAK') return;
+    // Anything but the bats (or a nudge) puts the pitched ball in play.
+    if (!flipperOnly && e.type !== 'tiltBob') this.freshPitch = false;
 
     if (this.tilted) {
       // Only the ball leaving the playfield matters once tilted.
@@ -273,6 +286,9 @@ export class GameRules {
       case 'swing':
         this.lastSwing = this.now;
         this.swing();
+        return;
+      case 'cradle':
+        if (this.cradleIsBunt) this.bunt();
         return;
       case 'pop': {
         // The Gap pops (1B / 2B) score the hit for a batter who has swung. Every other bumper hit
@@ -348,6 +364,22 @@ export class GameRules {
       default:
         return;
     }
+  }
+
+  /**
+   * A cradled pitch is a bunt (docs/MVP/01 § 4.1): the batter held the bat out over the plate
+   * instead of swinging. He is out at first, and every runner moves up a base: a sacrifice. With
+   * two out it is the third out, a force, so the inning is over and nobody advances.
+   */
+  private bunt(): void {
+    const sac = this.outs < 2 ? advanceAll(this.bases) : null;
+    if (sac) this.bases = sac.bases;
+    const runs = sac?.runs ?? 0;
+    this.out('bunt', undefined, { moved: sac?.moved ?? [], runs });
+    if (runs > 0) this.score(runs);
+    // A walk-off squeeze: the winning run has ended the game.
+    if (this.walkOff) return;
+    this.afterOut(this.timing.routeFromDrain);
   }
 
   private hit(hit: HitType): void {
@@ -479,20 +511,24 @@ export class GameRules {
     this.afterOut(this.timing.routeFromDrain);
   }
 
-  private out(how: OutHow, position?: Position): void {
+  private out(how: OutHow, position?: Position, bunt?: { moved: number[]; runs: number }): void {
     this.outs++;
     this.stats.plateAppearances++;
     if (how === 'K') this.stats.strikeouts++;
     else if (how === 'foul') this.stats.foulOuts++;
     else if (how === 'fielder') this.stats.fielderOuts++;
+    else if (how === 'bunt') this.stats.buntOuts++;
     else this.stats.tiltOuts++;
     this.endRally();
     this.state = 'DEAD';
-    this.emit(
-      position
-        ? { type: 'out', how, position, outs: this.outs }
-        : { type: 'out', how, outs: this.outs },
-    );
+    this.freshPitch = false;
+    this.emit({
+      type: 'out',
+      how,
+      ...(position && { position }),
+      outs: this.outs,
+      ...bunt,
+    });
   }
 
   /** The ball has left the playfield after an out: next pitch, or the side is retired. */
@@ -531,6 +567,7 @@ export class GameRules {
   private schedulePitch(delay: number): void {
     this.endThrowBack(true);
     this.state = 'DEAD';
+    this.freshPitch = false;
     this.machine.holdBall();
     const spec = choosePitch(this.inning, this.rng);
     this.after(delay, () => {
@@ -551,6 +588,7 @@ export class GameRules {
     this.tiltWarnings = 0;
     this.machine.pitch(spec);
     this.state = 'PITCH';
+    this.freshPitch = true;
     this.pitchPhase = 'flight';
     this.lastActivity = this.now;
     this.emit({ type: 'pitch', pitch: spec.type });
@@ -606,6 +644,7 @@ export class GameRules {
     this.endThrowBack(true);
     this.endRally();
     this.clearPitch();
+    this.freshPitch = false;
     this.skillLane = null;
     // Partial progress in R-B-I and B-A-T resets at the half-inning change. In Vs AI the physical
     // target bank belongs to the current turn, while stored awards remain with their batting side.
