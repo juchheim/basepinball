@@ -82,16 +82,23 @@ logic.
 The start menu selects Single Player or Vs AI. Vs AI alternates top and bottom halves in the same
 `GameRules` and `World`: a physics-driven bot operates the AI's top half, then the human plays the
 bottom half. `GameRules` tracks batting side and independent team stats while preserving the usual
-rules and physics event path. The bot keeps a ball-specific plan for each flipper: it projects balls
-up to 240 ms ahead with gravity and rolling resistance, ranks arrivals by time and drain urgency,
+rules and physics event path. The bot keeps a ball-specific plan for each flipper: it projects normal
+arrivals up to 240 ms ahead and supported rolls, including cradle rollouts, up to 500 ms ahead with
+gravity and rolling resistance, ranks arrivals by time and drain urgency,
 and schedules a response for the predicted contact. It replans at a difficulty-specific rate while
 servicing press/release deadlines every physics step. Before a scheduled press it checks that the
 same ball still has a plausible arrival, so a bounce or ball reset cancels stale tracking actions;
 a ball impact during a paddle stroke does not interrupt that stroke. A close-range safety trigger
 also reacts to contact or rolling motion on a resting bat between forecast updates. Easy, Medium and
-Hard vary planning cadence, bounded timing error, and target contact point while keeping the paddle's
-stroke lead ahead of contact. Easy aims closer to the flipper pivot for lower-power shots. Player-
-facing AI does not use cradle releases until a controlled release shot is available.
+Hard vary planning cadence, bounded timing error, target contact point, and the chance of choosing a
+cradle on a suitable slow arrival. For a cradle, the AI raises the bat early, holds a stable ball
+briefly, then releases it and times a follow-up hit at a difficulty-specific point along the bat.
+Easy aims closer to the pivot for lower-power shots; harder profiles cradle more often and target
+farther out with tighter timing. Hard also predicts supported rolls on the bat and triggers a local
+save when a ball is about to reach the tip or a near-term contact. It moves its contact target inward
+with empty bases (0.60 of bat length, biasing toward reliable singles and doubles) and farther out
+with runners aboard (0.82, biasing toward extra-base hits). Hit type remains physics-driven; steals
+are opportunistic because the controller does not directly aim at the steal ramp.
 The same controller is used by the headless balance simulator. This is local play; no network
 service or backend is required, and it is not online multiplayer.
 
