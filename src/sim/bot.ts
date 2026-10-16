@@ -255,7 +255,7 @@ export class Bot {
 
     if (now >= this.nextThinkAt) {
       for (const side of ['L', 'R'] as const)
-        this.refreshPlan(world, side, now, rules.cradleIsBunt);
+        this.refreshPlan(world, side, now, rules.heldBatIsBunt);
       this.nextThinkAt = now + (this.profile.thinkInterval ?? 0.02);
     }
   }
@@ -655,7 +655,7 @@ export class Bot {
     return this.probe.d <= ball.radius + margin;
   }
 
-  /** `noCradle`: a cradle now would be a bunt out (a fresh pitch), so swing away instead. */
+  /** `noCradle`: a bat held out now would bunt (a fresh pitch), so swing away instead. */
   private refreshPlan(world: World, side: FlipperSide, now: number, noCradle: boolean): void {
     const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
     const existing = this.plans[side];
