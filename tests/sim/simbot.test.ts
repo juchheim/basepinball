@@ -18,9 +18,14 @@ describe('sim bot', () => {
     const runs = games.reduce((a, g) => a + g.stats.runs, 0) / games.length;
     const pa = games.reduce((a, g) => a + g.stats.plateAppearances, 0);
     const hits = games.reduce((a, g) => a + g.stats.hits, 0);
-    // Loose bounds (6 games); the balance report runs larger samples.
+    // Loose bounds (6 games); the balance report runs larger samples. This is a sanity check,
+    // not the 5-7 balance target. The bot shares its flipper controller with the vs-AI
+    // opponent, and that controller's rework (374849a onward: a missed reaction is a true miss
+    // instead of a flip a second later that also ignored every other ball) made it a stronger
+    // player. 60-game means (`npm run simbot -- 60`): 9.28 before the rework, 10.93 after. These
+    // six seeds give 11.17, so the old < 10 bound sat inside the bot's normal range.
     expect(runs).toBeGreaterThan(1);
-    expect(runs).toBeLessThan(10);
+    expect(runs).toBeLessThan(15);
     expect(hits / pa).toBeGreaterThan(0.15);
     expect(hits / pa).toBeLessThan(0.45);
   });
