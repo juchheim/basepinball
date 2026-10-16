@@ -278,24 +278,50 @@ export class Stage {
     for (const x of [box.min.x, box.max.x])
       for (const y of [box.min.y, box.max.y])
         for (const z of [box.min.z, box.max.z]) corners.push(new THREE.Vector3(x, y, z));
+    // Where the camera aims. It starts at the box's centre, which (seen from above the apron)
+    // projects low on the screen: the apron binds at the bottom and leaves slack above the
+    // backboard.
+    const aim = center.clone();
     const fits = (d: number): boolean => {
-      this.camera.position.copy(center).addScaledVector(dir, d);
-      this.camera.lookAt(center);
+      this.camera.position.copy(aim).addScaledVector(dir, d);
+      this.camera.lookAt(aim);
       this.camera.updateMatrixWorld();
       return corners.every((c) => {
         const p = c.clone().project(this.camera);
         return Math.abs(p.x) <= 0.97 && Math.abs(p.y) <= 0.97 && p.z < 1;
       });
     };
-    let lo = 0.2;
-    let hi = 8;
-    for (let i = 0; i < 30; i++) {
-      const mid = (lo + hi) / 2;
-      if (fits(mid)) hi = mid;
-      else lo = mid;
+    const fitDistance = (): number => {
+      let lo = 0.2;
+      let hi = 8;
+      for (let i = 0; i < 30; i++) {
+        const mid = (lo + hi) / 2;
+        if (fits(mid)) hi = mid;
+        else lo = mid;
+      }
+      fits(hi);
+      return hi;
+    };
+    let d = fitDistance();
+    // In landscape (height-bound), re-aim so the slack is split evenly top and bottom, then move
+    // in: the table fills the height. (Portrait is width-bound; its framing is left as it is.)
+    if (w / h >= 5 / 4) {
+      const up = new THREE.Vector3();
+      const tanHalf = Math.tan((this.camera.fov * Math.PI) / 360);
+      for (let k = 0; k < 4; k++) {
+        let minY = Infinity;
+        let maxY = -Infinity;
+        for (const c of corners) {
+          const y = c.clone().project(this.camera).y;
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+        up.setFromMatrixColumn(this.camera.matrixWorld, 1);
+        aim.addScaledVector(up, ((maxY + minY) / 2) * d * tanHalf);
+        d = fitDistance();
+      }
     }
-    fits(hi);
-    this.orbitCenter.copy(center);
+    this.orbitCenter.copy(aim);
   }
 
   /**
