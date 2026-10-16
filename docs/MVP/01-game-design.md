@@ -59,21 +59,22 @@ does not. It is **one swing per touch**: a ball held in the cradle swings once, 
 for as long as it rests there (in multiball that let the other ball score a hit off every bumper it
 touched).
 
-**The batter must swing at the pitch.** The bat has to strike the pitch on its way up. Pressing
-too early and pressing too late (or not at all) both end the at-bat on the pitch's first touch, so
-the window to swing in is about 0.1 s of press timing:
+**The batter must swing at the pitch.** The bat has to strike the pitch on its way up, with the
+flipper it was thrown at. A swing a fraction late still counts: a pitch that bounces off the bat at
+rest can be flipped from there. The window to swing in is about 0.3 s of press timing:
 
-- **Too early: a bunt.** If the pitch first meets a bat already held up (button held, the bat at the
-  end of its stroke for 10 ms or more), it is a **bunt**, called on that touch, before the ball can
+- **Too early: a bunt.** If the pitch meets a bat already held up (button held, the bat at the end
+  of its stroke for 10 ms or more) before any swing has struck it, it is a **bunt**, called on that touch, before the ball can
   be cradled, dropped or flipped. So is a swing that catches the pitch on the bat (the ball still on
   it 10 ms after the bat is held up: a struck ball always leaves the bat before its stroke ends).
   A bunt is an out, and every runner moves up a base, the runner on third scoring: a
   **sacrifice**. With two out the bunt is the third out, a force at first, so nobody advances.
-- **Too late, or no swing: strike three, called.** If the pitch first touches a bat at rest (button
-  up, including a bat dropping after an early press), the batter took it: a strikeout (looking),
-  called on that touch. The flippers go dead and the ball drains past them; otherwise a taken pitch
-  rolls down its bat and across onto the other one, slow and in reach for half a second, a free
-  swing. Play goes on once the ball has drained (or after 4 s, if it has not).
+- **No swing: strike three, called.** If the pitch bounces off its flipper at rest (button up,
+  including a bat dropping after an early press) and reaches the other flipper before any swing
+  has struck it, landing on it or swung at by it, the batter took it: a strikeout (looking), called
+  on that touch. Left alone, a taken pitch rolls across onto the other bat, slow and in reach for
+  half a second, a free swing. So the flippers go dead and the ball drains past them, and play goes
+  on once it has (or after 4 s, if it has not).
 
 The rule covers the pitch until a swing strikes it or it touches anything but the bats. After that,
 and in rallies and the leadoff plunge, holding a flipper up or letting the ball roll is ordinary
