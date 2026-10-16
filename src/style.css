@@ -285,6 +285,9 @@ canvas {
   gap: 6px;
   flex-wrap: wrap;
 }
+.hud-match-scores {
+  display: none;
+}
 .chip {
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -1041,6 +1044,31 @@ canvas {
     width: 28px;
     height: 28px;
   }
+  /* Keep both match totals visible throughout either side's turn. */
+  .hud-match-scores {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transform: translateX(-50%);
+    padding: 3px 12px 4px;
+    background: var(--glass);
+    border: 1px solid rgba(242, 179, 61, 0.5);
+    border-radius: 14px;
+    box-shadow: var(--glass-shadow);
+  }
+  .hud-match-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 28px;
+  }
+  .hud-match-score .hud-value {
+    font-size: 17px;
+    color: var(--gold-hi);
+  }
   .chip {
     font-size: 10px;
     padding: 2px 7px;
@@ -1064,6 +1092,9 @@ canvas {
   }
   .hud-chips:empty {
     display: none;
+  }
+  .hud-bar.vs-ai .hud-chips {
+    top: calc(100% + 45px);
   }
 }
 

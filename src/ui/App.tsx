@@ -87,7 +87,7 @@ function Hud() {
   const g = snapshot.value;
   if (!g) return null;
   return (
-    <div class="hud-bar">
+    <div class={`hud-bar ${g.vsAi ? 'vs-ai' : ''}`}>
       <div class="hud-cell">
         <span class="hud-label">INN</span>
         <span class="hud-value">{g.inning}</span>
@@ -105,6 +105,22 @@ function Hud() {
         <span class="hud-label">R</span>
         <span class="hud-value">{g.stats.runs}</span>
       </div>
+      {g.vsAi && (
+        <div
+          class="hud-match-scores"
+          role="group"
+          aria-label={`Score: you ${g.humanStats?.runs ?? 0}, AI ${g.aiStats?.runs ?? 0}`}
+        >
+          <div class="hud-match-score">
+            <span class="hud-label">YOU</span>
+            <span class="hud-value">{g.humanStats?.runs ?? 0}</span>
+          </div>
+          <div class="hud-match-score">
+            <span class="hud-label">AI</span>
+            <span class="hud-value">{g.aiStats?.runs ?? 0}</span>
+          </div>
+        </div>
+      )}
       <div class="hud-cell">
         <span class="hud-label">H</span>
         <span class="hud-value">{g.stats.hits}</span>
@@ -142,10 +158,7 @@ function Hud() {
               {g.battingSide === 'ai' ? 'TOP' : 'BOTTOM'} {g.inning} ·{' '}
               {g.battingSide === 'ai' ? 'AI PLAYING' : 'YOUR TURN'}
             </span>
-            <span class="chip opponent-score">
-              YOU {g.humanStats?.runs ?? 0} · AI {g.aiStats?.runs ?? 0} ·{' '}
-              {activeAiDifficulty.value.toUpperCase()}
-            </span>
+            <span class="chip opponent-score">{activeAiDifficulty.value.toUpperCase()}</span>
           </>
         )}
       </div>
