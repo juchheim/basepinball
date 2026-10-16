@@ -32,7 +32,10 @@ export type PhysicsEventType =
   | 'swing'
   /** A pitched ball met a flipper held out (not swung at it) before any swing struck it. */
   | 'bunt'
-  /** A pitched ball touched a flipper at rest (button up) before any swing struck it: taken. */
+  /**
+   * A pitched ball bounced off one flipper at rest (button up) and reached the other before any
+   * swing struck it: taken. (The id is the second flipper.)
+   */
   | 'take'
   | 'sensor'
   | 'spinner'
@@ -275,9 +278,10 @@ export class World {
     }
   >();
   /**
-   * Pitched balls that no swing has struck yet: a bat held out to one bunts, a bat at rest takes it.
+   * Pitched balls that no swing has struck yet, and the flipper each bounced off at rest (null if
+   * none yet). A bat held out to one bunts it; reaching another flipper after that bounce takes it.
    */
-  private readonly unstruck = new WeakSet<Ball>();
+  private readonly unstruck = new WeakMap<Ball, string | null>();
   private readonly rng: Rng;
   private grid: Grid;
   private gx = 0;
@@ -420,7 +424,7 @@ export class World {
     // The ball comes up through the mound, so a bumper there drops out of its way.
     for (const r of this.retractables) this.setLift(r, 0);
     b.place(x, y, this.floorHeightAt(x, y) + b.radius);
-    this.unstruck.add(b);
+    this.unstruck.set(b, null);
     const dx = tx - x;
     const dy = ty - y;
     const len = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1167,16 +1171,20 @@ export class World {
       const ux = -f.omega * ry;
       const uy = f.omega * rx;
       this.resolve(b, nx, ny, 0, depth, 'rubberFlipper', ux, uy, 0, f, rx, ry);
+      // A pitch the batter let bounce off one flipper at rest can still be swung at late with that
+      // flipper. Reaching the other one (landing on it, or swung at by it) means it was taken.
+      const bounced = this.unstruck.get(b);
+      if (bounced === null && !f.pressed) this.unstruck.set(b, f.id);
+      else if (bounced && bounced !== f.id) {
+        this.unstruck.delete(b);
+        this.emit('take', f.id);
+      }
       // A swing is a ball meeting a held-up flipper: once per touch. A ball cradled on the bat stays
       // in touch, so it swings once, not over and over (in multiball a run of swings would let the
       // other ball score a hit off every bumper it touched). Only contact with the button held
       // counts as the touch: a ball rolling down the resting bat is flipped from rest by the press,
       // and that is a swing too (counting the passive roll as the touch used to swallow it).
-      if (!f.pressed) {
-        // The batter let the pitch reach the bat without swinging. Once: the pitch is over.
-        if (this.unstruck.delete(b)) this.emit('take', f.id);
-        continue;
-      }
+      if (!f.pressed) continue;
       const touch = this.flipperTouch.get(b) ?? new Map<string, number>();
       this.flipperTouch.set(b, touch);
       const last = touch.get(f.id) ?? -Infinity;

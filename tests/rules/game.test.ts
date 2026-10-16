@@ -1257,13 +1257,12 @@ describe('hits off the real flippers (physics + rules)', () => {
     });
   });
 
-  it('a pitch that bounced off the resting bat before the flip is a called strikeout', () => {
-    // The batter took it. The flip that would have sent it into the Gap comes too late: the
-    // flippers are dead by then, and the ball drains.
+  it('a late flip at a pitch that bounced off the resting bat still counts', () => {
+    // The pitch bounces off the resting bat just before the flip sends it into the Gap.
     expect(flipAtBatter('PITCH', 'R', 'pitch', 200)).toEqual({
-      result: 'drain',
-      hits: [],
-      called: true,
+      result: '1B',
+      hits: ['1B'],
+      called: false,
     });
   });
 
