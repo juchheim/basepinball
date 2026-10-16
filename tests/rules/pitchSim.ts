@@ -30,7 +30,9 @@ export function simulatePitch(spec: PitchSpec): PitchOutcome {
     w.step();
     for (const e of w.events) {
       if (e.type === 'drain') res.drained = true;
-      else if (res.contact === null && e.type !== 'eos') res.before.push(`${e.type}:${e.id}`);
+      // A take is the first flipper touch itself (the no-swing pitch reaching the resting bat).
+      else if (res.contact === null && e.type !== 'eos' && e.type !== 'take')
+        res.before.push(`${e.type}:${e.id}`);
     }
     w.events.length = 0;
     if (res.contact === null) {

@@ -34,7 +34,7 @@ export type RulesEvent =
   | { type: 'hit'; hit: HitType; bases: number; hotBat: boolean; runs: number }
   /**
    * A bunt also says which bases' runners moved up (`moved`, 0 = first: empty unless it was a
-   * sacrifice) and how many `runs` scored.
+   * sacrifice) and how many `runs` scored. `looking`: a strikeout called on a taken pitch.
    */
   | {
       type: 'out';
@@ -43,6 +43,7 @@ export type RulesEvent =
       outs: number;
       moved?: number[];
       runs?: number;
+      looking?: boolean;
     }
   | { type: 'runs'; runs: number }
   | { type: 'steal'; from: number; runs: number }

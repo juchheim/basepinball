@@ -259,7 +259,8 @@ export class Director {
           o.stinger('strikeout');
           o.crowd('groan');
           o.show('strikeout');
-          o.scoreboard('K', `${e.outs} OUT`, '#ff4d4d', 1.6);
+          // A taken pitch: struck out looking.
+          o.scoreboard('K', e.looking ? `CALLED · ${e.outs} OUT` : `${e.outs} OUT`, '#ff4d4d', 1.6);
         } else if (e.how === 'foul') {
           o.figure({ kind: 'umpire' });
           o.crowd('groan', 0.6);

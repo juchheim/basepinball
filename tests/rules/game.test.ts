@@ -5,6 +5,7 @@ import { advance, advanceAll, steal, walk } from '../../src/rules/bases';
 import {
   BLEACHERS,
   BLEACHERS_HOLD,
+  CALLED_BALL_TIMEOUT,
   GameRules,
   type GameOptions,
   HUSTLE_COOLDOWN,
@@ -522,6 +523,72 @@ describe('bunts (a pitch meets a bat held out)', () => {
     const h = inPitch().ev('swing', 'flipper.L').ev('bunt', 'flipper.L').ev('bunt', 'flipper.L');
     expect(h.g.outs).toBe(2);
     expect(h.count('out')).toBe(2);
+  });
+});
+
+describe('called strikeouts (a taken pitch)', () => {
+  it('a pitch that reaches a bat at rest is strike three, called on that touch', () => {
+    const h = inPitch().ev('take', 'flipper.L');
+    expect(h.g.outs).toBe(2);
+    expect(h.last('out')).toEqual({ type: 'out', how: 'K', outs: 2, looking: true });
+    expect(h.g.stats.strikeouts).toBe(1);
+    expect(h.state).toBe('DEAD');
+  });
+
+  it('the flippers go dead until the ball drains, then the next pitch', () => {
+    const h = inPitch().ev('take', 'flipper.R');
+    const pitches = h.m.pitches();
+    expect(h.m.flippers).toBe(false);
+    h.wait(2);
+    expect(h.m.pitches()).toBe(pitches);
+    expect(h.m.inPlay).toBe(true);
+    h.ev('drain', 'drain');
+    // The drain is the same out, not another.
+    expect(h.g.outs).toBe(2);
+    expect(h.m.flippers).toBe(true);
+    h.toPitch();
+    expect(h.state).toBe('PITCH');
+    expect(h.m.pitches()).toBe(pitches + 1);
+  });
+
+  it('nothing the ball does on its way out counts', () => {
+    const h = inPitch().ev('take', 'flipper.L');
+    h.ev('swing', 'flipper.L').ev('pop', 'pop.1B.L').ev('saucer', 'saucer.SS');
+    expect(h.g.stats.hits).toBe(0);
+    expect(h.g.outs).toBe(2);
+    // The fielder's glove took it off the table: play goes on.
+    expect(h.m.flippers).toBe(true);
+    h.toPitch();
+    expect(h.state).toBe('PITCH');
+  });
+
+  it('a ball that never drains is taken off the table after a few seconds', () => {
+    const h = inPitch().ev('take', 'flipper.L');
+    h.wait(CALLED_BALL_TIMEOUT + 0.1);
+    expect(h.m.inPlay).toBe(false);
+    expect(h.m.flippers).toBe(true);
+    h.toPitch();
+    expect(h.state).toBe('PITCH');
+  });
+
+  it('as the third out, the side is retired once the ball has drained', () => {
+    const h = inPitch().ev('drain', 'drain').toPitch().ev('take', 'flipper.L');
+    expect(h.g.outs).toBe(3);
+    expect(h.count('inningEnd')).toBe(0);
+    h.ev('drain', 'drain');
+    expect(h.count('inningEnd')).toBe(1);
+    expect(h.m.flippers).toBe(true);
+  });
+
+  it('only while the pitch is live: not after it is in play, in a rally, or off the plunge', () => {
+    const sling = inPitch().ev('sling', 'sling.L').ev('take', 'flipper.L');
+    expect(sling.g.outs).toBe(1);
+    const rally = inLiveAfterHit().ev('take', 'flipper.L');
+    expect(rally.g.outs).toBe(0);
+    expect(rally.state).toBe('LIVE_AFTER_HIT');
+    const leadoff = inLeadoff().ev('plunger').ev('take', 'flipper.L');
+    expect(leadoff.g.outs).toBe(0);
+    expect(leadoff.m.flippers).toBe(true);
   });
 });
 
@@ -1148,6 +1215,9 @@ describe('hits off the real flippers (physics + rules)', () => {
       const b = world.ball();
       b.place(cx + sign * 0.064, 0.395);
       b.vy = -0.9;
+      // A pitch can only reach an inlane off something else (a sling, say), which puts it in play:
+      // it is no longer a live pitch to be called.
+      if (state === 'PITCH') rules.onSwitch({ type: 'sling', id: 'sling.L', time: 0 });
     } else world.pitchBall(cx + sign * 0.216, 0.19, 1.1);
     const id = side === 'L' ? 'flipper.L' : 'flipper.R';
     let result: string | null = null;
@@ -1162,7 +1232,9 @@ describe('hits off the real flippers (physics + rules)', () => {
       world.events.length = 0;
     }
     const hits = rules.events.flatMap((e) => (e.type === 'hit' ? [e.hit] : []));
-    return { result, hits };
+    // The pitch reached the resting bat before the flip: strike three, called.
+    const called = rules.events.some((e) => e.type === 'out' && e.looking === true);
+    return { result, hits, called };
   }
 
   /** The hit a device scores for a batter who has swung (the triple's corner kickers aside). */
@@ -1181,9 +1253,18 @@ describe('hits off the real flippers (physics + rules)', () => {
     expect(flipAtBatter('LEADOFF_LAUNCH', 'L', 'inlane', 750)).toEqual({
       result: 'HR',
       hits: ['HR'],
+      called: false,
     });
-    // ...and a pitch bounces off the resting bat just before the flip sends it into the Gap.
-    expect(flipAtBatter('PITCH', 'R', 'pitch', 200)).toEqual({ result: '1B', hits: ['1B'] });
+  });
+
+  it('a pitch that bounced off the resting bat before the flip is a called strikeout', () => {
+    // The batter took it. The flip that would have sent it into the Gap comes too late: the
+    // flippers are dead by then, and the ball drains.
+    expect(flipAtBatter('PITCH', 'R', 'pitch', 200)).toEqual({
+      result: 'drain',
+      hits: [],
+      called: true,
+    });
   });
 
   for (const state of ['LEADOFF_LAUNCH', 'PITCH'] as const) {
@@ -1195,8 +1276,13 @@ describe('hits off the real flippers (physics + rules)', () => {
           ['pitch', 100, 280],
         ];
         for (const [feed, from, to] of sweeps) {
-          for (let d = from; d <= to; d += 10) {
-            const { result, hits } = flipAtBatter(state, side, feed, d);
+          for (let d = from; d <= to; d += 5) {
+            const { result, hits, called } = flipAtBatter(state, side, feed, d);
+            if (called) {
+              // Taken: no hit counts, wherever the late flip sends it.
+              expect(hits, `${side} ${feed} @${d}ms`).toEqual([]);
+              continue;
+            }
             if (!HITS.includes(result)) continue;
             checked++;
             expect(hits[0], `${side} ${feed} @${d}ms`).toBe(result);
