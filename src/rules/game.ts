@@ -507,6 +507,11 @@ export class GameRules {
     this.after(delay, () => {
       this.pitchType = spec.type;
       this.pitchSide = spec.side;
+      if (this.vsAi && this.battingSide === 'ai') {
+        // AI batting needs no pitch preview or windup pause; human turns keep the readable tell.
+        this.releasePitch(spec);
+        return;
+      }
       this.pitchPhase = 'windup';
       this.emit({ type: 'pitchTell', pitch: spec.type, side: spec.side, lead: this.timing.tell });
       this.after(this.timing.tell, () => this.releasePitch(spec));
