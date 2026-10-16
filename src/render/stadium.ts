@@ -17,6 +17,7 @@ import {
 } from 'three/tsl';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BRAND } from '../app/brand';
+import { lineScoreInnings } from '../rules/match';
 import { Rng } from '../core/rng';
 import { Particles, type Palette } from '../fx/particles';
 import { toBackdrop } from './layers';
@@ -310,7 +311,7 @@ export class Stadium {
 
   private drawScoreboard(g: GameSnapshot | null, title: string): void {
     const key = g
-      ? `${g.inning}|${g.battingSide}|${g.outs}|${g.humanStats?.runsByInning.join(',')}|${g.aiStats?.runsByInning.join(',')}|${g.humanStats?.hits}|${g.aiStats?.hits}|${g.bases.join()}|${g.state}`
+      ? `${g.inning}|${g.battingSide}|${g.walkOff}|${g.outs}|${g.humanStats?.runsByInning.join(',')}|${g.aiStats?.runsByInning.join(',')}|${g.humanStats?.hits}|${g.aiStats?.hits}|${g.bases.join()}|${g.state}`
       : `title:${title}`;
     const msg = this.message;
     if (msg) {
@@ -358,32 +359,49 @@ export class Stadium {
       return;
     }
     ctx.textAlign = 'center';
-    const col = (i: number) => 230 + i * 68;
+    // Nine inning columns, squeezed to fit up to twelve in extra innings; past that the board
+    // shows the latest twelve.
+    const innings = lineScoreInnings(g.inning, g.innings, 12);
+    const step = innings.length <= 9 ? 68 : (8 * 68) / (innings.length - 1);
+    const col = (i: number) => 230 + i * step;
+    const total = (i: number) => 230 + 8 * 68 + (i + 1) * 68 + 20;
+    innings.forEach((n, i) => {
+      ctx.fillStyle = n > g.innings ? '#f2b33d' : '#9aa6c4';
+      ctx.fillText(String(n), col(i), 50);
+    });
     ctx.fillStyle = '#9aa6c4';
-    for (let i = 0; i < 9; i++) ctx.fillText(String(i + 1), col(i), 50);
-    ctx.fillText('R', col(9) + 20, 50);
-    ctx.fillText('H', col(10) + 20, 50);
+    ctx.fillText('R', total(0), 50);
+    ctx.fillText('H', total(1), 50);
     const vsAi = g.vsAi === true && !!g.aiStats;
     const human = g.humanStats ?? g.stats;
-    const drawLine = (label: string, stats: GameSnapshot['stats'], y: number, active: boolean) => {
+    const final = g.state === 'GAME_OVER';
+    const drawLine = (
+      label: string,
+      stats: GameSnapshot['stats'],
+      y: number,
+      active: boolean,
+      home: boolean,
+    ) => {
       ctx.textAlign = 'left';
       ctx.fillStyle = active ? '#f2b33d' : '#f4f1e8';
       ctx.fillText(label, 22, y, 190);
       ctx.textAlign = 'center';
-      for (let i = 0; i < 9; i++) {
-        const runs = stats.runsByInning[i];
-        ctx.fillStyle = active && i + 1 === g.inning ? '#f2b33d' : '#f4f1e8';
-        ctx.fillText(runs === undefined ? '' : String(runs), col(i), y);
-      }
+      innings.forEach((n, i) => {
+        const runs = stats.runsByInning[n - 1];
+        // The home side's last half, not needed because it already led: an X, as in a box score.
+        const x = vsAi && home && final && n === g.inning && runs === undefined;
+        ctx.fillStyle = active && n === g.inning ? '#f2b33d' : '#f4f1e8';
+        ctx.fillText(x ? 'X' : runs === undefined ? '' : String(runs), col(i), y);
+      });
       ctx.fillStyle = active ? '#f2b33d' : '#f4f1e8';
-      ctx.fillText(String(stats.runs), col(9) + 20, y);
-      ctx.fillText(String(stats.hits), col(10) + 20, y);
+      ctx.fillText(String(stats.runs), total(0), y);
+      ctx.fillText(String(stats.hits), total(1), y);
     };
     if (vsAi && g.aiStats) {
-      drawLine('AI', g.aiStats, 92, g.battingSide === 'ai');
-      drawLine(BRAND.teamShort.toUpperCase(), human, 138, g.battingSide !== 'ai');
+      drawLine('AI', g.aiStats, 92, g.battingSide === 'ai', false);
+      drawLine(BRAND.teamShort.toUpperCase(), human, 138, g.battingSide !== 'ai', true);
     } else {
-      drawLine('SILVERBALLS', g.stats, 118, true);
+      drawLine('SILVERBALLS', g.stats, 118, true, true);
     }
     // Outs and the at-bat line.
     ctx.textAlign = 'left';
@@ -402,6 +420,11 @@ export class Stadium {
       300,
       204,
     );
+    if (g.extraInnings || (final && g.walkOff)) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#f2b33d';
+      ctx.fillText(final && g.walkOff ? 'WALK-OFF' : 'EXTRAS', canvas.width - 22, 204);
+    }
     texture.needsUpdate = true;
   }
 

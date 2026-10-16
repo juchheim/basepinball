@@ -90,6 +90,8 @@ export class GameRules {
   state: BallState = 'DEAD';
   inning = 0;
   battingSide: BattingSide = 'human';
+  /** The game ended on a walk-off: the home side (the human, in Vs AI) won it in the bottom half. */
+  walkOff = false;
   outs = 0;
   bases: Bases = EMPTY;
   rally = 0;
@@ -157,6 +159,19 @@ export class GameRules {
   /** Stats for the side currently batting; `humanStats` remains the player's lifetime/high-score row. */
   get stats(): GameStats {
     return this.battingSide === 'ai' ? this.aiStats : this.humanStats;
+  }
+
+  /**
+   * Vs AI: past the regulation innings. Baseball has no ties, so a game level after the 9th goes
+   * on an inning at a time until one side leads at the end of one (docs/MVP/01 § 5).
+   */
+  get extraInnings(): boolean {
+    return this.vsAi && this.inning > this.innings;
+  }
+
+  /** The home side's half of the 9th or later, where the winning run ends the game on the spot. */
+  private get lastLicks(): boolean {
+    return this.vsAi && this.battingSide === 'human' && this.inning >= this.innings;
   }
 
   get hotBat(): boolean {
@@ -356,8 +371,11 @@ export class GameRules {
       this.bat.clear();
       this.machine.resetDropTargets();
     }
-    this.emit({ type: 'hit', hit, bases: reached, hotBat: useHotBat, runs });
-    if (runs > 0) this.score(runs);
+    const credited = this.creditedRuns(runs, hit === 'HR');
+    this.emit({ type: 'hit', hit, bases: reached, hotBat: useHotBat, runs: credited });
+    if (credited > 0) this.score(credited);
+    // A walk-off: the winning run has ended the game.
+    if (this.walkOff) return;
     this.state = 'LIVE_AFTER_HIT';
     if (this.rallyPa) {
       this.rallyHits++;
@@ -495,6 +513,17 @@ export class GameRules {
     this.stats.runsByInning[this.inning - 1] =
       (this.stats.runsByInning[this.inning - 1] ?? 0) + runs;
     this.emit({ type: 'runs', runs });
+    if (this.lastLicks && this.humanStats.runs > this.aiStats.runs) this.endOnWalkOff();
+  }
+
+  /**
+   * Baseball's walk-off rule (OBR 7.01(g)): in the home half of the 9th or later, the game ends the
+   * moment the winning run scores, so a hit counts only the runs needed to win. A home run is the
+   * exception: the batter and every runner score. (A feature award scores one run at most.)
+   */
+  private creditedRuns(runs: number, homeRun: boolean): number {
+    if (homeRun || !this.lastLicks) return runs;
+    return Math.min(runs, Math.max(0, this.aiStats.runs - this.humanStats.runs + 1));
   }
 
   // ---------------------------------------------------------------- pitching
@@ -561,7 +590,11 @@ export class GameRules {
     this.emit({ type: 'inningStart', inning: n, battingSide });
   }
 
-  private endInning(): void {
+  /**
+   * The half-inning is over (three outs, or a walk-off): count the runners left on base and clear
+   * everything that belongs to this side's turn. Returns the runners left on base.
+   */
+  private retireSide(): number {
     // A souvenir not thrown back by the end of the inning: the fan keeps it.
     if (this.souvenirReady) {
       this.souvenirReady = false;
@@ -569,13 +602,6 @@ export class GameRules {
     }
     const lob = runnersOn(this.bases);
     this.stats.leftOnBase += lob;
-    this.emit({
-      type: 'inningEnd',
-      inning: this.inning,
-      runs: this.stats.runsByInning[this.inning - 1] ?? 0,
-      lob,
-      battingSide: this.battingSide,
-    });
     this.bases = EMPTY;
     this.endThrowBack(true);
     this.endRally();
@@ -595,37 +621,56 @@ export class GameRules {
     this.moundUp = false;
     this.buttons.L = false;
     this.buttons.R = false;
+    return lob;
+  }
+
+  private endInning(): void {
+    const lob = this.retireSide();
+    this.emit({
+      type: 'inningEnd',
+      inning: this.inning,
+      runs: this.stats.runsByInning[this.inning - 1] ?? 0,
+      lob,
+      battingSide: this.battingSide,
+    });
     this.machine.holdBall();
 
-    // The home team (human) does not bat in the bottom of the final inning when it already leads
-    // after the away team's top half is complete.
-    if (
-      this.vsAi &&
-      this.battingSide === 'ai' &&
-      this.inning >= this.innings &&
-      this.humanStats.runs > this.aiStats.runs
-    ) {
-      this.gameOver();
-      return;
+    // From the 9th on, the game can be decided at the end of either half (docs/MVP/01 § 5).
+    if (this.inning >= this.innings) {
+      if (!this.vsAi) return this.gameOver();
+      const lead = this.humanStats.runs - this.aiStats.runs;
+      // The home team (human) does not bat in the bottom half when it already leads after the
+      // away team's top half. After the bottom half, whoever leads has won.
+      if (this.battingSide === 'ai' ? lead > 0 : lead !== 0) return this.gameOver();
+      if (this.battingSide === 'human') {
+        // Level after a full inning: no ties in baseball, so extra innings.
+        this.emit({ type: 'extraInnings', inning: this.inning + 1, runs: this.humanStats.runs });
+      }
     }
 
     this.state = 'INNING_BREAK';
     this.after(this.timing.inningBreak, () => {
-      if (this.vsAi && this.battingSide === 'ai') {
-        this.startInning(this.inning, 'human');
-      } else if (this.inning >= this.innings) {
-        this.gameOver();
-      } else {
-        this.startInning(this.inning + 1, this.vsAi ? 'ai' : 'human');
-      }
+      if (this.vsAi && this.battingSide === 'ai') this.startInning(this.inning, 'human');
+      else this.startInning(this.inning + 1, this.vsAi ? 'ai' : 'human');
     });
   }
 
-  private gameOver(): void {
+  /**
+   * The winning run has scored in the home half of the 9th or later: the game is over on the spot,
+   * with the ball still on the table. The flippers go dead and it rolls down to the drain.
+   */
+  private endOnWalkOff(): void {
+    this.retireSide();
+    this.machine.setFlippersEnabled(false);
+    this.gameOver(true);
+  }
+
+  private gameOver(walkOff = false): void {
     this.state = 'GAME_OVER';
+    this.walkOff = walkOff;
     this.humanStats.duration = this.now - this.startTime;
     if (this.vsAi) this.aiStats.duration = this.now - this.startTime;
-    this.emit({ type: 'gameOver' });
+    this.emit(walkOff ? { type: 'gameOver', walkOff } : { type: 'gameOver' });
   }
 
   // ---------------------------------------------------------------- feature goals
@@ -810,6 +855,8 @@ export class GameRules {
       innings: this.innings,
       vsAi: this.vsAi,
       battingSide: this.battingSide,
+      extraInnings: this.extraInnings,
+      walkOff: this.walkOff,
       outs: this.outs,
       bases: this.bases,
       humanStats: this.humanStats,

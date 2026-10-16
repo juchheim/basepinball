@@ -62,7 +62,10 @@ export type RulesEvent =
   | { type: 'ballSearch' }
   | { type: 'ballRescued' }
   | { type: 'inningEnd'; inning: number; runs: number; lob: number; battingSide?: BattingSide }
-  | { type: 'gameOver' };
+  /** Vs AI: level after the regulation innings, so the game goes on; `inning` is the next one. */
+  | { type: 'extraInnings'; inning: number; runs: number }
+  /** `walkOff`: the home side (the human, in Vs AI) won it in the bottom half. */
+  | { type: 'gameOver'; walkOff?: boolean };
 
 export interface GameStats {
   runsByInning: number[];
@@ -120,6 +123,10 @@ export interface GameSnapshot {
   innings: number;
   vsAi?: boolean;
   battingSide?: BattingSide;
+  /** Vs AI: the regulation innings are over and the game is still going. */
+  extraInnings?: boolean;
+  /** The game ended on a walk-off. */
+  walkOff?: boolean;
   outs: number;
   bases: Bases;
   humanStats?: GameStats;

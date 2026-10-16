@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { BRAND } from '../app/brand';
-import type { AiDifficulty, GameMode } from '../rules/match';
+import { lineScoreInnings, ordinal, type AiDifficulty, type GameMode } from '../rules/match';
 import type { GameSnapshot, GameStats } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 import { battingAverage } from '../storage/lifetime';
@@ -88,7 +88,7 @@ function Hud() {
   if (!g) return null;
   return (
     <div class={`hud-bar ${g.vsAi ? 'vs-ai' : ''}`}>
-      <div class="hud-cell">
+      <div class={`hud-cell ${g.extraInnings ? 'extra' : ''}`}>
         <span class="hud-label">INN</span>
         <span class="hud-value">{g.inning}</span>
       </div>
@@ -159,6 +159,7 @@ function Hud() {
               {g.battingSide === 'ai' ? 'AI PLAYING' : 'YOUR TURN'}
             </span>
             <span class="chip opponent-score">{activeAiDifficulty.value.toUpperCase()}</span>
+            {g.extraInnings && <span class="chip extras">EXTRA INNINGS</span>}
           </>
         )}
       </div>
@@ -197,7 +198,10 @@ function PitchIndicator({ paused }: { paused: boolean }) {
   );
 }
 
-/** Landscape only (CSS): the full line score, 1-9, R and H, as on the ballpark board. */
+/**
+ * Landscape only (CSS): the full line score, 1-9 (and any extra innings), R and H, as on the
+ * ballpark board.
+ */
 function LineScore() {
   const g: GameSnapshot | null = snapshot.value;
   if (!g) return null;
@@ -205,14 +209,17 @@ function LineScore() {
   const human = g.humanStats ?? g.stats;
   const ai = g.aiStats;
   const aiActive = g.battingSide === 'ai';
+  const innings = lineScoreInnings(g.inning, g.innings, 12);
+  const cls = (n: number, active: boolean) =>
+    `${active && n === g.inning ? 'now' : ''} ${n > g.innings ? 'extra' : ''}`;
   return (
     <div class="linescore">
       <table>
         <thead>
           <tr>
             <th />
-            {Array.from({ length: 9 }, (_, i) => (
-              <th class={i + 1 === g.inning ? 'now' : ''}>{i + 1}</th>
+            {innings.map((n) => (
+              <th class={cls(n, true)}>{n}</th>
             ))}
             <th>R</th>
             <th>H</th>
@@ -224,10 +231,8 @@ function LineScore() {
               <th scope="row" class="team">
                 AI · {activeAiDifficulty.value.toUpperCase()}
               </th>
-              {Array.from({ length: 9 }, (_, i) => (
-                <td class={aiActive && i + 1 === g.inning ? 'now' : ''}>
-                  {ai.runsByInning[i] ?? ''}
-                </td>
+              {innings.map((n) => (
+                <td class={cls(n, aiActive)}>{ai.runsByInning[n - 1] ?? ''}</td>
               ))}
               <td class="total">{ai.runs}</td>
               <td class="total">{ai.hits}</td>
@@ -237,9 +242,9 @@ function LineScore() {
             <th scope="row" class="team">
               {vsAi ? BRAND.teamShort.toUpperCase() : ''}
             </th>
-            {Array.from({ length: 9 }, (_, i) => (
-              <td class={!aiActive && i + 1 === g.inning ? 'now' : ''}>
-                {human.runsByInning[i] ?? ''}
+            {innings.map((n) => (
+              <td class={cls(n, !aiActive)}>
+                {homeCell(human, n, vsAi && g.state === 'GAME_OVER' && n === g.inning)}
               </td>
             ))}
             <td class="total">{human.runs}</td>
@@ -279,7 +284,9 @@ function HowToPlay() {
       <p>
         Choose <b>Single Player</b> for the solo challenge, or <b>Multiplayer vs AI</b> to play
         against an opponent with Easy, Medium or Hard skill. The AI plays the pinball table at the
-        top of each inning; you play the bottom half and bat last.
+        top of each inning; you play the bottom half and bat last. Tied after nine? Baseball has no
+        ties: you play <b>extra innings</b> until one side leads at the end of one. From the bottom
+        of the 9th, the moment your winning run scores the game is over: a <b>walk-off</b>.
       </p>
       <h3>Hits</h3>
       <table class="shots">
@@ -686,6 +693,7 @@ function GameOver({ actions }: { actions: UiActions }) {
     e.preventDefault();
     actions.saveInitials(initials || '???');
   };
+  const g = snapshot.value;
   const result =
     !vsAi || !opponent
       ? 'FINAL'
@@ -694,9 +702,11 @@ function GameOver({ actions }: { actions: UiActions }) {
         : stats.runs > opponent.runs
           ? 'YOU WIN'
           : 'AI WINS';
+  const note = vsAi && opponent && g ? resultNote(g, stats, opponent) : null;
   return (
     <div class="panel gameover">
       <h2>{result}</h2>
+      {note && <p class={`result-note ${g?.walkOff ? 'walk-off' : ''}`}>{note}</p>}
       <BoxScore stats={stats} opponent={vsAi ? opponent : null} />
       {qualified.value ? (
         <form onSubmit={submit} class="initials">
@@ -721,16 +731,41 @@ function GameOver({ actions }: { actions: UiActions }) {
   );
 }
 
+/**
+ * How a Vs AI game ended, under the result: a walk-off, extra innings, or a home half not needed.
+ * Null for a plain nine-inning finish.
+ */
+function resultNote(g: GameSnapshot, human: GameStats, ai: GameStats): string | null {
+  if (g.walkOff) return `Walk-off win in the bottom of the ${ordinal(g.inning)}`;
+  if (g.extraInnings) return `${ai.runs > human.runs ? 'Lost' : 'Won'} in ${g.inning} innings`;
+  if (human.runs > ai.runs && human.runsByInning[g.inning - 1] === undefined)
+    return `Bottom of the ${ordinal(g.inning)} not needed`;
+  return null;
+}
+
+/**
+ * The home side's runs in an inning: blank for a half not yet played, or an X for the final
+ * bottom half it did not need to play because it already led, as a box score has it.
+ */
+function homeCell(stats: GameStats, inning: number, lastOfFinal: boolean): string | number {
+  const runs = stats.runsByInning[inning - 1];
+  if (runs !== undefined) return runs;
+  return lastOfFinal ? 'X' : '';
+}
+
 function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats | null }) {
-  const innings = Array.from({ length: 9 }, (_, i) => i + 1);
+  // Nine innings, plus any extra innings the game went to (the AI bats first, so its line is the
+  // longer one when the home half was not needed).
+  const played = Math.max(stats.runsByInning.length, opponent?.runsByInning.length ?? 0);
+  const innings = lineScoreInnings(played, 9);
   return (
-    <div class="boxscore">
+    <div class={`boxscore ${innings.length > 9 ? 'extras' : ''}`}>
       <table>
         <thead>
           <tr>
             <th />
             {innings.map((inning) => (
-              <th>{inning}</th>
+              <th class={inning > 9 ? 'extra' : ''}>{inning}</th>
             ))}
             <th>R</th>
             <th>H</th>
@@ -740,8 +775,8 @@ function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats |
           {opponent && (
             <tr>
               <td class="team">AI · {activeAiDifficulty.value.toUpperCase()}</td>
-              {Array.from({ length: 9 }, (_, i) => (
-                <td>{opponent.runsByInning[i] ?? ''}</td>
+              {innings.map((n) => (
+                <td>{opponent.runsByInning[n - 1] ?? ''}</td>
               ))}
               <td class="total">{opponent.runs}</td>
               <td class="total">{opponent.hits}</td>
@@ -749,8 +784,8 @@ function BoxScore({ stats, opponent }: { stats: GameStats; opponent: GameStats |
           )}
           <tr>
             <td class="team">{BRAND.teamShort.toUpperCase()}</td>
-            {innings.map((_, i) => (
-              <td>{stats.runsByInning[i] ?? ''}</td>
+            {innings.map((n) => (
+              <td>{homeCell(stats, n, !!opponent && n === played)}</td>
             ))}
             <td class="total">{stats.runs}</td>
             <td class="total">{stats.hits}</td>

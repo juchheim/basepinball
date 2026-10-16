@@ -214,10 +214,11 @@ export class Director {
               : stretch
                 ? 'STRETCH!'
                 : `INNING ${e.inning}`;
+          const extra = g?.extraInnings === true;
           o.stinger(stretch ? 'stretch' : 'inningStart');
-          o.scoreboard(label, '', '#f2b33d', 2.2);
-          o.crowd('cheer', 0.3);
-          o.excite(stretch ? 0.8 : 0.3);
+          o.scoreboard(label, extra ? 'EXTRA INNINGS' : '', '#f2b33d', 2.2);
+          o.crowd('cheer', extra ? 0.5 : 0.3);
+          o.excite(stretch ? 0.8 : extra ? 0.6 : 0.3);
           if (stretch) o.wave();
         }
         return;
@@ -410,15 +411,29 @@ export class Director {
         o.figure({ kind: 'clearBases' });
         o.crowd(e.runs > 0 ? 'cheer' : 'groan', 0.3);
         return;
+      case 'extraInnings':
+        o.scoreboard('EXTRA INNINGS', `TIED ${e.runs}–${e.runs}`, '#f2b33d', 3);
+        o.crowd('cheer', 0.6);
+        o.excite(0.7);
+        return;
       case 'gameOver': {
         const humanRuns = g?.humanStats?.runs ?? g?.stats.runs ?? 0;
         const aiRuns = g?.aiStats?.runs ?? 0;
         const runs = humanRuns + aiRuns;
+        // A game past the 9th reads as a ballpark board has it: FINAL/11.
+        const final = g?.extraInnings ? `FINAL/${g.inning}` : 'FINAL';
         o.stinger('gameOver');
         o.show('gameOver');
+        if (e.walkOff) {
+          o.crowd('roar');
+          o.fireworks(this.reduced ? 1 : 12);
+          o.scoreboard('WALK-OFF!', `${final} · YOU ${humanRuns} · AI ${aiRuns}`, '#ff4d4d', 6);
+          o.excite(1);
+          return;
+        }
         o.fireworks(this.reduced ? 1 : Math.min(12, 2 + runs));
         o.scoreboard(
-          'FINAL',
+          final,
           g?.vsAi ? `YOU ${humanRuns} · AI ${aiRuns}` : `${runs} RUN${runs === 1 ? '' : 'S'}`,
           '#f2b33d',
           6,
@@ -459,6 +474,7 @@ export class Director {
       if (risp) level += 0.3;
       if (g.rally >= 2) level += 0.1 * Math.min(4, g.rally);
       if (g.inning >= 7) level += 0.15;
+      if (g.extraInnings) level += 0.15;
       if (g.outs === 2) level += 0.15;
       this.out.crowdIntensity(Math.min(1, level));
     } else {
