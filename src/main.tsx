@@ -323,11 +323,23 @@ async function main(): Promise<void> {
     pitchCueFor(e);
     director.rules(e, rules?.snapshot() ?? null, hideHumanPitchDetails());
     if (e.type === 'inningStart' && rules?.vsAi) {
+      const top = e.battingSide === 'ai';
+      // From the bottom of the 9th, the human bats knowing what it takes: the winning run ends it.
+      const deficit = rules.aiStats.runs - rules.humanStats.runs;
+      const lastLicks = !top && e.inning >= rules.innings;
       showCallout(
-        e.battingSide === 'ai' ? `TOP ${e.inning}` : `BOTTOM ${e.inning}`,
-        e.battingSide === 'ai' ? 'AI AT BAT' : 'YOUR TURN · YOU BAT LAST',
+        top ? `TOP ${e.inning}` : `BOTTOM ${e.inning}`,
+        top
+          ? e.inning > rules.innings
+            ? 'EXTRA INNINGS · AI AT BAT'
+            : 'AI AT BAT'
+          : !lastLicks
+            ? 'YOUR TURN · YOU BAT LAST'
+            : deficit === 0
+              ? 'TIED · ANY RUN WINS IT'
+              : `DOWN ${deficit} · ${deficit + 1} TO WIN`,
         'info',
-        1600,
+        lastLicks ? 2400 : 1600,
       );
     }
     if (e.type === 'inningEnd' && rules) {
@@ -336,7 +348,8 @@ async function main(): Promise<void> {
     }
     if (e.type === 'gameOver') {
       const completedRules = rules;
-      after(2.2, () => {
+      // A walk-off gets a moment longer on the field before the box score covers it.
+      after(e.walkOff ? 3.4 : 2.2, () => {
         if (!completedRules || rules !== completedRules) return;
         lifetime.value = recordGame(completedRules.humanStats);
         finalStats.value = {

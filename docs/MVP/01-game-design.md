@@ -278,8 +278,8 @@ inning to get him to throw it back.
 6. **Final**: at the end of regulation play, show "FINAL" on the scoreboard, a fireworks show
    scaled to the result, then the **box score** (line score, R, H, 2B, 3B, HR, K, LOB, longest
    rally). In Vs AI, if the human leads after the AI's top half of the 9th, skip the bottom half and
-   end the game; otherwise play the human's bottom half. The winner is determined by total runs;
-   equal totals are a tie after nine innings.
+   end the game (the box score shows an **X** for it); otherwise play the human's bottom half. The
+   winner is determined by total runs, and baseball has no ties: see **extra innings** below.
 7. **High score entry**: Single Player games can enter classic 3-letter initials in the local top 10.
    Vs AI games show the match result and continue without entering the solo high-score table.
 
@@ -295,8 +295,23 @@ physics restarts.
   uses the same physics table, flippers, plunger, switches and baseball rules as the human. The
   human bats in each bottom half, so the player bats last when that half is needed. If the human
   already leads after the top of the 9th, the game ends without playing the bottom half. Select
-  **Easy**, **Medium** or **Hard** for the AI's table-playing skill. The mode plays up to nine
-  innings and compares total runs.
+  **Easy**, **Medium** or **Hard** for the AI's table-playing skill. The mode plays nine innings and
+  compares total runs.
+- **Extra innings** (Vs AI): level after nine, the game goes on, a full inning at a time (AI top,
+  human bottom), until one side leads at the end of an inning. There is no limit and no automatic
+  runner on second. The same end-of-half rules apply in every extra inning.
+- **Walk-off** (Vs AI): in the bottom of the 9th or any extra inning, the game ends the moment the
+  human's winning run scores, with the ball still on the table (the flippers go dead and it drains).
+  As in baseball (OBR 7.01(g)), only the runs needed to win count, unless the winning hit is a home
+  run, when the batter and every runner score. A HOT BAT "inside-the-park home run" is not a home
+  run for this.
+- **Presentation**: the line score (HUD, ballpark board and box score) grows a column per extra
+  inning; the board squeezes up to 12 innings in and then shows the latest 12. The HUD's inning
+  count turns gold with an **EXTRA INNINGS** chip; a tied 9th ends with an "EXTRA INNINGS" callout
+  and board message; the home half from the 9th on opens with what it takes ("TIED · ANY RUN WINS
+  IT", "DOWN 2 · 3 TO WIN"). A walk-off gets its own callout, board message and fireworks, and the
+  result reads "Walk-off win in the bottom of the 10th", "Lost in 12 innings" and so on. The board
+  shows FINAL/11 for a game that went 11.
 - The solo top-10 remains a Single Player leaderboard. Lifetime batting totals record the human
   player's stats in either mode; AI batting stats are kept on the opponent row only.
 - The live opponent reuses the physics-driven pinball controller from the headless balance bot. It

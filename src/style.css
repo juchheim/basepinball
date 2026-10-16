@@ -376,6 +376,18 @@ canvas {
   background: rgba(242, 179, 61, 0.14);
   font-variant-numeric: tabular-nums;
 }
+/* Extra innings: the inning count and its chip glow gold, as the board's extra columns do. */
+.chip.extras {
+  background: var(--gold);
+  border-color: var(--gold-hi);
+  color: #1a0d00;
+  box-shadow: 0 0 10px rgba(242, 179, 61, 0.6);
+  animation: pulse 0.9s ease-in-out infinite alternate;
+}
+.hud-cell.extra .hud-value {
+  color: var(--gold-hi);
+  text-shadow: 0 0 12px rgba(242, 179, 61, 0.7);
+}
 
 /* The pre-pitch indicator: mid-field, clear of the mound and flippers so the pitch stays visible. */
 .pitch-cue {
@@ -758,6 +770,7 @@ canvas {
 .ui.reduced .cta::after,
 .ui.reduced .chip.hot,
 .ui.reduced .chip.throwback,
+.ui.reduced .chip.extras,
 .ui.reduced .chip.hustle.ready {
   animation: none;
 }
@@ -821,6 +834,27 @@ canvas {
   box-shadow:
     0 0 14px rgba(242, 179, 61, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.boxscore {
+  overflow-x: auto;
+}
+.boxscore th.extra,
+.linescore th.extra {
+  color: var(--gold);
+}
+.boxscore.extras table {
+  font-size: 13px;
+}
+.result-note {
+  margin: -6px 0 12px;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.result-note.walk-off {
+  color: var(--gold-hi);
+  text-shadow: 0 0 12px rgba(242, 179, 61, 0.6);
 }
 .boxscore table {
   width: 100%;

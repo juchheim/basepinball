@@ -1,6 +1,6 @@
 import { signal } from '@preact/signals';
 import type { PitchType, Side } from '../rules/pitching';
-import type { AiDifficulty, GameMode } from '../rules/match';
+import { ordinal, type AiDifficulty, type GameMode } from '../rules/match';
 import type { GameSnapshot, GameStats, RulesEvent } from '../rules/types';
 import type { HighScore } from '../storage/highscores';
 import { EMPTY_LIFETIME, type Lifetime } from '../storage/lifetime';
@@ -229,8 +229,17 @@ export function calloutFor(e: RulesEvent): void {
         'big',
         2600,
       );
+    case 'extraInnings':
+      return showCallout(
+        'EXTRA INNINGS',
+        `Tied ${e.runs}–${e.runs} · on to the ${ordinal(e.inning)}`,
+        'big',
+        2800,
+      );
     case 'gameOver':
-      return showCallout('FINAL', undefined, 'big', 2000);
+      return e.walkOff
+        ? showCallout('WALK-OFF!', 'The winning run scores: ballgame', 'big', 3200)
+        : showCallout('FINAL', undefined, 'big', 2000);
     default:
       return;
   }

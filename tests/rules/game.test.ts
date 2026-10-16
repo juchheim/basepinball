@@ -6,6 +6,7 @@ import {
   BLEACHERS,
   BLEACHERS_HOLD,
   GameRules,
+  type GameOptions,
   HUSTLE_COOLDOWN,
   HUSTLE_TARGET,
   THROW_BACK_DELAY,
@@ -94,9 +95,10 @@ class FakeMachine implements Machine {
 
 class Harness {
   m = new FakeMachine();
-  g = new GameRules(this.m, { seed: 7 });
+  g: GameRules;
   t = 0;
-  constructor() {
+  constructor(opts: GameOptions = {}) {
+    this.g = new GameRules(this.m, { seed: 7, ...opts });
     this.g.start(0);
   }
   ev(type: PhysicsEventType, id = ''): this {
@@ -494,6 +496,163 @@ describe('scoring and innings', () => {
     expect(h.state).toBe('GAME_OVER');
     expect(h.count('gameOver')).toBe(1);
     expect(h.g.stats.strikeouts).toBe(27);
+  });
+});
+
+describe('Vs AI: extra innings and walk-offs', () => {
+  /** Three straight strikeouts from the leadoff launch. */
+  const sideOut = (h: Harness): Harness =>
+    h
+      .ev('plunger')
+      .ev('drain', 'drain')
+      .toPitch()
+      .ev('drain', 'drain')
+      .toPitch()
+      .ev('drain', 'drain');
+  /** A solo home run off the leadoff launch. */
+  const soloHomer = (h: Harness): Harness =>
+    h.ev('plunger').ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
+  /** A solo home run, then three outs. */
+  const homerThenSideOut = (h: Harness): Harness =>
+    soloHomer(h).ev('drain', 'drain').toPitch().ev('drain', 'drain').toPitch().ev('drain', 'drain');
+  /** Plays whole innings (both halves) with no runs. */
+  const scoreless = (h: Harness, innings: number): Harness => {
+    for (let i = 0; i < innings; i++) {
+      sideOut(h).wait(6);
+      sideOut(h);
+      if (h.state === 'INNING_BREAK') h.wait(6);
+    }
+    return h;
+  };
+  /** Off the leadoff launch: three singles, each off a rally swing, load the bases. */
+  const loadTheBases = (h: Harness): Harness =>
+    h
+      .ev('plunger')
+      .ev('swing', 'flipper.L')
+      .ev('pop', 'pop.1B.L')
+      .ev('swing', 'flipper.L')
+      .ev('pop', 'pop.1B.L')
+      .ev('swing', 'flipper.L')
+      .ev('pop', 'pop.1B.L')
+      .ev('swing', 'flipper.L');
+
+  it('goes to extra innings when level after nine, AI batting first', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 8);
+    sideOut(h).wait(6);
+    expect(h.g.inning).toBe(9);
+    expect(h.g.battingSide).toBe('human');
+    sideOut(h);
+    expect(h.state).toBe('INNING_BREAK');
+    expect(h.last('extraInnings')).toEqual({ type: 'extraInnings', inning: 10, runs: 0 });
+    expect(h.g.extraInnings).toBe(false);
+    h.wait(6);
+    expect(h.g.inning).toBe(10);
+    expect(h.g.battingSide).toBe('ai');
+    expect(h.state).toBe('LEADOFF_LAUNCH');
+    expect(h.g.extraInnings).toBe(true);
+    expect(h.g.snapshot().extraInnings).toBe(true);
+    expect(h.count('gameOver')).toBe(0);
+  });
+
+  it('keeps playing extra innings until one side leads at the end of one', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 11);
+    expect(h.count('extraInnings')).toBe(3);
+    expect(h.last('extraInnings')?.inning).toBe(12);
+    expect(h.g.inning).toBe(12);
+    expect(h.g.aiStats.runsByInning).toHaveLength(12);
+    expect(h.g.humanStats.runsByInning).toHaveLength(11);
+  });
+
+  it('the AI wins when it still leads after the bottom of an extra inning', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 9);
+    homerThenSideOut(h);
+    expect(h.state).toBe('INNING_BREAK');
+    h.wait(6);
+    expect(h.g.battingSide).toBe('human');
+    sideOut(h);
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.g.walkOff).toBe(false);
+    expect(h.last('gameOver')).toEqual({ type: 'gameOver' });
+    expect(h.g.aiStats.runs).toBe(1);
+    expect(h.g.aiStats.runsByInning[9]).toBe(1);
+    expect(h.g.humanStats.runsByInning[9]).toBe(0);
+  });
+
+  it('the home half of an extra inning is always played, even after the AI scores', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 9);
+    homerThenSideOut(h).wait(6);
+    expect(h.g.inning).toBe(10);
+    expect(h.state).toBe('LEADOFF_LAUNCH');
+  });
+
+  it('ends on a walk-off the moment the winning run scores in an extra inning', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 9);
+    sideOut(h).wait(6);
+    soloHomer(h);
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.g.walkOff).toBe(true);
+    expect(h.last('gameOver')).toEqual({ type: 'gameOver', walkOff: true });
+    expect(h.g.humanStats.runsByInning[9]).toBe(1);
+    expect(h.g.outs).toBe(0);
+    // The ball stays on the table with the flippers dead, and nothing more counts.
+    expect(h.m.flippers).toBe(false);
+    h.ev('sensor', 'gate.HR').ev('drain', 'drain').wait(10);
+    expect(h.g.humanStats.runs).toBe(1);
+    expect(h.count('gameOver')).toBe(1);
+    expect(h.g.snapshot()).toMatchObject({ walkOff: true, extraInnings: true });
+  });
+
+  it('a walk-off in the bottom of the 9th ends the game before three outs', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 8);
+    sideOut(h).wait(6);
+    soloHomer(h);
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.g.walkOff).toBe(true);
+    expect(h.g.extraInnings).toBe(false);
+  });
+
+  it('a walk-off hit counts only the run that wins it', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 9);
+    sideOut(h).wait(6);
+    loadTheBases(h);
+    expect(h.g.bases).toEqual([true, true, true]);
+    // A bases-loaded double would score two; tied, only the winning run counts.
+    h.ev('pop', 'pop.2B.L');
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.last('hit')).toMatchObject({ hit: '2B', runs: 1 });
+    expect(h.last('runs')).toEqual({ type: 'runs', runs: 1 });
+    expect(h.g.humanStats.runs).toBe(1);
+    expect(h.g.humanStats.runsByInning[9]).toBe(1);
+    expect(h.g.humanStats.leftOnBase).toBe(2);
+  });
+
+  it('a walk-off home run counts every run', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 9);
+    sideOut(h).wait(6);
+    loadTheBases(h).ev('sensor', 'gate.HR');
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.last('hit')).toMatchObject({ hit: 'HR', runs: 4 });
+    expect(h.g.humanStats.runs).toBe(4);
+    expect(h.g.walkOff).toBe(true);
+  });
+
+  it('a hit before the 9th counts every run', () => {
+    const h = new Harness({ vsAi: true });
+    sideOut(h).wait(6);
+    loadTheBases(h).ev('pop', 'pop.2B.L');
+    expect(h.last('hit')).toMatchObject({ hit: '2B', runs: 2 });
+    expect(h.g.humanStats.runs).toBe(2);
+  });
+
+  it('single player never goes to extra innings', () => {
+    const h = new Harness();
+    for (let inning = 1; inning <= 9; inning++) {
+      sideOut(h);
+      if (inning < 9) h.wait(6);
+    }
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.count('extraInnings')).toBe(0);
+    expect(h.g.extraInnings).toBe(false);
   });
 });
 

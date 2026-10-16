@@ -82,7 +82,8 @@ const RULES_EVENTS: { [K in RulesEvent['type']]: Extract<RulesEvent, { type: K }
     { type: 'inningEnd', inning: 3, runs: 0, lob: 2 },
     { type: 'inningEnd', inning: 3, runs: 2, lob: 0 },
   ],
-  gameOver: [{ type: 'gameOver' }],
+  extraInnings: [{ type: 'extraInnings', inning: 10, runs: 3 }],
+  gameOver: [{ type: 'gameOver' }, { type: 'gameOver', walkOff: true }],
 };
 
 describe('presentation director', () => {
