@@ -6,7 +6,7 @@ export type BallState =
   'LEADOFF_LAUNCH' | 'PITCH' | 'IN_PLAY' | 'LIVE_AFTER_HIT' | 'DEAD' | 'INNING_BREAK' | 'GAME_OVER';
 
 export type HitType = '1B' | '2B' | '3B' | 'HR';
-/** `bunt`: the pitch was cradled (docs/MVP/01 § 4.1). */
+/** `bunt`: the pitch met a bat held out, not swung (docs/MVP/01 § 4.1). */
 export type OutHow = 'K' | 'foul' | 'fielder' | 'tilt' | 'bunt';
 export type BattingSide = 'human' | 'ai';
 

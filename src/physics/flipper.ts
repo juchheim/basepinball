@@ -3,6 +3,12 @@ import type { FlipperDef } from '../table/schema';
 import type { FlipperParams } from './params';
 
 /**
+ * Seconds the bat must have stayed at the end of its stroke to be held out rather than swinging:
+ * it can strike a ball in the very substep it arrives there, and it bounces off the stop.
+ */
+export const HELD_SETTLE = 0.01;
+
+/**
  * A flipper bat: a rigid tapered capsule rotating about its pivot, with finite inertia, driven
  * by a two-stage coil (full power to end-of-stroke, then hold) and a return spring
  * (docs/MVP/03-physics.md § 4). Ball impacts push back on it through `applyImpulse`.
@@ -26,6 +32,11 @@ export class Flipper {
   pressed = false;
   /** Times the button has gone down, so one hold can be told from the next. */
   presses = 0;
+  /**
+   * Seconds since the bat reached the end of its stroke on this press, or -1 if it has not yet
+   * (or the button is up). See {@link heldOut}.
+   */
+  heldFor = -1;
   /** End-of-stroke switch. */
   eos = false;
 
@@ -62,6 +73,11 @@ export class Flipper {
     this.invInertia = 1 / this.inertia;
   }
 
+  /** The swing is over: the button is held and the bat has been up for {@link HELD_SETTLE}. */
+  get heldOut(): boolean {
+    return this.heldFor >= HELD_SETTLE;
+  }
+
   /** Stroke position in [0, stroke]. */
   get phase(): number {
     return this.dir * (this.theta - this.restAngle);
@@ -87,6 +103,9 @@ export class Flipper {
       if (this.dir * this.omega < 0) this.omega = -this.omega * p.restBounce;
     }
     this.eos = this.phase >= this.stroke - 0.01;
+    if (!this.pressed) this.heldFor = -1;
+    else if (this.heldFor >= 0) this.heldFor += h;
+    else if (this.eos) this.heldFor = 0;
     this.updateTrig();
   }
 

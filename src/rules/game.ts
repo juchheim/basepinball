@@ -147,7 +147,8 @@ export class GameRules {
   private lastSwing = -Infinity;
   /**
    * The pitched ball has touched nothing but the bats yet. Cradling it now is a bunt (docs/MVP/01
-   * § 4.1); once it is put in play (any other switch), a cradle is ordinary pinball again.
+   * § 4.1) if it meets a bat held out; once it is put in play (any other switch), that is ordinary
+   * pinball again.
    */
   private freshPitch = false;
 
@@ -161,8 +162,8 @@ export class GameRules {
     this.timing = { ...DEFAULT_TIMING, ...opts.timing };
   }
 
-  /** A cradle now would be a bunt: the pitched ball has touched nothing but the bats yet. */
-  get cradleIsBunt(): boolean {
+  /** A held-out bat now would bunt: the pitched ball has touched nothing but the bats yet. */
+  get heldBatIsBunt(): boolean {
     return this.freshPitch && (this.state === 'PITCH' || this.state === 'IN_PLAY');
   }
 
@@ -267,7 +268,7 @@ export class GameRules {
     // A search's own kick can fire the device the ball is resting against (a sling): that is not
     // progress, or the search would reset the count that leads to a rescue and repeat forever.
     const ownKick = this.now - this.lastSearch < 2;
-    const flipperOnly = e.type === 'eos' || e.type === 'swing' || e.type === 'cradle';
+    const flipperOnly = e.type === 'eos' || e.type === 'swing' || e.type === 'bunt';
     if (!flipperOnly && !ownKick) this.searches = 0;
     if (this.state === 'GAME_OVER' || this.state === 'INNING_BREAK') return;
     // Anything but the bats (or a nudge) puts the pitched ball in play.
@@ -287,8 +288,8 @@ export class GameRules {
         this.lastSwing = this.now;
         this.swing();
         return;
-      case 'cradle':
-        if (this.cradleIsBunt) this.bunt();
+      case 'bunt':
+        if (this.heldBatIsBunt) this.bunt();
         return;
       case 'pop': {
         // The Gap pops (1B / 2B) score the hit for a batter who has swung. Every other bumper hit
@@ -367,8 +368,8 @@ export class GameRules {
   }
 
   /**
-   * A cradled pitch is a bunt (docs/MVP/01 § 4.1): the batter held the bat out over the plate
-   * instead of swinging. He is out at first, and every runner moves up a base: a sacrifice. With
+   * A pitch that meets a bat held out is a bunt (docs/MVP/01 § 4.1): the batter held the bat out
+   * over the plate instead of swinging. He is out at first, and every runner moves up a base: a sacrifice. With
    * two out it is the third out, a force, so the inning is over and nobody advances.
    */
   private bunt(): void {

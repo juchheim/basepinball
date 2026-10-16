@@ -97,13 +97,7 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
 
 type FlipperSide = 'L' | 'R';
 type PlanPhase =
-  | 'tracking'
-  | 'committed'
-  | 'striking'
-  | 'catching'
-  | 'cradled'
-  | 'releasing'
-  | 'recovering';
+  'tracking' | 'committed' | 'striking' | 'catching' | 'cradled' | 'releasing' | 'recovering';
 
 interface EncounterCandidate {
   ball: Ball;
@@ -293,7 +287,7 @@ export class Bot {
 
     if (now >= this.nextThinkAt) {
       for (const side of ['L', 'R'] as const)
-        this.refreshPlan(world, rules, side, now, rules.cradleIsBunt);
+        this.refreshPlan(world, rules, side, now, rules.heldBatIsBunt);
       this.nextThinkAt = now + (this.profile.thinkInterval ?? 0.02);
     }
   }
@@ -794,8 +788,7 @@ export class Bot {
         contact.normalSpeed < -0.05 &&
         opportunity.contactEta <= lead + 0.006;
       const urgentSafety = this.profile.urgentSafety && (tipUrgent || incomingUrgent);
-      const targetNotReached =
-        stillSupported && contact.along < this.targetAlong(rules) - 0.012;
+      const targetNotReached = stillSupported && contact.along < this.targetAlong(rules) - 0.012;
       if (
         this.profile.supportedRollPrediction &&
         targetNotReached &&
@@ -804,8 +797,7 @@ export class Bot {
       ) {
         continue;
       }
-      const rollingOutOfCradle =
-        this.plans[side]?.followUp && this.plans[side]?.ball === ball;
+      const rollingOutOfCradle = this.plans[side]?.followUp && this.plans[side]?.ball === ball;
       if (
         rollingOutOfCradle &&
         !urgentSafety &&
@@ -858,7 +850,7 @@ export class Bot {
     return this.probe.d <= ball.radius + margin;
   }
 
-  /** `noCradle`: a cradle now would be a bunt out (a fresh pitch), so swing away instead. */
+  /** `noCradle`: a bat held out now would bunt (a fresh pitch), so swing away instead. */
   private refreshPlan(
     world: World,
     rules: GameRules,
@@ -879,9 +871,7 @@ export class Bot {
         ball,
         f,
         existing?.ball === ball ? existing.targetAlong : this.targetAlong(rules),
-        existing?.followUp && existing.ball === ball
-          ? CRADLE_ROLLOUT_HORIZON
-          : CONTACT_HORIZON,
+        existing?.followUp && existing.ball === ball ? CRADLE_ROLLOUT_HORIZON : CONTACT_HORIZON,
       );
       if (!candidate) continue;
       const opportunity = this.getPaddleOpportunity(side, ball, now);
@@ -912,9 +902,7 @@ export class Bot {
         const locallyRecoverable =
           Boolean(current) || (supported !== null && Number.isFinite(tipEta));
         const anotherBallIsMoreUrgent =
-          best !== null &&
-          best.ball !== existing.ball &&
-          best.eta + 0.025 < followUpEta;
+          best !== null && best.ball !== existing.ball && best.eta + 0.025 < followUpEta;
         if (locallyRecoverable && !anotherBallIsMoreUrgent) {
           if (current) this.schedule(world, rules, f, side, existing, current, now);
           return;
@@ -939,8 +927,7 @@ export class Bot {
     if (!opportunity.attentionAccepted && !opportunity.obvious) return;
     const catchCos = dcos(f.theta);
     const catchSin = dsin(f.theta);
-    const catchAlong =
-      ((selected.x - f.px) * catchCos + (selected.y - f.py) * catchSin) / f.length;
+    const catchAlong = ((selected.x - f.px) * catchCos + (selected.y - f.py) * catchSin) / f.length;
     const withinCatchRange =
       !this.profile.catchRange ||
       (catchAlong >= this.profile.catchRange[0] && catchAlong <= this.profile.catchRange[1]);
@@ -949,8 +936,7 @@ export class Bot {
       selected.speed <= 0.6 &&
       selected.eta > flipperLead(world, f) + CRADLE_SETUP_LEAD &&
       withinCatchRange;
-    const catchBall =
-      canSettleForCatch && !noCradle && this.rng.next() < this.profile.cradle;
+    const catchBall = canSettleForCatch && !noCradle && this.rng.next() < this.profile.cradle;
     const plan: FlipperPlan = {
       ball: selected.ball,
       phase: 'tracking',
@@ -987,16 +973,7 @@ export class Bot {
     plan.contactX = candidate.x;
     plan.contactY = candidate.y;
     plan.contactZ = candidate.z;
-    plan.pressAt = this.plannedPressAt(
-      world,
-      rules,
-      side,
-      f,
-      plan,
-      candidate,
-      opportunity,
-      now,
-    );
+    plan.pressAt = this.plannedPressAt(world, rules, side, f, plan, candidate, opportunity, now);
   }
 
   private encounterPriority(candidate: EncounterCandidate): number {
@@ -1043,10 +1020,7 @@ export class Bot {
 
     const travel = contact.tangentSpeed * eta + 0.5 * acceleration * eta * eta;
     if (hitAlong !== 1.02) {
-      hitAlong = Math.max(
-        contact.along,
-        Math.min(1.02, contact.along + travel / f.length),
-      );
+      hitAlong = Math.max(contact.along, Math.min(1.02, contact.along + travel / f.length));
     }
     const c = dcos(f.theta);
     const s = dsin(f.theta);
