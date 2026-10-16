@@ -459,6 +459,75 @@ describe('event resolution table', () => {
   });
 });
 
+describe('bunts (a cradled pitch)', () => {
+  it('cradling a pitch with nobody on is a bunt out, then the next pitch', () => {
+    const h = inPitch().ev('swing', 'flipper.L').ev('cradle', 'flipper.L');
+    expect(h.g.outs).toBe(2);
+    expect(h.last('out')).toEqual({ type: 'out', how: 'bunt', outs: 2, moved: [], runs: 0 });
+    expect(h.g.stats.buntOuts).toBe(1);
+    expect(h.state).toBe('DEAD');
+    h.toPitch();
+    expect(h.state).toBe('PITCH');
+  });
+
+  it('is a sacrifice: every runner moves up a base', () => {
+    const h = inPitch();
+    h.g.bases = [true, false, false];
+    h.ev('swing', 'flipper.R').ev('cradle', 'flipper.R');
+    expect(h.g.bases).toEqual([false, true, false]);
+    expect(h.last('out')).toMatchObject({ how: 'bunt', moved: [0], runs: 0 });
+    expect(h.g.stats.runs).toBe(0);
+  });
+
+  it('with the runner on third, a sacrifice scores him', () => {
+    const h = inPitch();
+    h.g.bases = [true, true, true];
+    h.ev('swing', 'flipper.L').ev('cradle', 'flipper.L');
+    expect(h.g.bases).toEqual([false, true, true]);
+    expect(h.last('out')).toMatchObject({ how: 'bunt', moved: [0, 1, 2], runs: 1 });
+    expect(h.g.stats.runs).toBe(1);
+    expect(h.last('runs')?.runs).toBe(1);
+  });
+
+  it('with two out it is the third out: nobody advances or scores', () => {
+    const h = inPitch().ev('drain', 'drain').toPitch();
+    h.g.bases = [true, false, true];
+    h.ev('swing', 'flipper.L').ev('cradle', 'flipper.L');
+    expect(h.last('out')).toMatchObject({ how: 'bunt', outs: 3, moved: [], runs: 0 });
+    expect(h.g.stats.runs).toBe(0);
+    expect(h.last('inningEnd')?.lob).toBe(2);
+  });
+
+  it('only while the pitched ball has touched nothing but the bats', () => {
+    // A tap pass to the other flipper is still the fresh pitch.
+    const pass = inPitch().ev('swing', 'flipper.L').ev('swing', 'flipper.R');
+    pass.ev('cradle', 'flipper.R');
+    expect(pass.last('out')?.how).toBe('bunt');
+    // Off a sling it is in play: cradling it now is ordinary pinball.
+    const h = inPitch().ev('swing', 'flipper.L').ev('sling', 'sling.L').ev('cradle', 'flipper.R');
+    expect(h.g.outs).toBe(1);
+    expect(h.state).toBe('IN_PLAY');
+  });
+
+  it('never in a rally or off the leadoff plunge', () => {
+    const rally = inLiveAfterHit().ev('swing', 'flipper.L').ev('cradle', 'flipper.L');
+    expect(rally.g.outs).toBe(0);
+    expect(rally.state).toBe('IN_PLAY');
+    const leadoff = inLeadoff().ev('plunger').ev('swing', 'flipper.L').ev('cradle', 'flipper.L');
+    expect(leadoff.g.outs).toBe(0);
+    expect(leadoff.state).toBe('IN_PLAY');
+  });
+
+  it('the same pitch cannot be bunted twice', () => {
+    const h = inPitch()
+      .ev('swing', 'flipper.L')
+      .ev('cradle', 'flipper.L')
+      .ev('cradle', 'flipper.L');
+    expect(h.g.outs).toBe(2);
+    expect(h.count('out')).toBe(2);
+  });
+});
+
 describe('scoring and innings', () => {
   it('scores runs when runners cross the plate', () => {
     const h = inInPlay().ev('pop', 'pop.2B.L').ev('swing', 'flipper.L').ev('sensor', 'gate.HR');
@@ -609,6 +678,17 @@ describe('Vs AI: extra innings and walk-offs', () => {
     expect(h.state).toBe('GAME_OVER');
     expect(h.g.walkOff).toBe(true);
     expect(h.g.extraInnings).toBe(false);
+  });
+
+  it('a squeeze bunt in the bottom of the 9th is a walk-off', () => {
+    const h = scoreless(new Harness({ vsAi: true }), 8);
+    sideOut(h).wait(6);
+    loadTheBases(h).ev('drain', 'drain').toPitch();
+    expect(h.g.bases).toEqual([true, true, true]);
+    h.ev('swing', 'flipper.L').ev('cradle', 'flipper.L');
+    expect(h.state).toBe('GAME_OVER');
+    expect(h.g.walkOff).toBe(true);
+    expect(h.g.humanStats.runs).toBe(1);
   });
 
   it('a walk-off hit counts only the run that wins it', () => {

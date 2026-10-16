@@ -24,6 +24,8 @@ export class Flipper {
   omega = 0;
   prevTheta: number;
   pressed = false;
+  /** Times the button has gone down, so one hold can be told from the next. */
+  presses = 0;
   /** End-of-stroke switch. */
   eos = false;
 

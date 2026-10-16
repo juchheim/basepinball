@@ -30,6 +30,8 @@ export type PhysicsEventType =
   | 'drain'
   | 'eos'
   | 'swing'
+  /** A ball has sat still on a held-up flipper for {@link CRADLE_TIME}: once per cradle. */
+  | 'cradle'
   | 'sensor'
   | 'spinner'
   | 'kickback'
@@ -187,6 +189,10 @@ function sameState(a: number[], b: number[], n: number): boolean {
 
 /** A ball out of touch with a flipper this long (s) touches it afresh (a new swing). */
 const SWING_GAP = 0.05;
+/** A ball held still on a raised flipper this long (s) is cradled (a swing touch lasts ~10-30 ms). */
+const CRADLE_TIME = 0.3;
+/** Below this speed (m/s) a ball on the raised bat is held there, not rolling along it. */
+const CRADLE_SPEED = 0.05;
 
 /** Restitution of one steel ball striking another. */
 const BALL_RESTITUTION = 0.9;
@@ -253,6 +259,11 @@ export class World {
   private readonly cooldowns = new Map<string, number>();
   /** Last sim time each ball touched each flipper, so a swing is counted once per touch. */
   private readonly flipperTouch = new WeakMap<Ball, Map<string, number>>();
+  /** Each ball's current hold on a flipper: when it was last there, and since when still. */
+  private readonly cradles = new WeakMap<
+    Ball,
+    { id: string; press: number; last: number; stillSince: number; reported: boolean }
+  >();
   private readonly rng: Rng;
   private grid: Grid;
   private gx = 0;
@@ -319,7 +330,12 @@ export class World {
   }
 
   setFlipper(id: string, pressed: boolean): void {
-    for (const f of this.flippers) if (f.id === id) f.pressed = pressed && this.flippersEnabled;
+    for (const f of this.flippers) {
+      if (f.id !== id) continue;
+      const down = pressed && this.flippersEnabled;
+      if (down && !f.pressed) f.presses++;
+      f.pressed = down;
+    }
   }
 
   resetDropTargets(): void {
@@ -1145,6 +1161,31 @@ export class World {
       if (this.time - last > SWING_GAP && this.ready(`swing:${f.id}`, 0.05)) {
         this.emit('swing', f.id);
       }
+      this.watchCradle(b, f);
+    }
+  }
+
+  /**
+   * A cradle is a ball held still on a raised flipper: in touch with the bat at the end of its
+   * stroke, button held, ball all but stopped, for {@link CRADLE_TIME} without a break longer than
+   * {@link SWING_GAP}. Reported once per press of the button: a cradled ball rocks, and can lose
+   * touch for a moment, without being cradled anew. Drop it and catch it again for another.
+   */
+  private watchCradle(b: Ball, f: Flipper): void {
+    let c = this.cradles.get(b);
+    if (!c || c.id !== f.id || c.press !== f.presses) {
+      c = { id: f.id, press: f.presses, last: this.time, stillSince: -1, reported: false };
+      this.cradles.set(b, c);
+    }
+    const gap = this.time - c.last > SWING_GAP;
+    c.last = this.time;
+    if (c.reported) return;
+    const still = f.eos && b.vx * b.vx + b.vy * b.vy < CRADLE_SPEED * CRADLE_SPEED;
+    if (!still || gap) c.stillSince = still ? this.time : -1;
+    else if (c.stillSince < 0) c.stillSince = this.time;
+    else if (this.time - c.stillSince >= CRADLE_TIME) {
+      c.reported = true;
+      this.emit('cradle', f.id);
     }
   }
 

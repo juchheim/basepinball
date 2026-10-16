@@ -254,7 +254,8 @@ export class Bot {
     }
 
     if (now >= this.nextThinkAt) {
-      for (const side of ['L', 'R'] as const) this.refreshPlan(world, side, now);
+      for (const side of ['L', 'R'] as const)
+        this.refreshPlan(world, side, now, rules.cradleIsBunt);
       this.nextThinkAt = now + (this.profile.thinkInterval ?? 0.02);
     }
   }
@@ -654,7 +655,8 @@ export class Bot {
     return this.probe.d <= ball.radius + margin;
   }
 
-  private refreshPlan(world: World, side: FlipperSide, now: number): void {
+  /** `noCradle`: a cradle now would be a bunt out (a fresh pitch), so swing away instead. */
+  private refreshPlan(world: World, side: FlipperSide, now: number, noCradle: boolean): void {
     const f = world.flippers.find((x) => x.id === `flipper.${side}`)!;
     const existing = this.plans[side];
     if (existing && existing.phase !== 'tracking' && existing.phase !== 'committed') return;
@@ -698,7 +700,7 @@ export class Bot {
     const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
     const opportunity = this.getPaddleOpportunity(side, selected.ball, now);
     if (!opportunity.attentionAccepted && !opportunity.obvious) return;
-    const catchBall = selected.speed <= 0.6 && this.rng.next() < this.profile.cradle;
+    const catchBall = selected.speed <= 0.6 && this.rng.next() < this.profile.cradle && !noCradle;
     const plan: FlipperPlan = {
       ball: selected.ball,
       phase: 'tracking',

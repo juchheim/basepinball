@@ -59,6 +59,14 @@ does not. It is **one swing per touch**: a ball held in the cradle swings once, 
 for as long as it rests there (in multiball that let the other ball score a hit off every bumper it
 touched).
 
+**Cradling a pitch is a bunt.** Catching the pitch and aiming at leisure would skip the read-and-time
+challenge of pitching, so a pitched ball held still on a raised flipper (button held, bat at the end
+of its stroke, ball under 0.05 m/s for 0.3 s; a swing touches the bat for ~10-30 ms) is a **bunt**.
+The batter is out, and every runner moves up a base, the runner on third scoring: a **sacrifice**.
+With two out the bunt is the third out, a force at first, so nobody advances. The rule holds from the
+pitch until the ball touches anything but the bats (tap passes between the flippers do not count).
+After that, and in rallies and the leadoff plunge, cradling is ordinary pinball.
+
 ### 4.2 Ball states (at-bat state machine)
 
 | State | Meaning |
