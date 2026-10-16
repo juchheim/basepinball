@@ -83,8 +83,8 @@ The start menu selects Single Player or Vs AI. Vs AI alternates top and bottom h
 `GameRules` and `World`: a physics-driven bot operates the AI's top half, then the human plays the
 bottom half. `GameRules` tracks batting side and independent team stats while preserving the usual
 rules and physics event path. The bot keeps a ball-specific plan for each flipper: it projects normal
-arrivals up to 240 ms ahead and cradle rollouts up to 500 ms ahead with gravity and rolling
-resistance, ranks arrivals by time and drain urgency,
+arrivals up to 240 ms ahead and supported rolls, including cradle rollouts, up to 500 ms ahead with
+gravity and rolling resistance, ranks arrivals by time and drain urgency,
 and schedules a response for the predicted contact. It replans at a difficulty-specific rate while
 servicing press/release deadlines every physics step. Before a scheduled press it checks that the
 same ball still has a plausible arrival, so a bounce or ball reset cancels stale tracking actions;
@@ -94,7 +94,8 @@ Hard vary planning cadence, bounded timing error, target contact point, and the 
 cradle on a suitable slow arrival. For a cradle, the AI raises the bat early, holds a stable ball
 briefly, then releases it and times a follow-up hit at a difficulty-specific point along the bat.
 Easy aims closer to the pivot for lower-power shots; harder profiles cradle more often and target
-farther out with tighter timing.
+farther out with tighter timing. Hard also predicts supported rolls on the bat and triggers a local
+save when a ball is about to reach the tip or a near-term contact.
 The same controller is used by the headless balance simulator. This is local play; no network
 service or backend is required, and it is not online multiplayer.
 

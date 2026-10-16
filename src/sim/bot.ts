@@ -33,6 +33,12 @@ export interface BotProfile {
   rollTarget?: number;
   /** Target contact point for the deliberate shot after releasing a cradle. */
   cradleTarget?: number;
+  /** Use bat-supported roll physics when forecasting a ball already resting on a flipper. */
+  supportedRollPrediction?: boolean;
+  /** Permit a local safety press for a measured near-term contact or tip exit. */
+  urgentSafety?: boolean;
+  /** Restrict catch attempts to this normalized along-bat interval. */
+  catchRange?: readonly [number, number];
 }
 
 export const PROFILES: Record<string, BotProfile> = {
@@ -67,13 +73,16 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
   },
   hard: {
     name: 'hard',
-    jitter: 0.002,
+    jitter: 0.00075,
     attention: 1,
-    reactionDelay: 0.04,
+    reactionDelay: 0.016,
     cradle: 0.65,
-    thinkInterval: 0.008,
+    thinkInterval: 0.004,
     rollTarget: 0.75,
-    cradleTarget: 0.8,
+    cradleTarget: 0.76,
+    supportedRollPrediction: true,
+    urgentSafety: true,
+    catchRange: [0.2, 0.7],
   },
 };
 
@@ -251,6 +260,7 @@ export class Bot {
         this.setPressed(world, rules, side, f, false);
         this.plans[side] = null;
         this.opportunities[side].delete(plan.ball);
+        this.nextThinkAt = now;
       } else if (
         plan &&
         ballChanges.trajectory.has(plan.ball) &&
@@ -468,10 +478,25 @@ export class Bot {
   private timeToTip(world: World, f: Flipper, along: number, tangentSpeed: number): number {
     const distance = (1.02 - along) * f.length;
     if (distance <= 0) return 0;
+    return this.timeForDistance(
+      distance,
+      tangentSpeed,
+      this.rollAcceleration(world, f, tangentSpeed),
+    );
+  }
+
+  private rollAcceleration(world: World, f: Flipper, tangentSpeed: number): number {
     const slope = world.params.slopeDeg * DEG;
-    const acceleration =
-      -world.params.gravity * dsin(slope) * dsin(f.theta) -
-      Math.sign(tangentSpeed) * world.params.rollingResistance * world.params.gravity * dcos(slope);
+    const gravityAlongBat = -world.params.gravity * dsin(slope) * dsin(f.theta);
+    const rollDirection = Math.sign(tangentSpeed) || Math.sign(gravityAlongBat);
+    return (
+      gravityAlongBat -
+      rollDirection * world.params.rollingResistance * world.params.gravity * dcos(slope)
+    );
+  }
+
+  private timeForDistance(distance: number, tangentSpeed: number, acceleration: number): number {
+    if (distance <= 0) return 0;
     if (Math.abs(acceleration) < 1e-5) {
       return tangentSpeed > 1e-4 ? distance / tangentSpeed : Infinity;
     }
@@ -545,6 +570,7 @@ export class Bot {
       if (!current || current.eta > 0.12) {
         if (plan.followUp) plan.phase = 'tracking';
         else this.plans[side] = null;
+        this.nextThinkAt = now;
         return;
       }
       const expectedEta = Math.max(0, plan.contactAt - now);
@@ -558,6 +584,7 @@ export class Bot {
         // planning tick make a fresh encounter decision from the new path.
         if (plan.followUp) plan.phase = 'tracking';
         else this.plans[side] = null;
+        this.nextThinkAt = now;
         return;
       }
       const opportunity = this.getPaddleOpportunity(side, plan.ball, now);
@@ -696,19 +723,45 @@ export class Bot {
         contact.gap <= SUPPORT_GAP + 0.003 &&
         Math.abs(contact.normalSpeed) <= 0.3 &&
         ball.speed() <= 0.75;
+      const lead = flipperLead(world, f);
+      const tipUrgent = stillSupported && opportunity.timeToExit <= lead + 0.012;
+      const incomingUrgent =
+        contact.facesStroke &&
+        contact.inRollRegion &&
+        contact.gap <= 0.025 &&
+        contact.normalSpeed < -0.05 &&
+        opportunity.contactEta <= lead + 0.006;
+      const urgentSafety = this.profile.urgentSafety && (tipUrgent || incomingUrgent);
+      const targetNotReached =
+        stillSupported && contact.along < (this.profile.rollTarget ?? 0.7) - 0.012;
+      if (
+        this.profile.supportedRollPrediction &&
+        targetNotReached &&
+        !tipUrgent &&
+        !immediateTouch
+      ) {
+        continue;
+      }
       const rollingOutOfCradle =
         this.plans[side]?.followUp && this.plans[side]?.ball === ball;
       if (
         rollingOutOfCradle &&
+        !urgentSafety &&
         !immediateTouch &&
-        !(stillSupported && contact.along >= ROLL_MAX_ALONG - 0.06)
+        !(stillSupported && contact.along >= ROLL_MAX_ALONG - 0.06 && !this.profile.urgentSafety)
       ) {
         continue;
       }
       const readyToRetry = now - opportunity.lastAttemptAt >= RETRY_COOLDOWN;
-      if (((!opportunity.obvious || !stillSupported) && !immediateTouch) || !readyToRetry) continue;
-      const priority =
-        opportunity.timeToExit - (opportunity.obvious ? 0.05 : 0) - (immediateTouch ? 0.05 : 0);
+      if (
+        (!(opportunity.obvious && stillSupported) && !immediateTouch && !urgentSafety) ||
+        !readyToRetry
+      ) {
+        continue;
+      }
+      const priority = urgentSafety
+        ? -1 + Math.min(opportunity.timeToExit, opportunity.contactEta)
+        : opportunity.timeToExit - (opportunity.obvious ? 0.05 : 0) - (immediateTouch ? 0.05 : 0);
       if (priority < chosenPriority) {
         chosen = ball;
         chosenPriority = priority;
@@ -781,15 +834,33 @@ export class Bot {
         existing.targetAlong,
         existing.followUp ? CRADLE_ROLLOUT_HORIZON : CONTACT_HORIZON,
       );
-      if (
+      if (existing.followUp) {
+        const supported = this.supportedRollContact(existing.ball, f);
+        const tipEta = supported
+          ? this.timeToTip(world, f, supported.along, supported.tangentSpeed)
+          : Infinity;
+        const followUpEta = current?.eta ?? tipEta;
+        const locallyRecoverable =
+          Boolean(current) || (supported !== null && Number.isFinite(tipEta));
+        const anotherBallIsMoreUrgent =
+          best !== null &&
+          best.ball !== existing.ball &&
+          best.eta + 0.025 < followUpEta;
+        if (locallyRecoverable && !anotherBallIsMoreUrgent) {
+          if (current) this.schedule(world, f, side, existing, current, now);
+          return;
+        }
+        this.plans[side] = null;
+        this.nextThinkAt = now;
+      } else if (
         current &&
         (!best || this.encounterPriority(best) + 0.025 >= this.encounterPriority(current))
       ) {
         this.schedule(world, f, side, existing, current, now);
         return;
+      } else {
+        this.plans[side] = null;
       }
-      if (existing.followUp && (!best || best.eta > 0.05)) return;
-      this.plans[side] = null;
     }
 
     if (!best) return;
@@ -797,10 +868,18 @@ export class Bot {
     const selected = this.predictEncounter(world, best.ball, f, targetAlong) ?? best;
     const opportunity = this.getPaddleOpportunity(side, selected.ball, now);
     if (!opportunity.attentionAccepted && !opportunity.obvious) return;
+    const catchCos = dcos(f.theta);
+    const catchSin = dsin(f.theta);
+    const catchAlong =
+      ((selected.x - f.px) * catchCos + (selected.y - f.py) * catchSin) / f.length;
+    const withinCatchRange =
+      !this.profile.catchRange ||
+      (catchAlong >= this.profile.catchRange[0] && catchAlong <= this.profile.catchRange[1]);
     const canSettleForCatch =
       !selected.rolling &&
       selected.speed <= 0.6 &&
-      selected.eta > flipperLead(world, f) + CRADLE_SETUP_LEAD;
+      selected.eta > flipperLead(world, f) + CRADLE_SETUP_LEAD &&
+      withinCatchRange;
     const catchBall = canSettleForCatch && this.rng.next() < this.profile.cradle;
     const plan: FlipperPlan = {
       ball: selected.ball,
@@ -846,6 +925,63 @@ export class Bot {
     return candidate.eta - urgent;
   }
 
+  private supportedRollContact(ball: Ball, f: Flipper): PaddleContact | null {
+    if (f.pressed || f.phase > 0.06 || ball.pz - ball.radius > f.height) return null;
+    const contact = this.measurePaddleContact(ball, f);
+    if (
+      !contact.facesStroke ||
+      !contact.inRollRegion ||
+      contact.gap > SUPPORT_GAP + 0.003 ||
+      Math.abs(contact.normalSpeed) > 0.25 ||
+      ball.speed() > 0.75
+    ) {
+      return null;
+    }
+    return contact;
+  }
+
+  private predictSupportedRoll(
+    world: World,
+    ball: Ball,
+    f: Flipper,
+    targetAlong: number,
+    contact: PaddleContact,
+    horizon: number,
+  ): EncounterCandidate | null {
+    const acceleration = this.rollAcceleration(world, f, contact.tangentSpeed);
+    const tipTime = this.timeToTip(world, f, contact.along, contact.tangentSpeed);
+    const distance = (targetAlong - contact.along) * f.length;
+    let eta =
+      distance <= 0 ? 0 : this.timeForDistance(distance, contact.tangentSpeed, acceleration);
+    let hitAlong = targetAlong;
+
+    if (Number.isFinite(tipTime) && tipTime < eta) {
+      eta = tipTime;
+      hitAlong = 1.02;
+    }
+    if (!Number.isFinite(eta) || eta > horizon) return null;
+
+    const travel = contact.tangentSpeed * eta + 0.5 * acceleration * eta * eta;
+    if (hitAlong !== 1.02) {
+      hitAlong = Math.max(
+        contact.along,
+        Math.min(1.02, contact.along + travel / f.length),
+      );
+    }
+    const c = dcos(f.theta);
+    const s = dsin(f.theta);
+    const alongDistance = (hitAlong - contact.along) * f.length;
+    return {
+      ball,
+      eta,
+      x: ball.px + c * alongDistance,
+      y: ball.py + s * alongDistance,
+      z: ball.pz,
+      speed: Math.abs(contact.tangentSpeed + acceleration * eta),
+      rolling: true,
+    };
+  }
+
   /**
    * Predicts a short ball trajectory with gravity, floor contact and rolling resistance. Static
    * table bounces are intentionally left to the next replan; the committed action is checked again
@@ -859,6 +995,19 @@ export class Bot {
     horizon = CONTACT_HORIZON,
   ): EncounterCandidate | null {
     if (!ball.active) return null;
+    const supported = this.supportedRollContact(ball, f);
+    if (supported && (this.profile.supportedRollPrediction || horizon > CONTACT_HORIZON)) {
+      // Keep a supported ball on the bat in the forecast rather than letting free-flight gravity
+      // carry it through the flipper surface.
+      return this.predictSupportedRoll(
+        world,
+        ball,
+        f,
+        targetAlong,
+        supported,
+        Math.max(horizon, CRADLE_ROLLOUT_HORIZON),
+      );
+    }
     const p = world.params;
     const slope = p.slopeDeg * DEG;
     const ax = 0;
