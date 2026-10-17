@@ -475,8 +475,8 @@ const elements: ElementDef[] = [
   // the alleys either side of it (to CF and the Bleachers). Chosen by sweeping symmetric layouts for
   // the one that blocks nothing: every ramp, orbit and target shot as before, the Gap a little up.
   // (All four level at 736 cost the Gap about 6 % of its shots; all at 722 left a notch by RF.)
-  fieldSaucer('saucer.SS', 'SS', mx(362), 722, 90, 'post', { dx: -6, dy: 22, radius: 5 }),
-  fieldSaucer('saucer.2B', '2B', 362, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
+  fieldSaucer('saucer.SS', 'SS', mx(358), 722, 90, 'post', { dx: -6, dy: 22, radius: 5 }),
+  fieldSaucer('saucer.2B', '2B', 358, 722, 90, 'post', { dx: 6, dy: 22, radius: 5 }),
   fieldSaucer('saucer.RF', 'RF', 465, 736, 90, 'post', { dx: 6, dy: 20, radius: 5 }),
   { ...fieldSaucer('saucer.1B', '1B', mx(SIDE_SAUCER_X), 478, 0), standee: [mx(61), 478] },
 
