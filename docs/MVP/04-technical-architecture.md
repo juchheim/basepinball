@@ -93,12 +93,18 @@ also reacts to contact or rolling motion on a resting bat between forecast updat
 Hard vary planning cadence, bounded timing error, target contact point, and the chance of choosing a
 cradle on a suitable slow arrival. For a cradle, the AI raises the bat early, holds a stable ball
 briefly, then releases it and times a follow-up hit at a difficulty-specific point along the bat.
-Easy aims closer to the pivot for lower-power shots; harder profiles cradle more often and target
+Easy aims closer to the pivot for lower-power shots, has the loosest timing (±70 ms), and hesitates
+up to 200 ms before a reactive press on a ball in play already at the bat, so it sometimes lets a
+ball get away; it never hesitates on a live pitch, which would be taken for a called strikeout.
+Medium does the same more mildly (±40 ms, up to 100 ms of hesitation).
+Harder profiles cradle more often and target
 farther out with tighter timing. Hard also predicts supported rolls on the bat and triggers a local
 save when a ball is about to reach the tip or a near-term contact. It moves its contact target inward
 with empty bases (0.60 of bat length, biasing toward reliable singles and doubles) and farther out
 with runners aboard (0.82, biasing toward extra-base hits). Hit type remains physics-driven; steals
 are opportunistic because the controller does not directly aim at the steal ramp.
+The levels target 5–7 (Easy), 7–10 (Medium) and 10–15 (Hard) runs per game
+([01 § 8](01-game-design.md#8-difficulty-and-tuning-targets)).
 The same controller is used by the headless balance simulator. This is local play; no network
 service or backend is required, and it is not online multiplayer.
 
@@ -224,7 +230,8 @@ Storage errors (private mode, quota) are caught, and the game still runs without
 - **Physics (scenario):** the suite in [03 § 9](03-physics.md#9-feel-and-validation-suite).
 - **Golden replays:** deterministic games with expected outcome sequences.
 - **Sim bot (balance):** a headless Node runner plays thousands of games with a parameterised bot
-  ("rookie", "average", "expert" flip timing and aim noise). It reports the metrics in
+  ("rookie", "average", "expert" flip timing and aim noise, plus the Vs AI levels "easy",
+  "medium", "hard"). It reports the metrics in
   [01 § 8](01-game-design.md#8-difficulty-and-tuning-targets). It runs on demand and in CI nightly
   (later).
 - **Playwright smoke:** the app boots on Chromium and WebKit, a game starts, and the WebGL2 fallback
