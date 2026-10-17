@@ -93,9 +93,10 @@ also reacts to contact or rolling motion on a resting bat between forecast updat
 Hard vary planning cadence, bounded timing error, target contact point, and the chance of choosing a
 cradle on a suitable slow arrival. For a cradle, the AI raises the bat early, holds a stable ball
 briefly, then releases it and times a follow-up hit at a difficulty-specific point along the bat.
-Easy aims closer to the pivot for lower-power shots, has the loosest timing (±50 ms), and alone
-hesitates up to 120 ms before a reactive press on a ball already at the bat, so it sometimes lets a
-ball get away; harder profiles cradle more often and target
+Easy aims closer to the pivot for lower-power shots, has the loosest timing (±70 ms), and hesitates
+up to 200 ms before a reactive press on a ball in play already at the bat, so it sometimes lets a
+ball get away; it never hesitates on a live pitch, which would be taken for a called strikeout.
+Harder profiles cradle more often and target
 farther out with tighter timing. Hard also predicts supported rolls on the bat and triggers a local
 save when a ball is about to reach the tip or a near-term contact. It moves its contact target inward
 with empty bases (0.60 of bat length, biasing toward reliable singles and doubles) and farther out

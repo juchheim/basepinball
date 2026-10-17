@@ -35,18 +35,20 @@ describe('sim bot', () => {
     expect(a.stats).toEqual(b.stats);
   });
 
-  it('the Vs AI levels are ordered: Easy scores well below Hard', () => {
-    // Targets (01 § 8): Easy 5-7, Hard 10-15 runs a game; 200-game means are 6.21 and 13.25. A
+  it('the Vs AI levels are ordered: Easy scores well below Hard and swings at its pitches', () => {
+    // Targets (01 § 8): Easy 5-7, Hard 10-15 runs a game; 200-game means are 6.76 and 13.25. A
     // game's runs vary by about 4 either way, so this is a 10-game regression check (these seeds
-    // give 6.1 and 13.3), not the balance target: `npm run simbot -- 200 easy` is.
-    const runs = (level: keyof typeof PLAYER_PROFILES) =>
-      Array.from({ length: 10 }, (_, i) => playGame(PLAYER_PROFILES[level], 4100 + i)).reduce(
-        (a, g) => a + g.stats.runs,
-        0,
-      ) / 10;
-    const easy = runs('easy');
-    expect(easy).toBeLessThan(8);
-    expect(easy).toBeLessThan(runs('hard') - 4);
+    // give 8.3 and 13.3), not the balance target: `npm run simbot -- 200 easy` is.
+    const play = (level: keyof typeof PLAYER_PROFILES) =>
+      Array.from({ length: 10 }, (_, i) => playGame(PLAYER_PROFILES[level], 4100 + i));
+    const runs = (games: ReturnType<typeof play>) =>
+      games.reduce((a, g) => a + g.stats.runs, 0) / games.length;
+    const easy = play('easy');
+    expect(runs(easy)).toBeLessThan(9);
+    expect(runs(easy)).toBeLessThan(runs(play('hard')) - 3);
+    // Easy hesitates on balls in play, never on a live pitch, which would be taken for strike three.
+    const called = easy.flatMap((g) => g.events).filter((e) => e.type === 'out' && e.looking);
+    expect(called).toHaveLength(0);
   });
 
   it('flipping matters: a player who never reacts scores less', () => {

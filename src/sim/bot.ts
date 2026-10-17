@@ -26,9 +26,10 @@ export interface BotProfile {
   /** Human-like recognition delay for a newly observed, ambiguous opportunity (s). */
   reactionDelay?: number;
   /**
-   * Upper bound of a per-opportunity hesitation (s) before a reactive press on a ball already at
-   * or on the resting bat. Without it those presses are instant, so missed swings are rescued
-   * perfectly whatever the profile's timing error.
+   * Upper bound of a per-opportunity hesitation (s) before a reactive press on a ball in play
+   * already at or on the resting bat. Without it those presses are instant, so missed swings are
+   * rescued perfectly whatever the profile's timing error. A live pitch never waits (a take is a
+   * called strikeout).
    */
   reactiveDelay?: number;
   /** Chance of choosing a physical catch for a slow, controllable arrival. */
@@ -64,13 +65,13 @@ export const PROFILES: Record<string, BotProfile> = {
 export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
   easy: {
     name: 'easy',
-    // Loose timing plus a slow reaction to balls already at the bat: 5-7 runs a game (01 § 8).
+    // Loose timing plus a slow reaction to balls in play at the bat: 5-7 runs a game (01 § 8).
     // Either alone barely helps; tight timing rarely needs a rescue, and loose timing alone is
-    // rescued by instant reactive presses.
-    jitter: 0.05,
+    // rescued by instant reactive presses. It always swings at a pitch, so it is rarely called out.
+    jitter: 0.07,
     attention: 1,
     reactionDelay: 0.09,
-    reactiveDelay: 0.12,
+    reactiveDelay: 0.2,
     cradle: 0.1,
     thinkInterval: 0.02,
     // Contact nearer the pivot produces lower-power shots and fewer home runs.
@@ -828,9 +829,11 @@ export class Bot {
       const wanted = (opportunity.obvious && stillSupported) || immediateTouch || urgentSafety;
       if (!wanted) opportunity.reactiveSince = -1;
       if (!wanted || !readyToRetry) continue;
-      // A hesitant player notices a ball at the bat a moment late, and may let it get away.
+      // A hesitant player notices a ball at the bat a moment late, and may let it get away. Not a
+      // live pitch: one that bounces off this bat would reach the other and be taken for strike
+      // three, so every level always swings at it.
       if (opportunity.reactiveSince < 0) opportunity.reactiveSince = now;
-      if (now - opportunity.reactiveSince < opportunity.hesitation) continue;
+      if (!rules.pitchLive && now - opportunity.reactiveSince < opportunity.hesitation) continue;
       const priority = urgentSafety
         ? -1 + Math.min(opportunity.timeToExit, opportunity.contactEta)
         : opportunity.timeToExit - (opportunity.obvious ? 0.05 : 0) - (immediateTouch ? 0.05 : 0);
