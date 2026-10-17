@@ -25,6 +25,12 @@ export interface BotProfile {
   attention: number;
   /** Human-like recognition delay for a newly observed, ambiguous opportunity (s). */
   reactionDelay?: number;
+  /**
+   * Upper bound of a per-opportunity hesitation (s) before a reactive press on a ball already at
+   * or on the resting bat. Without it those presses are instant, so missed swings are rescued
+   * perfectly whatever the profile's timing error.
+   */
+  reactiveDelay?: number;
   /** Chance of choosing a physical catch for a slow, controllable arrival. */
   cradle: number;
   /** How often the bot refreshes trajectory plans (s). Paddle deadlines still run every step. */
@@ -58,9 +64,13 @@ export const PROFILES: Record<string, BotProfile> = {
 export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
   easy: {
     name: 'easy',
-    jitter: 0.01,
+    // Loose timing plus a slow reaction to balls already at the bat: 5-7 runs a game (01 § 8).
+    // Either alone barely helps; tight timing rarely needs a rescue, and loose timing alone is
+    // rescued by instant reactive presses.
+    jitter: 0.05,
     attention: 1,
     reactionDelay: 0.09,
+    reactiveDelay: 0.12,
     cradle: 0.1,
     thinkInterval: 0.02,
     // Contact nearer the pivot produces lower-power shots and fewer home runs.
@@ -151,6 +161,10 @@ interface PaddleOpportunity {
   attempts: number;
   attentionAccepted: boolean;
   timingError: number;
+  /** Hesitation before a reactive press (see `BotProfile.reactiveDelay`). */
+  hesitation: number;
+  /** When the ball first became eligible for a reactive press; -1 while it is not. */
+  reactiveSince: number;
   along: number;
   gap: number;
   normalSpeed: number;
@@ -350,6 +364,9 @@ export class Bot {
         attempts: 0,
         attentionAccepted: this.rng.next() < this.profile.attention,
         timingError: this.rng.range(-this.profile.jitter, this.profile.jitter),
+        // Drawn only for profiles that hesitate, so the others keep their random sequence.
+        hesitation: this.profile.reactiveDelay ? this.rng.range(0, this.profile.reactiveDelay) : 0,
+        reactiveSince: -1,
         along: 0,
         gap: Infinity,
         normalSpeed: 0,
@@ -746,6 +763,7 @@ export class Bot {
     const opportunity = this.getPaddleOpportunity(side, ball, now);
     opportunity.lastAttemptAt = now;
     opportunity.attempts++;
+    opportunity.reactiveSince = -1;
   }
 
   /**
@@ -807,12 +825,12 @@ export class Bot {
         continue;
       }
       const readyToRetry = now - opportunity.lastAttemptAt >= RETRY_COOLDOWN;
-      if (
-        (!(opportunity.obvious && stillSupported) && !immediateTouch && !urgentSafety) ||
-        !readyToRetry
-      ) {
-        continue;
-      }
+      const wanted = (opportunity.obvious && stillSupported) || immediateTouch || urgentSafety;
+      if (!wanted) opportunity.reactiveSince = -1;
+      if (!wanted || !readyToRetry) continue;
+      // A hesitant player notices a ball at the bat a moment late, and may let it get away.
+      if (opportunity.reactiveSince < 0) opportunity.reactiveSince = now;
+      if (now - opportunity.reactiveSince < opportunity.hesitation) continue;
       const priority = urgentSafety
         ? -1 + Math.min(opportunity.timeToExit, opportunity.contactEta)
         : opportunity.timeToExit - (opportunity.obvious ? 0.05 : 0) - (immediateTouch ? 0.05 : 0);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PROFILES, playGame } from '../../src/sim/bot';
+import { PLAYER_PROFILES, PROFILES, playGame } from '../../src/sim/bot';
 
 // The sim bot plays complete games headlessly (docs/MVP/04 § 9). This suite checks that games
 // always finish and stay in a sane range; `npm run simbot` prints the full balance report.
@@ -33,6 +33,20 @@ describe('sim bot', () => {
     const a = playGame(PROFILES.average!, 77);
     const b = playGame(PROFILES.average!, 77);
     expect(a.stats).toEqual(b.stats);
+  });
+
+  it('the Vs AI levels are ordered: Easy scores well below Hard', () => {
+    // Targets (01 § 8): Easy 5-7, Hard 10-15 runs a game; 200-game means are 6.21 and 13.25. A
+    // game's runs vary by about 4 either way, so this is a 10-game regression check (these seeds
+    // give 6.1 and 13.3), not the balance target: `npm run simbot -- 200 easy` is.
+    const runs = (level: keyof typeof PLAYER_PROFILES) =>
+      Array.from({ length: 10 }, (_, i) => playGame(PLAYER_PROFILES[level], 4100 + i)).reduce(
+        (a, g) => a + g.stats.runs,
+        0,
+      ) / 10;
+    const easy = runs('easy');
+    expect(easy).toBeLessThan(8);
+    expect(easy).toBeLessThan(runs('hard') - 4);
   });
 
   it('flipping matters: a player who never reacts scores less', () => {

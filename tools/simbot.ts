@@ -3,12 +3,17 @@
  * targets in docs/MVP/01 § 8.
  *
  *   npm run simbot -- [games=20] [profile=average]
+ *
+ * `profile` is a balance profile (rookie, average, expert) or a Vs AI level (easy, medium, hard).
  */
-import { PROFILES, playGame } from '../src/sim/bot';
+import { PLAYER_PROFILES, PROFILES, type BotProfile, playGame } from '../src/sim/bot';
 
 const games = Number(process.argv[2] ?? 20);
-const profile = PROFILES[process.argv[3] ?? 'average'];
-if (!profile) throw new Error(`unknown profile; try ${Object.keys(PROFILES).join(', ')}`);
+const profiles: Record<string, BotProfile> = { ...PROFILES, ...PLAYER_PROFILES };
+const profile = profiles[process.argv[3] ?? 'average'];
+if (!profile) throw new Error(`unknown profile; try ${Object.keys(profiles).join(', ')}`);
+/** Runs per game by Vs AI level (01 § 8); the balance profiles keep the average-player target. */
+const RUN_TARGETS: Record<string, string> = { easy: '5-7', medium: '7-10', hard: '10-15' };
 
 const t0 = performance.now();
 const results = Array.from({ length: games }, (_, i) => playGame(profile, 1000 + i));
@@ -27,7 +32,7 @@ const rows: [string, string, string][] = [
   [
     'Runs per game (mean / median)',
     `${(sum((r) => r.stats.runs) / games).toFixed(2)} / ${runs[Math.floor(games / 2)]}`,
-    '5-7 (median 6)',
+    RUN_TARGETS[profile.name] ?? '5-7 (median 6)',
   ],
   ['Game length (sim minutes)', minutes.toFixed(1), '5-8 (bot; humans 6-9)'],
   ['PA per game', (pa / games).toFixed(1), '≈ 40'],

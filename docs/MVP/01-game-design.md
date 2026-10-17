@@ -385,6 +385,22 @@ Targets for an **average player** (validated by playtests plus the headless simu
 the most common out: post-hit balls draining, pitches the batter misses, and outlane drains all
 count. Fielders punish missed shots.
 
+**Vs AI levels.** Each AI level has its own runs-per-game target, checked with
+`npm run simbot -- 200 <level>` (200 games, seeds 1000–1199):
+
+| Level | Runs per game | Sim bot (mean / median) | 1B / 2B / 3B / HR / BB per game |
+|-------|---------------|-------------------------|---------------------------------|
+| Easy | 5–7 | 6.21 / 6 ✅ (10.29 / 10 before the easy retune) | 4.0 / 3.3 / 0.6 / 2.2 / 1.9 |
+| Medium | 7–10 | 10.04 / 10 (at the top of the band) | 6.1 / 5.5 / 1.0 / 2.6 / 2.8 |
+| Hard | 10–15 | 13.25 / 13 ✅ | 6.5 / 4.9 / 1.1 / 4.8 / 3.2 |
+
+Easy used to score like Medium: its timing was already tight (±10 ms), and the bot rescues a
+missed swing with an instant reactive press once the ball reaches the bat, so loosening timing
+alone bottomed out near 7 runs. Easy now has ±50 ms timing error and up to 120 ms of hesitation
+before a reactive press (`reactiveDelay`), so it sometimes lets a ball get away. It still reacts to
+every pitch: the levels differ in timing, not in what they notice. See
+[04 § 2.2](04-technical-architecture.md#22-local-vs-ai-mode).
+
 For a **skilled player**, the target is 8–15 runs, with the ceiling set by the ramp's difficulty and
 the pitch mix. **Main tuning levers:** fielder saucer size and lip, post spacing between shots, pop
 bumper strength, the HR ramp's entrance and slope, the pitch mix and speeds, and the feature goals
