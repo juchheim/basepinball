@@ -21,6 +21,18 @@ describe('callouts', () => {
     expect(callout.value).toBeNull();
   });
 
+  it('a home run with the bases loaded is a grand slam', () => {
+    calloutFor({ type: 'hit', hit: 'HR', bases: 4, hotBat: false, runs: 4 });
+    expect(callout.value?.text).toBe('GRAND SLAM!');
+    expect(callout.value?.sub).toBe('4 runs score');
+    vi.runAllTimers();
+    calloutFor({ type: 'hit', hit: '3B', bases: 4, hotBat: true, runs: 4 });
+    expect(callout.value?.text).toBe('HOT BAT · INSIDE-THE-PARK GRAND SLAM!');
+    vi.runAllTimers();
+    calloutFor({ type: 'hit', hit: 'HR', bases: 4, hotBat: false, runs: 3 });
+    expect(callout.value?.text).toBe('HOME RUN!');
+  });
+
   it('an outcome replaces whatever is up', () => {
     calloutFor({ type: 'kickbackLit' });
     calloutFor({ type: 'out', how: 'K', outs: 1 });
