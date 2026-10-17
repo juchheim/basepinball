@@ -80,9 +80,11 @@ export const PLAYER_PROFILES: Record<AiDifficulty, BotProfile> = {
   },
   medium: {
     name: 'medium',
-    jitter: 0.005,
+    // Easy's recipe with tighter timing and a shorter hesitation: 7-10 runs a game (01 § 8).
+    jitter: 0.04,
     attention: 1,
     reactionDelay: 0.065,
+    reactiveDelay: 0.1,
     cradle: 0.35,
     thinkInterval: 0.012,
     rollTarget: 0.65,

@@ -96,6 +96,7 @@ briefly, then releases it and times a follow-up hit at a difficulty-specific poi
 Easy aims closer to the pivot for lower-power shots, has the loosest timing (±70 ms), and hesitates
 up to 200 ms before a reactive press on a ball in play already at the bat, so it sometimes lets a
 ball get away; it never hesitates on a live pitch, which would be taken for a called strikeout.
+Medium does the same more mildly (±40 ms, up to 100 ms of hesitation).
 Harder profiles cradle more often and target
 farther out with tighter timing. Hard also predicts supported rolls on the bat and triggers a local
 save when a ball is about to reach the tip or a near-term contact. It moves its contact target inward

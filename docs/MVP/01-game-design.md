@@ -391,7 +391,7 @@ count. Fielders punish missed shots.
 | Level | Runs per game | Sim bot (mean / median) | 1B / 2B / 3B / HR / BB per game |
 |-------|---------------|-------------------------|---------------------------------|
 | Easy | 5–7 | 6.76 / 6 ✅ (6.16 over 500 other seeds; 10.29 / 10 before the easy retune) | 4.8 / 3.5 / 0.8 / 2.2 / 2.2 |
-| Medium | 7–10 | 10.04 / 10 (at the top of the band) | 6.1 / 5.5 / 1.0 / 2.6 / 2.8 |
+| Medium | 7–10 | 8.88 / 8 ✅ (8.47 over 300 other seeds; 10.04 / 10 before the medium retune) | 5.9 / 4.3 / 0.8 / 2.6 / 2.3 |
 | Hard | 10–15 | 13.25 / 13 ✅ | 6.5 / 4.9 / 1.1 / 4.8 / 3.2 |
 
 Easy used to score like Medium: its timing was already tight (±10 ms), and the bot rescues a
@@ -400,9 +400,12 @@ alone bottomed out near 7 runs. Easy now has ±70 ms timing error and up to 200 
 before a reactive press on a ball in play (`reactiveDelay`), so it sometimes lets a ball get away.
 It never hesitates on a live pitch: a pitch that bounces off one resting bat and reaches the other
 is a called strikeout, and a first version that hesitated there took 4.2 called strikeouts a game.
-Easy now strikes out about 13 times a game, all swinging (Medium about 8). It still reacts to every
+Easy now strikes out about 13 times a game, all swinging (Medium about 11). It still reacts to every
 pitch: the levels differ in timing, not in what they notice. See
 [04 § 2.2](04-technical-architecture.md#22-local-vs-ai-mode).
+
+Medium scored 10 runs a game with ±5 ms timing and no hesitation. It now uses Easy's approach more
+mildly: ±40 ms timing error and up to 100 ms of hesitation before a reactive press on a ball in play.
 
 For a **skilled player**, the target is 8–15 runs, with the ceiling set by the ramp's difficulty and
 the pitch mix. **Main tuning levers:** fielder saucer size and lip, post spacing between shots, pop
