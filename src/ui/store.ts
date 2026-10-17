@@ -132,7 +132,15 @@ export function calloutFor(e: RulesEvent): void {
     case 'inningStart':
       return showCallout(`INNING ${e.inning}`, 'Leadoff: plunge for the skill shot', 'big', 2000);
     case 'hit': {
-      const name = e.hotBat ? BASE_NAMES[e.bases - 1]! : HIT_NAMES[e.hit];
+      // A grand slam: a home run (even an inside-the-park one) with the bases loaded.
+      const grandSlam = e.bases >= 4 && e.runs === 4;
+      const name = grandSlam
+        ? e.hotBat
+          ? 'INSIDE-THE-PARK GRAND SLAM'
+          : 'GRAND SLAM'
+        : e.hotBat
+          ? BASE_NAMES[e.bases - 1]!
+          : HIT_NAMES[e.hit];
       const runs =
         e.runs === 0 ? undefined : e.runs === 1 ? '1 run scores' : `${e.runs} runs score`;
       return showCallout(
