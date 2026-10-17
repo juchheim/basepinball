@@ -121,13 +121,13 @@ needs the hardest shot, the ramp. A missed ramp often rolls back into LF or SS.
 | `orbit.L` / `orbit.R` | Orbit lanes | x 0–45 / 505–550, mouths at y = 680 | Spinners at y = 760. One-way gate at the shooter lane exit. |
 | `saucer.LF` | Fielder saucer | (85, 736) | Between the left orbit and the left ramp |
 | `ramp.HR` | Left ramp, "Over the Wall" | entrance (142, 790), 52 mm wide | HR gate at the crest (75, 1010). Wireform to the left inlane. |
-| `saucer.SS` | Fielder saucer | (188, 722) | Between the left ramp and the Gap, wide of the Gap: 2B's mirror |
+| `saucer.SS` | Fielder saucer | (192, 722) | Between the left ramp and the Gap, wide of the Gap: 2B's mirror |
 | `gap.mouth` | The Gap entrance | x 240–310 at y = 805 | Funnel walls into the nest |
 | `pop.OF.L` / `.R` | Outfield bumpers (mint caps) | (105, 660) / (445, 660), 17 mm, a mirror pair | Score no hit; feed HUSTLE. Soft kick (0.8 m/s; the Gap pops' is 3.4). |
 | `hustle.1`-`.5` | HUSTLE meter lamps | (243 + 16 i, 612) | One lamp per three bumper hits after a hit |
 | `pop.1B.L` / `.R` | Singles pop bumpers | (230, 875) / (320, 875) | Front pair. Ivory caps, "1B". |
 | `pop.2B.L` / `.R` | Doubles pop bumpers | (225, 985) / (325, 985) | Back pair. Blue caps, "2B". |
-| `saucer.2B` | Fielder saucer | (362, 722) | Between the Gap and the right ramp. LF, SS, 2B and RF are mirror-symmetric and staggered: LF and RF at 736, SS and 2B at 722, wide of the Gap and off the lines up the alleys to CF and the Bullpen |
+| `saucer.2B` | Fielder saucer | (358, 722) | Between the Gap and the right ramp. LF, SS, 2B and RF are mirror-symmetric and staggered: LF and RF at 736, SS and 2B at 722, wide of the Gap and off the lines up the alleys to CF and the Bullpen |
 | `saucer.CF` | Fielder saucer, deep left-centre | (158, 940) | Up the alley between the HR ramp and the Gap. Its glove post is set into the Gap wall (above the dish, in an alley this narrow, it left a notch that held balls). |
 | `saucer.BLEACHERS` | **The Bleachers**: a scoop (a saucer that kicks the ball back out) where a souvenir (a parked ball) waits on show, with a lamp below it | (392, 940); lamp at (392, 905) | Up the alley between the Steal ramp and the Gap. Touch the souvenir and the fan throws it back: THROW IT BACK multiball ([01 § 4.8.2](01-game-design.md#482-throw-it-back-in-detail)). Never an out. |
 | `ramp.STEAL` | Right ramp | entrance (408, 790), 70 mm wide | Crest at (475, 1010). Wireform to the right inlane. |
